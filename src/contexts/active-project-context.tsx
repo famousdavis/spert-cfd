@@ -46,10 +46,11 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
   );
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load project when activeProjectId changes
+  // Load project when activeProjectId changes (localStorage sync for SSR safety)
   useEffect(() => {
     if (activeProjectId) {
       const loaded = loadProject(activeProjectId);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setProject(loaded);
     } else {
       setProject(null);

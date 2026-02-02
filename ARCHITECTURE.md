@@ -8,12 +8,12 @@ CFD Laboratory is a browser-only Cumulative Flow Diagram tool for agile teams. I
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | Next.js 14 (App Router) |
-| UI | React 18, Tailwind CSS |
-| Charts | Recharts (stacked AreaChart) |
-| Language | TypeScript (strict mode) |
-| Testing | Vitest (node environment) |
-| Dates | date-fns |
+| Framework | Next.js 16 (App Router) |
+| UI | React 19, Tailwind CSS 4 |
+| Charts | Recharts 3 (stacked AreaChart) |
+| Language | TypeScript 5.9 (strict mode) |
+| Testing | Vitest 4 (node environment) |
+| Dates | date-fns 4 |
 | Icons | lucide-react |
 | IDs | nanoid (8-char) |
 
@@ -149,7 +149,7 @@ Semver-based, matching the pattern from MyScrumBudget:
 - Each migration has a `version` string and `migrate()` function
 - `compareVersions()` handles semver ordering
 - `loadIndex()` and `loadProject()` auto-detect stale data and run pending migrations
-- Currently at v0.1.0 with no migrations; framework is ready for future schema changes
+- Currently at v0.2.0 with no migrations; framework is ready for future schema changes
 
 ## Key Conventions
 

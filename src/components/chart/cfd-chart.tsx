@@ -32,9 +32,9 @@ export const CFDChart = memo(function CFDChart() {
   }, []);
 
   const tooltipFormatter = useCallback(
-    (value: number, name: string) => {
-      const state = workflow.find((s) => s.id === name);
-      return [value, state?.name ?? name];
+    (value: number | undefined, name: string | undefined) => {
+      const state = name ? workflow.find((s) => s.id === name) : undefined;
+      return [value ?? 0, state?.name ?? name ?? ''];
     },
     [workflow],
   );

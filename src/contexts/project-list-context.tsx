@@ -83,6 +83,8 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
       saveIndex(stored);
     }
 
+    // Deferred localStorage load for SSR hydration safety — this is an external system sync
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred localStorage load for SSR safety
     setIndex(stored);
     setProjects(loadProjectList(stored));
     setIsLoaded(true);
@@ -91,6 +93,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   // Sync projects list when index changes (after initial load)
   useEffect(() => {
     if (isLoaded) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setProjects(loadProjectList(index));
     }
   }, [index, isLoaded]);

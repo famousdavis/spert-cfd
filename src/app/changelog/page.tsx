@@ -20,6 +20,23 @@ export default function ChangelogPage() {
       <section className="space-y-6">
         <article>
           <h2 className="text-lg font-semibold text-gray-900">
+            v0.2.0
+            <span className="ml-2 text-sm font-normal text-gray-500">
+              Dependency Upgrades
+            </span>
+          </h2>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <li>Upgraded to Next.js 16.1.6 and React 19.2.4</li>
+            <li>Migrated to Tailwind CSS v4 with CSS-based configuration</li>
+            <li>Migrated to ESLint 9 with flat config</li>
+            <li>Upgraded Vitest to v4, date-fns to v4, Recharts to v3</li>
+            <li>Updated all remaining dependencies to latest stable versions</li>
+            <li>Resolved all npm audit vulnerabilities (0 remaining)</li>
+          </ul>
+        </article>
+
+        <article>
+          <h2 className="text-lg font-semibold text-gray-900">
             v0.1.0
             <span className="ml-2 text-sm font-normal text-gray-500">
               Initial Release
