@@ -102,34 +102,40 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
     (name: string): string => {
       const id = nanoid(8);
       const now = new Date().toISOString();
-      saveProject({
+      const project = {
         id,
         name,
         createdAt: now,
         updatedAt: now,
         workflow: [
-          { id: 'backlog', name: 'Backlog', color: '#64748b', category: 'backlog', order: 0 },
-          { id: 'dev', name: 'In Dev', color: '#3b82f6', category: 'active', order: 1 },
-          { id: 'done', name: 'Done', color: '#22c55e', category: 'done', order: 2 },
+          { id: 'backlog', name: 'Backlog', color: '#64748b', category: 'backlog' as const, order: 0 },
+          { id: 'dev', name: 'In Dev', color: '#3b82f6', category: 'active' as const, order: 1 },
+          { id: 'done', name: 'Done', color: '#22c55e', category: 'done' as const, order: 2 },
         ],
         snapshots: [],
         settings: {
           gridSortNewestFirst: true,
           showWipWarnings: true,
-          metricsPeriod: { kind: 'all' },
+          metricsPeriod: { kind: 'all' as const },
         },
+      };
+      saveProject(project);
+
+      // Use functional update to avoid stale closure
+      setIndex((prev) => {
+        const newIndex: StorageIndex = {
+          ...prev,
+          activeProjectId: id,
+          projectIds: [...prev.projectIds, id],
+        };
+        saveIndex(newIndex);
+        return newIndex;
       });
 
-      const newIndex: StorageIndex = {
-        ...index,
-        activeProjectId: id,
-        projectIds: [...index.projectIds, id],
-      };
-      saveIndex(newIndex);
-      setIndex(newIndex);
+      setProjects((prev) => [...prev, { id, name }]);
       return id;
     },
-    [index]
+    []
   );
 
   const deleteProject = useCallback(
@@ -143,11 +149,14 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
 
   const switchProject = useCallback(
     (id: string) => {
-      const newIndex: StorageIndex = { ...index, activeProjectId: id };
-      saveIndex(newIndex);
-      setIndex(newIndex);
+      // Use functional update to avoid stale closure
+      setIndex((prev) => {
+        const newIndex: StorageIndex = { ...prev, activeProjectId: id };
+        saveIndex(newIndex);
+        return newIndex;
+      });
     },
-    [index]
+    []
   );
 
   const renameProject = useCallback(
@@ -169,16 +178,22 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
       if (!imported) return null;
 
       saveProject(imported);
-      const newIndex: StorageIndex = {
-        ...index,
-        activeProjectId: imported.id,
-        projectIds: [...index.projectIds, imported.id],
-      };
-      saveIndex(newIndex);
-      setIndex(newIndex);
+
+      // Use functional update to avoid stale closure
+      setIndex((prev) => {
+        const newIndex: StorageIndex = {
+          ...prev,
+          activeProjectId: imported.id,
+          projectIds: [...prev.projectIds, imported.id],
+        };
+        saveIndex(newIndex);
+        return newIndex;
+      });
+
+      setProjects((prev) => [...prev, { id: imported.id, name: imported.name }]);
       return imported.id;
     },
-    [index]
+    []
   );
 
   return (

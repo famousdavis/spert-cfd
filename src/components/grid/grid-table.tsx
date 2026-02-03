@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import type { Snapshot, WorkflowState } from '@/types';
 import { formatDate, sortWorkflow } from '@/lib/dates';
 import { useGridNavigation } from '@/lib/use-grid-navigation';
@@ -27,7 +28,7 @@ export function GridTable({
   onConfirmDelete,
   onCancelDelete,
 }: GridTableProps) {
-  const sortedWorkflow = sortWorkflow(workflow);
+  const sortedWorkflow = useMemo(() => sortWorkflow(workflow), [workflow]);
   const { registerCell, handleKeyDown } = useGridNavigation(
     snapshots.length,
     sortedWorkflow.length,

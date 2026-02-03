@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useActiveProject } from '@/contexts/active-project-context';
 import { getStorageUsage } from '@/lib/storage-health';
 import { WorkflowEditor } from './workflow/workflow-editor';
@@ -9,7 +10,8 @@ import { MetricsPanel } from './metrics/metrics-panel';
 
 export function ProjectDashboard() {
   const { project } = useActiveProject();
-  const usage = getStorageUsage();
+  // Memoize storage usage calculation - only recalculate when project is updated
+  const usage = useMemo(() => getStorageUsage(), [project?.updatedAt]);
 
   if (!project) {
     return (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { WorkflowState, Snapshot } from '@/types';
 import {
   parseCSV,
@@ -11,6 +11,7 @@ import {
 } from '@/lib/csv';
 import { sortWorkflow } from '@/lib/dates';
 import { useEscapeKey } from '@/lib/use-dismiss';
+import { MAX_IMPORT_FILE_SIZE } from '@/lib/constants';
 import { X } from 'lucide-react';
 
 interface CsvImportModalProps {
@@ -47,6 +48,12 @@ export function CsvImportModal({
       const file = e.target.files?.[0];
       if (!file) return;
       setError(null);
+
+      // Check file size limit
+      if (file.size > MAX_IMPORT_FILE_SIZE) {
+        setError('File too large. Maximum size is 1MB.');
+        return;
+      }
 
       const reader = new FileReader();
       reader.onload = () => {
@@ -88,8 +95,8 @@ export function CsvImportModal({
   ).length;
   const mappingValid = dateColumnCount === 1 && mappedStateCount >= 1;
 
-  const sortedWorkflow = sortWorkflow(workflow);
-  const stateIds = sortedWorkflow.map((s) => s.id);
+  const sortedWorkflow = useMemo(() => sortWorkflow(workflow), [workflow]);
+  const stateIds = useMemo(() => sortedWorkflow.map((s) => s.id), [sortedWorkflow]);
 
   const importResult =
     parsed && mappingValid

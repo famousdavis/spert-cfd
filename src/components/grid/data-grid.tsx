@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type { Snapshot } from '@/types';
 import { useActiveProject } from '@/contexts/active-project-context';
 import { snapshotsToCSV } from '@/lib/csv';
@@ -18,7 +18,7 @@ export function DataGrid() {
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [deletingDate, setDeletingDate] = useState<string | null>(null);
 
-  const sorted = sortWorkflow(workflow);
+  const sorted = useMemo(() => sortWorkflow(workflow), [workflow]);
   const newestFirst = settings.gridSortNewestFirst;
   const sortedSnapshots = sortSnapshots(snapshots, newestFirst);
 
@@ -56,7 +56,9 @@ export function DataGrid() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${project.name.replace(/[^a-zA-Z0-9-_ ]/g, '')}-snapshots.csv`;
+    // Sanitize filename: replace non-alphanumeric chars (except - and _) with underscores
+    const safeName = project.name.replace(/[^a-zA-Z0-9-_]/g, '_').replace(/_+/g, '_');
+    a.download = `${safeName}-snapshots.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }, [project, snapshots, workflow, newestFirst]);
