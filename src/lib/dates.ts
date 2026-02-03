@@ -1,4 +1,4 @@
-import { format, parseISO, differenceInDays, isValid } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import type { Snapshot, WorkflowState } from '@/types';
 
 /** Format an ISO date string for display: "Jan 15, 2024" */
@@ -14,11 +14,6 @@ export function formatDateShort(iso: string): string {
 /** Get today as YYYY-MM-DD */
 export function todayISO(): string {
   return format(new Date(), 'yyyy-MM-dd');
-}
-
-/** Difference in days between two ISO date strings, minimum 1 */
-export function daysBetween(a: string, b: string): number {
-  return Math.abs(differenceInDays(parseISO(a), parseISO(b)));
 }
 
 /** Day span between two ISO date strings as a float, floored to 1 */

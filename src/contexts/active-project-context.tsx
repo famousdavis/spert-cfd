@@ -41,9 +41,8 @@ export function useActiveProject() {
 
 export function ActiveProjectProvider({ children }: { children: ReactNode }) {
   const { activeProjectId } = useProjectList();
-  const [project, setProject] = useState<Project | null>(() =>
-    activeProjectId ? loadProject(activeProjectId) : null
-  );
+  // Start with null to avoid reading localStorage in useState initializer (SSR safety)
+  const [project, setProject] = useState<Project | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load project when activeProjectId changes (localStorage sync for SSR safety)
@@ -56,6 +55,15 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
       setProject(null);
     }
   }, [activeProjectId]);
+
+  // Cleanup debounce timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Debounced save
   const debouncedSave = useCallback((updated: Project) => {

@@ -35,6 +35,8 @@ export interface Project {
   workflow: WorkflowState[];
   snapshots: Snapshot[];
   settings: ProjectSettings;
+  /** Data schema version for migrations */
+  _version?: string;
 }
 
 export interface StorageIndex {

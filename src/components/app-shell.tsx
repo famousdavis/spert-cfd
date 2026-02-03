@@ -2,6 +2,7 @@
 
 import { ProjectListProvider, useProjectList } from '@/contexts/project-list-context';
 import { ActiveProjectProvider } from '@/contexts/active-project-context';
+import { ErrorBoundary } from './error-boundary';
 import { ProjectSelector } from './project-selector';
 import { ProjectDashboard } from './project-dashboard';
 import { Footer } from './footer';
@@ -30,8 +31,10 @@ function AppContent() {
 
 export function AppShell() {
   return (
-    <ProjectListProvider>
-      <AppContent />
-    </ProjectListProvider>
+    <ErrorBoundary>
+      <ProjectListProvider>
+        <AppContent />
+      </ProjectListProvider>
+    </ErrorBoundary>
   );
 }

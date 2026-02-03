@@ -20,6 +20,27 @@ export default function ChangelogPage() {
       <section className="space-y-6">
         <article>
           <h2 className="text-lg font-semibold text-gray-900">
+            v0.3.0
+            <span className="ml-2 text-sm font-normal text-gray-500">
+              Security &amp; Stability
+            </span>
+          </h2>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <li>Added file size limits (1MB) for CSV and JSON imports</li>
+            <li>Added length limits for project and workflow state names</li>
+            <li>Improved export filename sanitization</li>
+            <li>Added Error Boundary for graceful error recovery</li>
+            <li>Fixed data integrity issues with rapid project operations</li>
+            <li>Fixed &quot;Last N days&quot; metrics filter to be relative to data, not current date</li>
+            <li>Fixed project data versioning for future migrations</li>
+            <li>Replaced browser alert/confirm dialogs with custom modals</li>
+            <li>Performance optimizations for workflow sorting and storage checks</li>
+            <li>Added comprehensive tests for date utilities</li>
+          </ul>
+        </article>
+
+        <article>
+          <h2 className="text-lg font-semibold text-gray-900">
             v0.2.0
             <span className="ml-2 text-sm font-normal text-gray-500">
               Dependency Upgrades

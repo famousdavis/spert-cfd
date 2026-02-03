@@ -27,7 +27,9 @@ src/
 │   └── changelog/page.tsx        # Static changelog page
 │
 ├── components/
-│   ├── app-shell.tsx             # Top-level provider wiring + loading gate
+│   ├── app-shell.tsx             # Top-level provider wiring + loading gate + ErrorBoundary
+│   ├── error-boundary.tsx        # React Error Boundary for crash recovery
+│   ├── confirm-dialog.tsx        # Custom confirmation modal (replaces browser confirm())
 │   ├── footer.tsx                # App footer (version link, copyright, license)
 │   ├── project-selector.tsx      # Header bar: project dropdown, CRUD, import/export
 │   ├── project-dashboard.tsx     # Main layout: sidebar + chart + grid
@@ -67,10 +69,11 @@ src/
 │   ├── use-dismiss.ts            # useEscapeKey() + useClickOutside() hooks
 │   ├── use-grid-navigation.ts    # 2D keyboard navigation (arrows, Tab, Enter, Escape)
 │   ├── use-workflow-editor.ts    # Workflow state CRUD hook
-│   └── __tests__/                # 7 test files, 87 tests
+│   └── __tests__/                # 8 test files, 116 tests
 │       ├── calculations.test.ts
 │       ├── colors.test.ts
 │       ├── csv.test.ts
+│       ├── dates.test.ts         # Date utility tests (v0.3.0)
 │       ├── migrations.test.ts
 │       ├── storage-health.test.ts
 │       ├── storage.test.ts
@@ -96,6 +99,7 @@ Project
   workflow: WorkflowState[]
   snapshots: Snapshot[]
   settings: ProjectSettings
+  _version?: string            # Data version stamp (v0.3.0+)
 
 WorkflowState
   id: string                   # nanoid(8)
@@ -149,7 +153,7 @@ Semver-based, matching the pattern from MyScrumBudget:
 - Each migration has a `version` string and `migrate()` function
 - `compareVersions()` handles semver ordering
 - `loadIndex()` and `loadProject()` auto-detect stale data and run pending migrations
-- Currently at v0.2.0 with no migrations; framework is ready for future schema changes
+- Currently at v0.3.0; projects now stamped with `_version` on save for future migrations
 
 ## Key Conventions
 

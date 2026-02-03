@@ -1,6 +1,6 @@
 import { subDays, parseISO } from 'date-fns';
 import type { WorkflowState, Snapshot, MetricsPeriod } from '@/types';
-import { daySpanBetween } from './dates';
+import { daySpanBetween, sortSnapshots } from './dates';
 
 // ── Types ────────────────────────────────────────────────
 
@@ -30,7 +30,11 @@ export function filterSnapshotsByPeriod(
     case 'all':
       return snapshots;
     case 'days': {
-      const cutoff = subDays(new Date(), period.value);
+      // Calculate cutoff relative to the latest snapshot, not current date
+      if (snapshots.length === 0) return snapshots;
+      const sorted = sortSnapshots(snapshots);
+      const latestDate = parseISO(sorted[sorted.length - 1].date);
+      const cutoff = subDays(latestDate, period.value);
       return snapshots.filter((s) => parseISO(s.date) >= cutoff);
     }
     case 'range':
@@ -72,7 +76,7 @@ export function calculateMetrics(
     return emptyMetrics();
   }
 
-  const sorted = [...filtered].sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = sortSnapshots(filtered);
   const latest = sorted[sorted.length - 1];
 
   const activeStates = workflow.filter((s) => s.category === 'active');
