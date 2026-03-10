@@ -1,3 +1,7 @@
+// Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
+
 import Link from 'next/link';
 
 export const metadata = {
@@ -18,6 +22,20 @@ export default function ChangelogPage() {
       </header>
 
       <section className="space-y-6">
+        <article>
+          <h2 className="text-lg font-semibold text-gray-900">
+            v0.3.1
+            <span className="ml-2 text-sm font-normal text-gray-500">
+              Copyright Attribution
+            </span>
+          </h2>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <li>Added copyright headers to all human-authored source files and root config files</li>
+            <li>Updated LICENSE with author attribution block and GPL v3 Section 7 additional terms</li>
+            <li>Added Copyright &amp; Attribution Standing Instructions to CLAUDE.md</li>
+          </ul>
+        </article>
+
         <article>
           <h2 className="text-lg font-semibold text-gray-900">
             v0.3.0
