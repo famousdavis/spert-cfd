@@ -1,3 +1,9 @@
+Statistical PERT® Software Suite
+Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+
+Original author: William W. Davis, MSPM, PMP
+Project repository: https://github.com/famousdavis/spert-cfd
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
@@ -22,7 +28,7 @@ your programs, too.
   For the complete license text, see <https://www.gnu.org/licenses/gpl-3.0.txt>.
 
 CFD Laboratory
-Copyright (C) 2024 CFD Laboratory contributors
+Copyright (C) 2026 William W. Davis, MSPM, PMP
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -36,3 +42,21 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+--- ADDITIONAL TERMS (Section 7 of GPL v3) ---
+
+In accordance with Section 7 of the GNU General Public License v3.0,
+the following additional terms apply to this software:
+
+1. Attribution Preservation
+   All copies or substantial portions of this software must retain the
+   above copyright notice, this list of conditions, and the following
+   attribution:
+
+   Original author: William W. Davis, MSPM, PMP
+   Project: Statistical PERT® Software Suite
+
+2. UI Notice Preservation
+   If you modify this software and distribute it with a user interface,
+   you must retain a visible credit to the original author in an
+   "About" page, footer, or equivalent location within the interface.
