@@ -23,12 +23,15 @@ export default function ChangelogPage() {
 
       <section className="space-y-6">
         <article>
-          <h2 className="text-lg font-semibold text-gray-900">
-            v0.3.1
-            <span className="ml-2 text-sm font-normal text-gray-500">
-              Copyright Attribution
-            </span>
-          </h2>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              v0.3.1
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                Copyright Attribution
+              </span>
+            </h2>
+            <span className="text-sm text-gray-400">March 10, 2026</span>
+          </div>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
             <li>Added copyright headers to all human-authored source files and root config files</li>
             <li>Updated LICENSE with author attribution block and GPL v3 Section 7 additional terms</li>
@@ -37,12 +40,15 @@ export default function ChangelogPage() {
         </article>
 
         <article>
-          <h2 className="text-lg font-semibold text-gray-900">
-            v0.3.0
-            <span className="ml-2 text-sm font-normal text-gray-500">
-              Security &amp; Stability
-            </span>
-          </h2>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              v0.3.0
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                Security &amp; Stability
+              </span>
+            </h2>
+            <span className="text-sm text-gray-400">February 3, 2026</span>
+          </div>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
             <li>Added file size limits (1MB) for CSV and JSON imports</li>
             <li>Added length limits for project and workflow state names</li>
@@ -58,12 +64,15 @@ export default function ChangelogPage() {
         </article>
 
         <article>
-          <h2 className="text-lg font-semibold text-gray-900">
-            v0.2.0
-            <span className="ml-2 text-sm font-normal text-gray-500">
-              Dependency Upgrades
-            </span>
-          </h2>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              v0.2.0
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                Dependency Upgrades
+              </span>
+            </h2>
+            <span className="text-sm text-gray-400">February 2, 2026</span>
+          </div>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
             <li>Upgraded to Next.js 16.1.6 and React 19.2.4</li>
             <li>Migrated to Tailwind CSS v4 with CSS-based configuration</li>
@@ -75,12 +84,15 @@ export default function ChangelogPage() {
         </article>
 
         <article>
-          <h2 className="text-lg font-semibold text-gray-900">
-            v0.1.0
-            <span className="ml-2 text-sm font-normal text-gray-500">
-              Initial Release
-            </span>
-          </h2>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              v0.1.0
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                Initial Release
+              </span>
+            </h2>
+            <span className="text-sm text-gray-400">January 31, 2026</span>
+          </div>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
             <li>Multi-project support with localStorage persistence</li>
             <li>Customizable workflow states with drag-to-reorder, color picker, and category assignment (backlog/active/done)</li>
