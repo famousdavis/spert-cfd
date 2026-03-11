@@ -7,7 +7,9 @@
 import { useState, useRef } from 'react';
 import { useProjectList } from '@/contexts/project-list-context';
 import { useActiveProject } from '@/contexts/active-project-context';
+import { useAuth } from '@/contexts/auth-context';
 import { exportProject as exportProjectJson } from '@/lib/storage';
+import { isFirebaseConfigured } from '@/lib/firebase';
 import { MAX_IMPORT_FILE_SIZE } from '@/lib/constants';
 import { ConfirmDialog } from './confirm-dialog';
 
@@ -22,8 +24,10 @@ export function ProjectSelector() {
     importProjectFromJson,
   } = useProjectList();
   const { project } = useActiveProject();
+  const { user, isAuthLoading, signInWithGoogle, signInWithMicrosoft, signOut } = useAuth();
 
   const [isCreating, setIsCreating] = useState(false);
+  const [showCloudMenu, setShowCloudMenu] = useState(false);
   const [newName, setNewName] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameName, setRenameName] = useState('');
@@ -246,6 +250,51 @@ export function ProjectSelector() {
         >
           Delete
         </button>
+
+        {/* Cloud Storage */}
+        {isFirebaseConfigured && !isAuthLoading && (
+          <>
+            <div className="mx-1 h-4 w-px bg-gray-300" />
+            {user ? (
+              <span className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 truncate max-w-[120px]">
+                  {user.displayName ?? user.email}
+                </span>
+                <button
+                  onClick={signOut}
+                  className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                >
+                  Sign out
+                </button>
+              </span>
+            ) : (
+              <span className="relative">
+                <button
+                  onClick={() => setShowCloudMenu((v) => !v)}
+                  className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                >
+                  Cloud Storage
+                </button>
+                {showCloudMenu && (
+                  <span className="absolute right-0 top-full mt-1 z-40 flex flex-col rounded border border-gray-200 bg-white shadow-lg">
+                    <button
+                      onClick={() => { setShowCloudMenu(false); signInWithGoogle(); }}
+                      className="whitespace-nowrap px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 text-left"
+                    >
+                      Sign in with Google
+                    </button>
+                    <button
+                      onClick={() => { setShowCloudMenu(false); signInWithMicrosoft(); }}
+                      className="whitespace-nowrap px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 text-left border-t border-gray-100"
+                    >
+                      Sign in with Microsoft
+                    </button>
+                  </span>
+                )}
+              </span>
+            )}
+          </>
+        )}
 
         <input
           ref={fileInputRef}

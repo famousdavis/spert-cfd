@@ -48,3 +48,12 @@ export interface StorageIndex {
   activeProjectId: string | null;
   projectIds: string[];
 }
+
+/** Firestore document shape: users/{uid} */
+export interface UserConsentRecord {
+  acceptedAt: unknown;
+  tosVersion: string;
+  privacyPolicyVersion: string;
+  appId: string;
+  authProvider: string;
+}

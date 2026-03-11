@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-SPERT® CFD is a browser-only Cumulative Flow Diagram tool for agile teams. It runs entirely in the browser with localStorage persistence — no server, no database. Licensed under GNU GPL v3 and deployable to Vercel.
+SPERT® CFD is a Cumulative Flow Diagram tool for agile teams. Core functionality runs entirely in the browser with localStorage persistence. Optional Cloud Storage uses Firebase Authentication and Firestore for cross-device persistence. Licensed under GNU GPL v3 and deployable to Vercel.
 
 ## Tech Stack
 
@@ -16,6 +16,8 @@ SPERT® CFD is a browser-only Cumulative Flow Diagram tool for agile teams. It r
 | Dates | date-fns 4 |
 | Icons | lucide-react |
 | IDs | nanoid (8-char) |
+| Auth | Firebase Auth (Google, Microsoft) |
+| Database | Firestore (optional Cloud Storage) |
 
 ## Directory Structure
 
@@ -30,8 +32,10 @@ src/
 │   ├── app-shell.tsx             # Top-level provider wiring + loading gate + ErrorBoundary
 │   ├── error-boundary.tsx        # React Error Boundary for crash recovery
 │   ├── confirm-dialog.tsx        # Custom confirmation modal (replaces browser confirm())
-│   ├── footer.tsx                # App footer (version link, copyright, license)
-│   ├── project-selector.tsx      # Header bar: project dropdown, CRUD, import/export
+│   ├── consent-modal.tsx         # Clickwrap consent modal for Cloud Storage
+│   ├── first-run-banner.tsx      # First-run informational banner
+│   ├── footer.tsx                # App footer (version, copyright, license, legal links)
+│   ├── project-selector.tsx      # Header bar: project dropdown, CRUD, import/export, Cloud Storage
 │   ├── project-dashboard.tsx     # Main layout: sidebar + chart + grid
 │   ├── chart/
 │   │   ├── cfd-chart.tsx         # Memo'd Recharts AreaChart (Done bottom, Backlog top)
@@ -53,11 +57,14 @@ src/
 │       └── color-picker.tsx      # 4×3 preset grid + hex input
 │
 ├── contexts/
+│   ├── auth-context.tsx          # AuthProvider: Firebase Auth + Firestore consent
 │   ├── project-list-context.tsx  # Project list, switching, CRUD
 │   └── active-project-context.tsx # Active project data + 300ms debounced saves
 │
 ├── lib/
-│   ├── constants.ts              # APP_VERSION (single source of truth)
+│   ├── constants.ts              # APP_VERSION, TOS_VERSION, legal URLs, localStorage keys
+│   ├── firebase.ts               # Firebase app/auth/firestore initialization
+│   ├── consent.ts                # Consent localStorage helpers
 │   ├── storage.ts                # localStorage CRUD (index + per-project keys)
 │   ├── storage-health.ts         # Usage monitoring (3MB warning, 4.5MB critical)
 │   ├── migrations.ts             # Semver-based migration framework
@@ -69,9 +76,10 @@ src/
 │   ├── use-dismiss.ts            # useEscapeKey() + useClickOutside() hooks
 │   ├── use-grid-navigation.ts    # 2D keyboard navigation (arrows, Tab, Enter, Escape)
 │   ├── use-workflow-editor.ts    # Workflow state CRUD hook
-│   └── __tests__/                # 8 test files, 116 tests
+│   └── __tests__/                # 9 test files, 126 tests
 │       ├── calculations.test.ts
 │       ├── colors.test.ts
+│       ├── consent.test.ts       # Consent utility tests (v0.4.0)
 │       ├── csv.test.ts
 │       ├── dates.test.ts         # Date utility tests (v0.3.0)
 │       ├── migrations.test.ts
@@ -137,12 +145,28 @@ Active project saves are debounced at 300ms via `ActiveProjectContext`.
 
 ## Context Architecture
 
-Two contexts isolate re-renders:
+Three contexts with intentional nesting order:
 
-1. **ProjectListContext** — project list, active project ID, CRUD operations. Changes here (switching projects, renaming) don't re-render the data grid or chart.
-2. **ActiveProjectContext** — workflow, snapshots, settings for the active project. Provides `updateWorkflow`, `updateSnapshots`, `updateSettings` with debounced persistence.
+1. **AuthContext** — Firebase Auth state, sign-in/out methods, consent modal orchestration. Wraps the entire app.
+2. **ProjectListContext** — project list, active project ID, CRUD operations. Changes here (switching projects, renaming) don't re-render the data grid or chart.
+3. **ActiveProjectContext** — workflow, snapshots, settings for the active project. Provides `updateWorkflow`, `updateSnapshots`, `updateSettings` with debounced persistence.
 
-`AppShell` nests them: `ProjectListProvider > ActiveProjectProvider > UI`.
+`AppShell` nests them: `ErrorBoundary > AuthProvider > ProjectListProvider > ActiveProjectProvider > UI`.
+
+## Auth & Consent Architecture
+
+Two-tier legal consent model:
+
+1. **Browsewrap** — Persistent footer links to ToS and Privacy Policy on all pages. No action required from users.
+2. **Clickwrap** — Consent modal shown before Firebase Auth fires when enabling Cloud Storage. Requires checkbox agreement.
+
+**Sign-in flow:** User clicks Cloud Storage → consent check (localStorage `spert_tos_accepted_version`) → show modal if needed → `signInWithPopup` → `onAuthStateChanged` fires → Firestore write to `users/{uid}`.
+
+**Returning user flow:** `onAuthStateChanged` fires → check local cache → if miss, check Firestore → sign out on version mismatch.
+
+Firebase is initialized from `NEXT_PUBLIC_FIREBASE_*` env vars. If not configured, sign-in UI is hidden and the app operates in local-only mode.
+
+Firestore security rules for `users/{uid}` are managed centrally in the Firebase Console (shared across all six SPERT apps). Do not modify local `firestore.rules`.
 
 ## Migration System
 
@@ -153,7 +177,7 @@ Semver-based, matching the pattern from MyScrumBudget:
 - Each migration has a `version` string and `migrate()` function
 - `compareVersions()` handles semver ordering
 - `loadIndex()` and `loadProject()` auto-detect stale data and run pending migrations
-- Currently at v0.3.0; projects now stamped with `_version` on save for future migrations
+- Currently at v0.4.0; projects now stamped with `_version` on save for future migrations
 
 ## Key Conventions
 
