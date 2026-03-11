@@ -10,7 +10,7 @@ import { useActiveProject } from '@/contexts/active-project-context';
 import { useAuth } from '@/contexts/auth-context';
 import { exportProject as exportProjectJson } from '@/lib/storage';
 import { isFirebaseConfigured } from '@/lib/firebase';
-import { MAX_IMPORT_FILE_SIZE } from '@/lib/constants';
+import { MAX_IMPORT_FILE_SIZE, MAX_NAME_LENGTH } from '@/lib/constants';
 import { sanitizeFilename, downloadFile } from '@/lib/download';
 import { useClickOutside } from '@/lib/use-dismiss';
 import { ConfirmDialog } from './confirm-dialog';
@@ -159,6 +159,7 @@ export function ProjectSelector() {
                 if (e.key === 'Enter') handleRename();
                 if (e.key === 'Escape') setIsRenaming(false);
               }}
+              maxLength={MAX_NAME_LENGTH}
               className="rounded border border-gray-300 px-2 py-1 text-sm w-40"
               autoFocus
             />
@@ -198,6 +199,7 @@ export function ProjectSelector() {
                 if (e.key === 'Enter') handleCreate();
                 if (e.key === 'Escape') setIsCreating(false);
               }}
+              maxLength={MAX_NAME_LENGTH}
               placeholder="Project name"
               className="rounded border border-gray-300 px-2 py-1 text-sm w-40"
               autoFocus
