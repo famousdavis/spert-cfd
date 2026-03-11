@@ -102,10 +102,12 @@ export function CsvImportModal({
   const sortedWorkflow = useMemo(() => sortWorkflow(workflow), [workflow]);
   const stateIds = useMemo(() => sortedWorkflow.map((s) => s.id), [sortedWorkflow]);
 
-  const importResult =
-    parsed && mappingValid
+  const importResult = useMemo(
+    () => parsed && mappingValid
       ? applyCSVImport(parsed, mapping, snapshots, stateIds)
-      : null;
+      : null,
+    [parsed, mappingValid, mapping, snapshots, stateIds],
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">

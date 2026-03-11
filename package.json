@@ -1,6 +1,6 @@
 {
   "name": "spert-cfd",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -14,7 +14,7 @@
   "dependencies": {
     "date-fns": "^4.1.0",
     "firebase": "^12.10.0",
-    "lucide-react": "^0.563.0",
+    "lucide-react": "^0.577.0",
     "nanoid": "^5.1.6",
     "next": "^16.1.6",
     "react": "^19.2.4",

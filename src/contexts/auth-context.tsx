@@ -48,6 +48,7 @@ export function useAuth(): AuthContextValue {
 
 /** Write or update the consent record in Firestore (non-blocking on error) */
 async function writeConsentRecord(user: User): Promise<void> {
+  if (!db) return;
   try {
     const userRef = doc(db, 'users', user.uid);
     const snap = await getDoc(userRef);
@@ -86,6 +87,7 @@ async function writeConsentRecord(user: User): Promise<void> {
 
 /** Check returning user's consent version in Firestore */
 async function checkReturningUserConsent(user: User): Promise<boolean> {
+  if (!db) return true;
   try {
     const userRef = doc(db, 'users', user.uid);
     const snap = await getDoc(userRef);
@@ -111,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [pendingProvider, setPendingProvider] = useState<'google' | 'microsoft' | null>(null);
 
   useEffect(() => {
-    if (!isFirebaseConfigured) return;
+    if (!isFirebaseConfigured || !auth) return;
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
@@ -142,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else {
             // Version mismatch or no record — sign out
             clearLocalConsent();
-            await firebaseSignOut(auth);
+            if (auth) await firebaseSignOut(auth);
             // Don't setUser — user will see sign-in buttons
           }
           setIsAuthLoading(false);
@@ -154,9 +156,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const initiateSignIn = useCallback(async (provider: 'google' | 'microsoft') => {
-    if (!isFirebaseConfigured) return;
+    if (!isFirebaseConfigured || !auth) return;
 
     const firebaseProvider = provider === 'google' ? googleProvider : microsoftProvider;
+    if (!firebaseProvider) return;
 
     // Set pending write flag BEFORE auth fires
     setWritePending();
@@ -201,7 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleSignOut = useCallback(async () => {
-    if (!isFirebaseConfigured) return;
+    if (!isFirebaseConfigured || !auth) return;
     await firebaseSignOut(auth);
     // onAuthStateChanged will clear user state
   }, []);

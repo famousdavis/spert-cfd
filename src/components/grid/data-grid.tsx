@@ -9,6 +9,7 @@ import type { Snapshot } from '@/types';
 import { useActiveProject } from '@/contexts/active-project-context';
 import { snapshotsToCSV } from '@/lib/csv';
 import { sortWorkflow, sortSnapshots, mergeSnapshots } from '@/lib/dates';
+import { sanitizeFilename, downloadFile } from '@/lib/download';
 import { GridToolbar } from './grid-toolbar';
 import { GridTable } from './grid-table';
 import { AddRowDialog } from './add-row-dialog';
@@ -24,7 +25,7 @@ export function DataGrid() {
 
   const sorted = useMemo(() => sortWorkflow(workflow), [workflow]);
   const newestFirst = settings.gridSortNewestFirst;
-  const sortedSnapshots = sortSnapshots(snapshots, newestFirst);
+  const sortedSnapshots = useMemo(() => sortSnapshots(snapshots, newestFirst), [snapshots, newestFirst]);
 
   const handleCellChange = useCallback(
     (date: string, stateId: string, value: number) => {
@@ -56,15 +57,7 @@ export function DataGrid() {
   const handleExportCSV = useCallback(() => {
     if (!project) return;
     const csv = snapshotsToCSV(snapshots, workflow, newestFirst);
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    // Sanitize filename: replace non-alphanumeric chars (except - and _) with underscores
-    const safeName = project.name.replace(/[^a-zA-Z0-9-_]/g, '_').replace(/_+/g, '_');
-    a.download = `${safeName}-snapshots.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadFile(csv, `${sanitizeFilename(project.name)}-snapshots.csv`, 'text/csv');
   }, [project, snapshots, workflow, newestFirst]);
 
   const handleImportCSV = useCallback(

@@ -4,13 +4,15 @@
 
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useProjectList } from '@/contexts/project-list-context';
 import { useActiveProject } from '@/contexts/active-project-context';
 import { useAuth } from '@/contexts/auth-context';
 import { exportProject as exportProjectJson } from '@/lib/storage';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { MAX_IMPORT_FILE_SIZE } from '@/lib/constants';
+import { sanitizeFilename, downloadFile } from '@/lib/download';
+import { useClickOutside } from '@/lib/use-dismiss';
 import { ConfirmDialog } from './confirm-dialog';
 
 export function ProjectSelector() {
@@ -34,6 +36,9 @@ export function ProjectSelector() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cloudMenuRef = useRef<HTMLSpanElement>(null);
+
+  useClickOutside(cloudMenuRef, useCallback(() => setShowCloudMenu(false), []));
 
   const handleCreate = () => {
     const name = newName.trim();
@@ -46,15 +51,7 @@ export function ProjectSelector() {
   const handleExport = () => {
     if (!project) return;
     const json = exportProjectJson(project);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    // Sanitize filename: replace non-alphanumeric chars (except - and _) with underscores
-    const safeName = project.name.replace(/[^a-zA-Z0-9-_]/g, '_').replace(/_+/g, '_');
-    a.download = `${safeName}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadFile(json, `${sanitizeFilename(project.name)}.json`, 'application/json');
   };
 
   const handleImport = () => {
@@ -268,7 +265,7 @@ export function ProjectSelector() {
                 </button>
               </span>
             ) : (
-              <span className="relative">
+              <span ref={cloudMenuRef} className="relative">
                 <button
                   onClick={() => setShowCloudMenu((v) => !v)}
                   className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"

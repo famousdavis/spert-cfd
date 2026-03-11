@@ -2,6 +2,17 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.4.1 — Maintenance & Bug Fixes (March 11, 2026)
+
+- Fixed data loss when navigating away during debounced save window (flush pending save on unmount)
+- Fixed Cloud Storage dropdown not closing on outside click (added useClickOutside dismiss handler)
+- Fixed workflow state name validation allowing empty names on import
+- Added memoization for sortedSnapshots in DataGrid and importResult in CsvImportModal
+- Extracted shared download utility (sanitizeFilename, downloadFile) to reduce duplication
+- Improved Firebase type safety: removed unsafe null casts, added proper null guards
+- Updated lucide-react to 0.577.0, recharts to 3.8.0, and other minor dependency updates
+- Added download utility test suite (136 total tests across 10 files)
+
 ## v0.4.0 — ToS & Privacy Consent (March 11, 2026)
 
 - Added persistent footer links to Terms of Service and Privacy Policy on all pages

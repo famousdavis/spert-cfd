@@ -24,7 +24,7 @@ const app = isFirebaseConfigured
   ? (getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0])
   : null;
 
-export const auth = app ? getAuth(app) : (null as unknown as ReturnType<typeof getAuth>);
-export const db = app ? getFirestore(app) : (null as unknown as ReturnType<typeof getFirestore>);
-export const googleProvider = new GoogleAuthProvider();
-export const microsoftProvider = new OAuthProvider('microsoft.com');
+export const auth = app ? getAuth(app) : null;
+export const db = app ? getFirestore(app) : null;
+export const googleProvider = app ? new GoogleAuthProvider() : null;
+export const microsoftProvider = app ? new OAuthProvider('microsoft.com') : null;

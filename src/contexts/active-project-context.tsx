@@ -48,6 +48,7 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
   // Start with null to avoid reading localStorage in useState initializer (SSR safety)
   const [project, setProject] = useState<Project | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingProjectRef = useRef<Project | null>(null);
 
   // Load project when activeProjectId changes (localStorage sync for SSR safety)
   useEffect(() => {
@@ -60,11 +61,15 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
     }
   }, [activeProjectId]);
 
-  // Cleanup debounce timeout on unmount
+  // Flush pending save on unmount to prevent data loss
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+      }
+      if (pendingProjectRef.current) {
+        saveProject(pendingProjectRef.current);
+        pendingProjectRef.current = null;
       }
     };
   }, []);
@@ -74,8 +79,10 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
+    pendingProjectRef.current = updated;
     saveTimeoutRef.current = setTimeout(() => {
       saveProject(updated);
+      pendingProjectRef.current = null;
     }, 300);
   }, []);
 

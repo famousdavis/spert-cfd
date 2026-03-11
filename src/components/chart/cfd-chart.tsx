@@ -4,7 +4,7 @@
 
 'use client';
 
-import { memo, useMemo, useCallback, useState } from 'react';
+import { memo, useMemo, useCallback, useState, type ComponentProps } from 'react';
 import {
   AreaChart,
   Area,
@@ -14,6 +14,8 @@ import {
   ResponsiveContainer,
   Brush,
 } from 'recharts';
+
+type TooltipFormatter = NonNullable<ComponentProps<typeof Tooltip>['formatter']>;
 import { useActiveProject } from '@/contexts/active-project-context';
 import { sortWorkflow } from '@/lib/dates';
 import { useChartData } from './use-chart-data';
@@ -35,8 +37,8 @@ export const CFDChart = memo(function CFDChart() {
     });
   }, []);
 
-  const tooltipFormatter = useCallback(
-    (value: number | undefined, name: string | undefined) => {
+  const tooltipFormatter = useCallback<TooltipFormatter>(
+    (value, name) => {
       const state = name ? workflow.find((s) => s.id === name) : undefined;
       return [value ?? 0, state?.name ?? name ?? ''];
     },
