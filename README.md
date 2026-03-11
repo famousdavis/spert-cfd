@@ -1,6 +1,6 @@
-# CFD Laboratory
+# SPERT® CFD
 
-A browser-only Cumulative Flow Diagram tool for agile teams. No server required — all data stays in your browser's localStorage.
+A browser-only Cumulative Flow Diagram tool for agile teams. Part of the Statistical PERT® Software Suite. No server required — all data stays in your browser's localStorage.
 
 ## Features
 

@@ -5,7 +5,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Changelog — CFD Laboratory',
+  title: 'Changelog — SPERT® CFD',
 };
 
 export default function ChangelogPage() {
@@ -16,12 +16,27 @@ export default function ChangelogPage() {
           href="/"
           className="text-sm text-blue-600 hover:underline"
         >
-          &larr; Back to CFD Laboratory
+          &larr; Back to SPERT&reg; CFD
         </Link>
         <h1 className="mt-4 text-2xl font-bold text-gray-900">Changelog</h1>
       </header>
 
       <section className="space-y-6">
+        <article>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              v0.3.2
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                App Rebrand
+              </span>
+            </h2>
+            <span className="text-sm text-gray-400">March 10, 2026</span>
+          </div>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <li>Rebranded from CFD Laboratory to SPERT&reg; CFD across UI, metadata, and documentation</li>
+          </ul>
+        </article>
+
         <article>
           <div className="flex items-baseline gap-3">
             <h2 className="text-lg font-semibold text-gray-900">

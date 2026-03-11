@@ -18,8 +18,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "CFD Laboratory",
-  description: "Cumulative Flow Diagram tool for agile teams",
+  title: "SPERT® CFD",
+  description: "SPERT® CFD — Cumulative Flow Diagram tool for agile teams",
 };
 
 export default function RootLayout({

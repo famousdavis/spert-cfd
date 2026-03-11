@@ -1,8 +1,8 @@
-# CFD Laboratory — Architecture
+# SPERT® CFD — Architecture
 
 ## Project Overview
 
-CFD Laboratory is a browser-only Cumulative Flow Diagram tool for agile teams. It runs entirely in the browser with localStorage persistence — no server, no database. Licensed under GNU GPL v3 and deployable to Vercel.
+SPERT® CFD is a browser-only Cumulative Flow Diagram tool for agile teams. It runs entirely in the browser with localStorage persistence — no server, no database. Licensed under GNU GPL v3 and deployable to Vercel.
 
 ## Tech Stack
 

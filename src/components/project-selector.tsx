@@ -131,7 +131,7 @@ export function ProjectSelector() {
       )}
 
       <div className="flex items-center gap-3 px-4 py-2">
-        <h1 className="text-lg font-bold whitespace-nowrap">CFD Lab</h1>
+        <h1 className="text-lg font-bold whitespace-nowrap">SPERT<sup className="text-[0.5em] text-gray-400 font-normal">®</sup> CFD</h1>
 
         {/* Project dropdown */}
         <select
