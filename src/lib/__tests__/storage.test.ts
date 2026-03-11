@@ -233,4 +233,16 @@ describe('validateProjectData', () => {
     (project.workflow[0] as unknown as Record<string, unknown>).category = 'invalid';
     expect(validateProjectData(project)).toBe(false);
   });
+
+  it('rejects empty workflow state name', () => {
+    const project = createSampleProject();
+    (project.workflow[0] as unknown as Record<string, unknown>).name = '';
+    expect(validateProjectData(project)).toBe(false);
+  });
+
+  it('rejects whitespace-only workflow state name', () => {
+    const project = createSampleProject();
+    (project.workflow[0] as unknown as Record<string, unknown>).name = '   ';
+    expect(validateProjectData(project)).toBe(false);
+  });
 });
