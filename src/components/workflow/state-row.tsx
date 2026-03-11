@@ -6,6 +6,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { WorkflowState, StateCategory } from '@/types';
+import { MAX_NAME_LENGTH } from '@/lib/constants';
 import { Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { ColorPicker } from './color-picker';
 
@@ -126,6 +127,7 @@ export function StateRow({
               }
             }}
             onBlur={commitName}
+            maxLength={MAX_NAME_LENGTH}
             className="min-w-0 flex-1 rounded border border-gray-300 px-1.5 py-0.5 text-sm"
           />
         ) : (

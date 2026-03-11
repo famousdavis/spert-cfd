@@ -23,6 +23,7 @@ import {
   importProject,
 } from '@/lib/storage';
 import { DATA_VERSION } from '@/lib/migrations';
+import { MAX_NAME_LENGTH } from '@/lib/constants';
 import { createSampleProject } from '@/lib/sample-data';
 
 interface ProjectListItem {
@@ -104,11 +105,12 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
 
   const createProject = useCallback(
     (name: string): string => {
+      const safeName = name.slice(0, MAX_NAME_LENGTH);
       const id = nanoid(8);
       const now = new Date().toISOString();
       const project = {
         id,
-        name,
+        name: safeName,
         createdAt: now,
         updatedAt: now,
         workflow: [
@@ -136,7 +138,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
         return newIndex;
       });
 
-      setProjects((prev) => [...prev, { id, name }]);
+      setProjects((prev) => [...prev, { id, name: safeName }]);
       return id;
     },
     []
@@ -165,6 +167,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
 
   const renameProject = useCallback(
     (id: string, name: string) => {
+      if (!name.trim() || name.length > MAX_NAME_LENGTH) return;
       const project = loadProject(id);
       if (!project) return;
       project.name = name;

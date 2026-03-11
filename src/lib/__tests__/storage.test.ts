@@ -245,4 +245,28 @@ describe('validateProjectData', () => {
     (project.workflow[0] as unknown as Record<string, unknown>).name = '   ';
     expect(validateProjectData(project)).toBe(false);
   });
+
+  it('rejects invalid hex color in workflow state', () => {
+    const project = createSampleProject();
+    (project.workflow[0] as unknown as Record<string, unknown>).color = 'red';
+    expect(validateProjectData(project)).toBe(false);
+  });
+
+  it('rejects short hex color (3-digit)', () => {
+    const project = createSampleProject();
+    (project.workflow[0] as unknown as Record<string, unknown>).color = '#abc';
+    expect(validateProjectData(project)).toBe(false);
+  });
+
+  it('rejects hex color without hash prefix', () => {
+    const project = createSampleProject();
+    (project.workflow[0] as unknown as Record<string, unknown>).color = '3b82f6';
+    expect(validateProjectData(project)).toBe(false);
+  });
+
+  it('accepts valid 6-digit hex color', () => {
+    const project = createSampleProject();
+    (project.workflow[0] as unknown as Record<string, unknown>).color = '#3b82f6';
+    expect(validateProjectData(project)).toBe(true);
+  });
 });

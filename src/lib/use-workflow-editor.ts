@@ -6,6 +6,7 @@ import { useCallback, useMemo } from 'react';
 import { nanoid } from 'nanoid';
 import type { WorkflowState, StateCategory, Snapshot } from '@/types';
 import { PRESET_COLORS } from '@/lib/colors';
+import { MAX_NAME_LENGTH } from '@/lib/constants';
 import { sortWorkflow } from '@/lib/dates';
 
 // ── Pure helpers (exported for testing) ──────────────────
@@ -60,7 +61,7 @@ export function useWorkflowEditor(
 
   const renameState = useCallback(
     (id: string, name: string) => {
-      if (!name.trim()) return;
+      if (!name.trim() || name.length > MAX_NAME_LENGTH) return;
       updateWorkflow(
         workflow.map((s) => (s.id === id ? { ...s, name: name.trim() } : s)),
       );

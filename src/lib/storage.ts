@@ -152,7 +152,7 @@ export function validateProjectData(data: unknown): boolean {
     if (typeof s.id !== 'string') return false;
     // State name: required, max length
     if (typeof s.name !== 'string' || s.name.trim().length === 0 || s.name.length > MAX_NAME_LENGTH) return false;
-    if (typeof s.color !== 'string') return false;
+    if (typeof s.color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(s.color)) return false;
     if (!['backlog', 'active', 'done'].includes(s.category as string)) return false;
     if (typeof s.order !== 'number') return false;
   }

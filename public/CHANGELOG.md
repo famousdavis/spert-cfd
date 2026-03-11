@@ -2,6 +2,16 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.4.2 — Security Hardening (March 11, 2026)
+
+- Added security headers: X-Frame-Options, X-Content-Type-Options, Strict-Transport-Security, Referrer-Policy, Permissions-Policy, and Content-Security-Policy
+- Disabled X-Powered-By header to prevent framework fingerprinting
+- Removed dead next.config.mjs (next.config.ts takes precedence)
+- Enforced MAX_NAME_LENGTH (200) on project create, project rename, and workflow state rename
+- Added maxLength attribute to all project and workflow state name inputs
+- Added hex color format validation (#RRGGBB) in validateProjectData for imported projects
+- Added color validation test cases (140 total tests across 10 files)
+
 ## v0.4.1 — Maintenance & Bug Fixes (March 11, 2026)
 
 - Fixed data loss when navigating away during debounced save window (flush pending save on unmount)
