@@ -1,6 +1,6 @@
 # SPERT® CFD
 
-A browser-only Cumulative Flow Diagram tool for agile teams. Part of the Statistical PERT® Software Suite. No server required — all data stays in your browser's localStorage.
+A Cumulative Flow Diagram tool for agile teams. Part of the Statistical PERT® Software Suite. Core functionality runs entirely in the browser with localStorage persistence. Optional Cloud Storage uses Firebase for cross-device data sync.
 
 ## Features
 
@@ -15,6 +15,8 @@ A browser-only Cumulative Flow Diagram tool for agile teams. Part of the Statist
 - **Configurable metrics period** (all data, last N days, or custom date range)
 - **Project export/import** as JSON
 - **Data migration framework** for future upgrades
+- **Optional Cloud Storage** with Firebase Auth (Google and Microsoft sign-in)
+- **Terms of Service / Privacy Policy** consent flow for Cloud Storage users
 
 ## Getting Started
 
@@ -38,11 +40,18 @@ npm run lint           # ESLint
 
 ## Tech Stack
 
-Next.js 14 (App Router) · React 18 · TypeScript · Tailwind CSS · Recharts · Vitest · date-fns
+Next.js 16 (App Router) · React 19 · TypeScript 5.9 · Tailwind CSS 4 · Recharts 3 · Firebase · Vitest 4 · date-fns 4
 
 ## Architecture
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation.
+
+## Legal
+
+Reference copies of the Terms of Service and Privacy Policy are in `/legal`. The canonical versions used by the app at runtime are hosted at:
+
+- https://spert-landing.vercel.app/TOS.pdf
+- https://spert-landing.vercel.app/PRIVACY.pdf
 
 ## License
 

@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import Link from 'next/link';
+import { Footer } from '@/components/footer';
 
 export const metadata = {
   title: 'Changelog — SPERT® CFD',
@@ -22,6 +23,30 @@ export default function ChangelogPage() {
       </header>
 
       <section className="space-y-6">
+        <article>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              v0.4.0
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                ToS &amp; Privacy Consent
+              </span>
+            </h2>
+            <span className="text-sm text-gray-400">March 11, 2026</span>
+          </div>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <li>Added persistent footer links to Terms of Service and Privacy Policy on all pages</li>
+            <li>Added first-run informational banner for new visitors</li>
+            <li>Added clickwrap consent modal for Cloud Storage enablement</li>
+            <li>Added Firebase Authentication integration (Google and Microsoft sign-in)</li>
+            <li>Added Firestore consent record with read-before-write and version checking</li>
+            <li>Added returning-user ToS version check with automatic sign-out on mismatch</li>
+            <li>Added reference copies of legal documents in /legal directory</li>
+            <li>Added consent utility test suite (126 total tests across 9 files)</li>
+            <li>Graceful local-only mode when Firebase env vars are absent</li>
+            <li>Synced package.json version with APP_VERSION constant</li>
+          </ul>
+        </article>
+
         <article>
           <div className="flex items-baseline gap-3">
             <h2 className="text-lg font-semibold text-gray-900">
@@ -124,6 +149,10 @@ export default function ChangelogPage() {
           </ul>
         </article>
       </section>
+
+      <div className="mt-12">
+        <Footer />
+      </div>
     </div>
   );
 }

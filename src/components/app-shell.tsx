@@ -6,9 +6,11 @@
 
 import { ProjectListProvider, useProjectList } from '@/contexts/project-list-context';
 import { ActiveProjectProvider } from '@/contexts/active-project-context';
+import { AuthProvider } from '@/contexts/auth-context';
 import { ErrorBoundary } from './error-boundary';
 import { ProjectSelector } from './project-selector';
 import { ProjectDashboard } from './project-dashboard';
+import { FirstRunBanner } from './first-run-banner';
 import { Footer } from './footer';
 
 function AppContent() {
@@ -25,6 +27,7 @@ function AppContent() {
   return (
     <ActiveProjectProvider>
       <div className="flex h-screen flex-col">
+        <FirstRunBanner />
         <ProjectSelector />
         <ProjectDashboard />
         <Footer />
@@ -36,9 +39,11 @@ function AppContent() {
 export function AppShell() {
   return (
     <ErrorBoundary>
-      <ProjectListProvider>
-        <AppContent />
-      </ProjectListProvider>
+      <AuthProvider>
+        <ProjectListProvider>
+          <AppContent />
+        </ProjectListProvider>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }

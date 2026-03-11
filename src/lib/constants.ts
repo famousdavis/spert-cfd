@@ -2,10 +2,25 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-export const APP_VERSION = '0.3.2';
+export const APP_VERSION = '0.4.0';
 
 /** Maximum file size for CSV and JSON imports (1MB) */
 export const MAX_IMPORT_FILE_SIZE = 1 * 1024 * 1024;
 
 /** Maximum length for project and workflow state names */
 export const MAX_NAME_LENGTH = 200;
+
+/** Current ToS acceptance version (date-based) */
+export const TOS_VERSION = '03-11-2026';
+
+/** App identifier for Firestore consent records */
+export const APP_ID = 'spert-cfd';
+
+/** External legal document URLs (hosted on landing site) */
+export const TOS_URL = 'https://spert-landing.vercel.app/TOS.pdf';
+export const PRIVACY_URL = 'https://spert-landing.vercel.app/PRIVACY.pdf';
+
+/** localStorage keys for consent flow */
+export const LS_FIRST_RUN_SEEN = 'spert_firstRun_seen';
+export const LS_TOS_ACCEPTED_VERSION = 'spert_tos_accepted_version';
+export const LS_TOS_WRITE_PENDING = 'spert_tos_write_pending';
