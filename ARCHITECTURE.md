@@ -168,7 +168,7 @@ Two-tier legal consent model:
 
 Firebase is initialized from `NEXT_PUBLIC_FIREBASE_*` env vars. If not configured, sign-in UI is hidden and the app operates in local-only mode.
 
-Firestore security rules for `users/{uid}` are managed centrally in the Firebase Console (shared across all six SPERT apps). Do not modify local `firestore.rules`.
+Firestore security rules are managed centrally in the Firebase Console for the shared `spert-suite` project (all six SPERT apps). The `users/{uid}` consent collection is locked to owner-only access: `allow read, write: if isAuth() && request.auth.uid == uid`. Verified during v0.4.2 security audit.
 
 ## Migration System
 
@@ -179,7 +179,7 @@ Semver-based, matching the pattern from MyScrumBudget:
 - Each migration has a `version` string and `migrate()` function
 - `compareVersions()` handles semver ordering
 - `loadIndex()` and `loadProject()` auto-detect stale data and run pending migrations
-- Currently at v0.4.2; projects now stamped with `_version` on save for future migrations
+- Currently at v0.4.3; projects now stamped with `_version` on save for future migrations
 
 ## Key Conventions
 
