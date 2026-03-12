@@ -2,6 +2,13 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.4.3 — Node 22 LTS Pinning (March 11, 2026)
+
+- Added engines field to package.json requiring Node >=22
+- Created .nvmrc pinned to Node 22 for developer tooling and Vercel deployment
+- Aligned @types/node to ^22 to match target runtime
+- All dependencies verified compatible with Node 22 LTS (140 tests, clean build)
+
 ## v0.4.2 — Security Hardening (March 11, 2026)
 
 - Added security headers: X-Frame-Options, X-Content-Type-Options, Strict-Transport-Security, Referrer-Policy, Permissions-Policy, and Content-Security-Policy
