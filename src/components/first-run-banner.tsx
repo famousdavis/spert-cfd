@@ -25,8 +25,8 @@ export function FirstRunBanner() {
   if (!visible) return null;
 
   return (
-    <div className="border-b border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-      <p>
+    <div className="flex items-center gap-4 border-b border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+      <p className="flex-1">
         Statistical PERT&reg; apps are free. No account is required to use
         them. By accessing or using this app, you agree to our{' '}
         <a
@@ -51,7 +51,7 @@ export function FirstRunBanner() {
       </p>
       <button
         onClick={handleDismiss}
-        className="mt-2 rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
+        className="shrink-0 rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
       >
         Got it
       </button>
