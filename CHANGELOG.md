@@ -2,6 +2,10 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.4.4 — First-Run Banner Update (March 16, 2026)
+
+- Revised first-run notification text to include browsewrap consent language
+
 ## v0.4.3 — Node 22 LTS Pinning (March 11, 2026)
 
 - Added engines field to package.json requiring Node >=22
