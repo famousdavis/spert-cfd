@@ -26,6 +26,116 @@ export default function ChangelogPage() {
         <article>
           <div className="flex items-baseline gap-3">
             <h2 className="text-lg font-semibold text-gray-900">
+              v0.4.6
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                Legal &amp; Branding Update
+              </span>
+            </h2>
+            <span className="text-sm text-gray-400">March 31, 2026</span>
+          </div>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <li>Updated Terms of Service and Privacy Policy to v03-31-2026</li>
+            <li>Updated canonical legal document URLs to spertsuite.com</li>
+            <li>Updated consent UI text to SPERT&reg; Suite branding</li>
+          </ul>
+        </article>
+
+        <article>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              v0.4.5
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                Legal Document Update
+              </span>
+            </h2>
+            <span className="text-sm text-gray-400">March 20, 2026</span>
+          </div>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <li>Updated Terms of Service and Privacy Policy (effective March 20, 2026)</li>
+            <li>Replaced reference copies in /legal directory</li>
+            <li>Bumped TOS_VERSION to 03-20-2026 (triggers re-consent for returning Cloud Storage users)</li>
+          </ul>
+        </article>
+
+        <article>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              v0.4.4
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                First-Run Banner Update
+              </span>
+            </h2>
+            <span className="text-sm text-gray-400">March 16, 2026</span>
+          </div>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <li>Revised first-run notification text to include browsewrap consent language</li>
+          </ul>
+        </article>
+
+        <article>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              v0.4.3
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                Node 22 LTS Pinning
+              </span>
+            </h2>
+            <span className="text-sm text-gray-400">March 11, 2026</span>
+          </div>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <li>Added engines field to package.json requiring Node &gt;=22</li>
+            <li>Created .nvmrc pinned to Node 22 for developer tooling and Vercel deployment</li>
+            <li>Aligned @types/node to ^22 to match target runtime</li>
+            <li>All dependencies verified compatible with Node 22 LTS (140 tests, clean build)</li>
+          </ul>
+        </article>
+
+        <article>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              v0.4.2
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                Security Hardening
+              </span>
+            </h2>
+            <span className="text-sm text-gray-400">March 11, 2026</span>
+          </div>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <li>Added security headers: X-Frame-Options, X-Content-Type-Options, Strict-Transport-Security, Referrer-Policy, Permissions-Policy, and Content-Security-Policy</li>
+            <li>Disabled X-Powered-By header to prevent framework fingerprinting</li>
+            <li>Removed dead next.config.mjs (next.config.ts takes precedence)</li>
+            <li>Enforced MAX_NAME_LENGTH (200) on project create, project rename, and workflow state rename</li>
+            <li>Added maxLength attribute to all project and workflow state name inputs</li>
+            <li>Added hex color format validation (#RRGGBB) in validateProjectData for imported projects</li>
+            <li>Added color validation test cases (140 total tests across 10 files)</li>
+          </ul>
+        </article>
+
+        <article>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              v0.4.1
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                Maintenance &amp; Bug Fixes
+              </span>
+            </h2>
+            <span className="text-sm text-gray-400">March 11, 2026</span>
+          </div>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <li>Fixed data loss when navigating away during debounced save window (flush pending save on unmount)</li>
+            <li>Fixed Cloud Storage dropdown not closing on outside click (added useClickOutside dismiss handler)</li>
+            <li>Fixed workflow state name validation allowing empty names on import</li>
+            <li>Added memoization for sortedSnapshots in DataGrid and importResult in CsvImportModal</li>
+            <li>Extracted shared download utility (sanitizeFilename, downloadFile) to reduce duplication</li>
+            <li>Improved Firebase type safety: removed unsafe null casts, added proper null guards</li>
+            <li>Updated lucide-react to 0.577.0, recharts to 3.8.0, and other minor dependency updates</li>
+            <li>Added download utility test suite (136 total tests across 10 files)</li>
+          </ul>
+        </article>
+
+        <article>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
               v0.4.0
               <span className="ml-2 text-sm font-normal text-gray-500">
                 ToS &amp; Privacy Consent
