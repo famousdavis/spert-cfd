@@ -2,6 +2,18 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.4.6 — Legal & Branding Update (March 31, 2026)
+
+- Updated Terms of Service and Privacy Policy to v03-31-2026
+- Updated canonical legal document URLs to spertsuite.com
+- Updated consent UI text to SPERT® Suite branding
+
+## v0.4.5 — Legal Document Update (March 20, 2026)
+
+- Updated Terms of Service and Privacy Policy (effective March 20, 2026)
+- Replaced reference copies in /legal directory
+- Bumped TOS_VERSION to 03-20-2026 (triggers re-consent for returning Cloud Storage users)
+
 ## v0.4.4 — First-Run Banner Update (March 16, 2026)
 
 - Revised first-run notification text to include browsewrap consent language

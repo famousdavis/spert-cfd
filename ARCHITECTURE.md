@@ -179,7 +179,7 @@ Semver-based, matching the pattern from MyScrumBudget:
 - Each migration has a `version` string and `migrate()` function
 - `compareVersions()` handles semver ordering
 - `loadIndex()` and `loadProject()` auto-detect stale data and run pending migrations
-- Currently at v0.4.3; projects now stamped with `_version` on save for future migrations
+- Currently at v0.4.6; projects now stamped with `_version` on save for future migrations
 
 ## Key Conventions
 

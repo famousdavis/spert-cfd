@@ -1,6 +1,6 @@
 # SPERT® CFD
 
-A Cumulative Flow Diagram tool for agile teams. Part of the Statistical PERT® Software Suite. Core functionality runs entirely in the browser with localStorage persistence. Optional Cloud Storage uses Firebase for cross-device data sync.
+A Cumulative Flow Diagram tool for agile teams. Part of the SPERT® Suite. Core functionality runs entirely in the browser with localStorage persistence. Optional Cloud Storage uses Firebase for cross-device data sync.
 
 ## Features
 
@@ -50,8 +50,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation.
 
 Reference copies of the Terms of Service and Privacy Policy are in `/legal`. The canonical versions used by the app at runtime are hosted at:
 
-- https://spert-landing.vercel.app/TOS.pdf
-- https://spert-landing.vercel.app/PRIVACY.pdf
+- https://spertsuite.com/TOS.pdf
+- https://spertsuite.com/PRIVACY.pdf
 
 ## License
 
