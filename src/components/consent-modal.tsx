@@ -54,8 +54,7 @@ export function ConsentModal({ onAccept, onCancel }: ConsentModalProps) {
         <div className="space-y-4 p-4">
           <p id="consent-modal-description" className="text-sm text-gray-600">
             Cloud Storage stores your project planning data in
-            Firebase/Firestore on Google Cloud. Use is governed by the
-            Statistical PERT&reg;{' '}
+            Firebase/Firestore on Google Cloud. Use is governed by the{' '}
             <a
               href={TOS_URL}
               target="_blank"
@@ -73,7 +72,7 @@ export function ConsentModal({ onAccept, onCancel }: ConsentModalProps) {
             >
               Privacy Policy
             </a>
-            .
+            {' '}for SPERT&reg; Suite web apps.
           </p>
 
           <label className="flex items-start gap-2 text-sm text-gray-700">
