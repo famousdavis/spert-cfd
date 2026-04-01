@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import Link from 'next/link';
-import { APP_VERSION, TOS_URL, PRIVACY_URL } from '@/lib/constants';
+import { APP_VERSION, TOS_URL, PRIVACY_URL, LICENSE_URL } from '@/lib/constants';
 
 export function Footer() {
   return (
@@ -35,6 +35,15 @@ export function Footer() {
           className="text-blue-600 hover:text-blue-700"
         >
           Privacy Policy
+        </a>
+        {' | '}
+        <a
+          href={LICENSE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-700"
+        >
+          License
         </a>
       </div>
     </footer>
