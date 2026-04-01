@@ -19,6 +19,7 @@ export const APP_ID = 'spert-cfd';
 /** External legal document URLs (hosted on landing site) */
 export const TOS_URL = 'https://spertsuite.com/TOS.pdf';
 export const PRIVACY_URL = 'https://spertsuite.com/PRIVACY.pdf';
+export const LICENSE_URL = 'https://github.com/famousdavis/spert-cfd/blob/main/LICENSE';
 
 /** localStorage keys for consent flow */
 export const LS_FIRST_RUN_SEEN = 'spert_firstRun_seen';
