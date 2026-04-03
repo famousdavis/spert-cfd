@@ -2,6 +2,12 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.4.7 — localStorage Warning Banner (April 2, 2026)
+
+- Added amber warning banner informing users that data exists only in the browser and can be lost without exporting
+- Banner appears on every session load below the first-run banner
+- "Got it" dismisses for the session; "Don't show again" checkbox permanently suppresses via `spert_suppress_ls_warning` localStorage key
+
 ## v0.4.6 — Legal & Branding Update (March 31, 2026)
 
 - Updated Terms of Service and Privacy Policy to v03-31-2026

@@ -11,6 +11,7 @@ import { ErrorBoundary } from './error-boundary';
 import { ProjectSelector } from './project-selector';
 import { ProjectDashboard } from './project-dashboard';
 import { FirstRunBanner } from './first-run-banner';
+import { LocalStorageWarningBanner } from './local-storage-warning-banner';
 import { Footer } from './footer';
 
 function AppContent() {
@@ -28,6 +29,7 @@ function AppContent() {
     <ActiveProjectProvider>
       <div className="flex h-screen flex-col">
         <FirstRunBanner />
+        <LocalStorageWarningBanner />
         <ProjectSelector />
         <ProjectDashboard />
         <Footer />
