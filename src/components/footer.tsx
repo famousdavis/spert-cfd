@@ -7,7 +7,7 @@ import { APP_VERSION, SPERT_SUITE_URL, TOS_URL, PRIVACY_URL, LICENSE_URL } from 
 
 export function Footer() {
   return (
-    <footer className="border-t border-gray-200 py-3 text-center text-xs text-gray-500">
+    <footer className="border-t border-gray-200 py-3 text-center text-sm text-gray-500">
       <div>
         &copy; {new Date().getFullYear()} William W. Davis, MSPM, PMP |{' '}
         <Link

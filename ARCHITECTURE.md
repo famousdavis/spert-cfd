@@ -15,6 +15,7 @@ SPERT® CFD is a Cumulative Flow Diagram tool for agile teams. Core functionalit
 | Testing | Vitest 4 (node environment) |
 | Dates | date-fns 4 |
 | Icons | lucide-react |
+| Drag & Drop | @dnd-kit (core + sortable + utilities) |
 | IDs | nanoid (8-char) |
 | Auth | Firebase Auth (Google, Microsoft) |
 | Database | Firestore (optional Cloud Storage) |
@@ -29,14 +30,19 @@ src/
 │   └── changelog/page.tsx        # Static changelog page
 │
 ├── components/
-│   ├── app-shell.tsx             # Top-level provider wiring + loading gate + ErrorBoundary
+│   ├── app-shell.tsx             # Top-level provider wiring + tab state + loading gate
+│   ├── app-header.tsx            # Simplified header: branding + Cloud Storage auth
+│   ├── tab-navigation.tsx        # Pill-style tab bar (Projects | CFD | About)
+│   ├── projects-tab.tsx          # Projects landing tab: card grid, add form, import/export
+│   ├── project-row.tsx           # SortableProjectCard: draggable tile with stats + actions
+│   ├── about-tab.tsx             # About page (Forecaster pattern)
 │   ├── error-boundary.tsx        # React Error Boundary for crash recovery
 │   ├── confirm-dialog.tsx        # Custom confirmation modal (replaces browser confirm())
 │   ├── consent-modal.tsx         # Clickwrap consent modal for Cloud Storage
 │   ├── first-run-banner.tsx      # First-run informational banner
+│   ├── local-storage-warning-banner.tsx  # Data persistence warning (v0.4.7)
 │   ├── footer.tsx                # App footer (version, copyright, license, legal links)
-│   ├── project-selector.tsx      # Header bar: project dropdown, CRUD, import/export, Cloud Storage
-│   ├── project-dashboard.tsx     # Main layout: sidebar + chart + grid
+│   ├── project-dashboard.tsx     # CFD tab layout: sidebar + chart + grid
 │   ├── chart/
 │   │   ├── cfd-chart.tsx         # Memo'd Recharts AreaChart (Done bottom, Backlog top)
 │   │   ├── chart-controls.tsx    # Toggleable legend
@@ -73,7 +79,7 @@ src/
 │   ├── csv.ts                    # CSV parse (RFC 4180), export, column mapping, import
 │   ├── colors.ts                 # 12 preset colors + W3C contrast calculation
 │   ├── dates.ts                  # Date formatting + collection helpers (sort, merge)
-│   ├── download.ts               # Browser file download + filename sanitization
+│   ├── download.ts               # Browser file download + standardized export filenames
 │   ├── use-dismiss.ts            # useEscapeKey() + useClickOutside() hooks
 │   ├── use-grid-navigation.ts    # 2D keyboard navigation (arrows, Tab, Enter, Escape)
 │   ├── use-workflow-editor.ts    # Workflow state CRUD hook
@@ -150,10 +156,10 @@ Active project saves are debounced at 300ms via `ActiveProjectContext`.
 Three contexts with intentional nesting order:
 
 1. **AuthContext** — Firebase Auth state, sign-in/out methods, consent modal orchestration. Wraps the entire app.
-2. **ProjectListContext** — project list, active project ID, CRUD operations. Changes here (switching projects, renaming) don't re-render the data grid or chart.
+2. **ProjectListContext** — project list, active project ID, CRUD operations, `reorderProjects()` for persistent drag order. Changes here (switching projects, renaming) don't re-render the data grid or chart.
 3. **ActiveProjectContext** — workflow, snapshots, settings for the active project. Provides `updateWorkflow`, `updateSnapshots`, `updateSettings` with debounced persistence.
 
-`AppShell` nests them: `ErrorBoundary > AuthProvider > ProjectListProvider > ActiveProjectProvider > UI`.
+`AppShell` nests them: `ErrorBoundary > AuthProvider > ProjectListProvider > AppContent (tab state + ActiveProjectProvider) > UI`.
 
 ## Auth & Consent Architecture
 
@@ -179,7 +185,7 @@ Semver-based, matching the pattern from MyScrumBudget:
 - Each migration has a `version` string and `migrate()` function
 - `compareVersions()` handles semver ordering
 - `loadIndex()` and `loadProject()` auto-detect stale data and run pending migrations
-- Currently at v0.4.7; projects now stamped with `_version` on save for future migrations
+- Currently at v0.5.0; projects now stamped with `_version` on save for future migrations
 
 ## Key Conventions
 

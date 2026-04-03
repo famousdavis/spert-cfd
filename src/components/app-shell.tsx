@@ -4,18 +4,31 @@
 
 'use client';
 
+import { useState, useCallback } from 'react';
 import { ProjectListProvider, useProjectList } from '@/contexts/project-list-context';
 import { ActiveProjectProvider } from '@/contexts/active-project-context';
 import { AuthProvider } from '@/contexts/auth-context';
 import { ErrorBoundary } from './error-boundary';
-import { ProjectSelector } from './project-selector';
+import { AppHeader } from './app-header';
+import { TabNavigation, type TabId } from './tab-navigation';
+import { ProjectsTab } from './projects-tab';
 import { ProjectDashboard } from './project-dashboard';
 import { FirstRunBanner } from './first-run-banner';
 import { LocalStorageWarningBanner } from './local-storage-warning-banner';
+import { AboutTab } from './about-tab';
 import { Footer } from './footer';
 
 function AppContent() {
-  const { isLoaded } = useProjectList();
+  const { isLoaded, switchProject } = useProjectList();
+  const [activeTab, setActiveTab] = useState<TabId>('projects');
+
+  const handleOpenInCfd = useCallback(
+    (id: string) => {
+      switchProject(id);
+      setActiveTab('cfd');
+    },
+    [switchProject]
+  );
 
   if (!isLoaded) {
     return (
@@ -30,8 +43,17 @@ function AppContent() {
       <div className="flex h-screen flex-col">
         <FirstRunBanner />
         <LocalStorageWarningBanner />
-        <ProjectSelector />
-        <ProjectDashboard />
+        <AppHeader />
+        <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+        <div className="flex flex-1 overflow-hidden">
+          {activeTab === 'projects' && (
+            <ProjectsTab onOpenInCfd={handleOpenInCfd} />
+          )}
+          {activeTab === 'cfd' && (
+            <ProjectDashboard onGoToProjects={() => setActiveTab('projects')} />
+          )}
+          {activeTab === 'about' && <AboutTab />}
+        </div>
         <Footer />
       </div>
     </ActiveProjectProvider>

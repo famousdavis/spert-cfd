@@ -9,7 +9,7 @@ import type { Snapshot } from '@/types';
 import { useActiveProject } from '@/contexts/active-project-context';
 import { snapshotsToCSV } from '@/lib/csv';
 import { sortWorkflow, sortSnapshots, mergeSnapshots } from '@/lib/dates';
-import { sanitizeFilename, downloadFile } from '@/lib/download';
+import { exportFilename, downloadFile } from '@/lib/download';
 import { GridToolbar } from './grid-toolbar';
 import { GridTable } from './grid-table';
 import { AddRowDialog } from './add-row-dialog';
@@ -57,7 +57,7 @@ export function DataGrid() {
   const handleExportCSV = useCallback(() => {
     if (!project) return;
     const csv = snapshotsToCSV(snapshots, workflow, newestFirst);
-    downloadFile(csv, `${sanitizeFilename(project.name)}-snapshots.csv`, 'text/csv');
+    downloadFile(csv, exportFilename(project.name, 'csv'), 'text/csv');
   }, [project, snapshots, workflow, newestFirst]);
 
   const handleImportCSV = useCallback(

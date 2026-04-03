@@ -4,6 +4,8 @@ A Cumulative Flow Diagram tool for agile teams. Part of the SPERT® Suite. Core 
 
 ## Features
 
+- **Tab-based navigation** — Projects (default), CFD, and About tabs
+- **Projects tab** — tile-style project cards with drag-to-reorder, inline add form, per-project export, and Export All
 - **Multi-project support** with localStorage persistence
 - **Customizable workflow states** — drag-to-reorder, color picker, category assignment (backlog/active/done)
 - **WIP limits** on active states with visual warnings
@@ -13,10 +15,11 @@ A Cumulative Flow Diagram tool for agile teams. Part of the SPERT® Suite. Core 
 - **Stacked area CFD chart** with brush zoom and toggleable legend
 - **Flow metrics** — WIP, throughput, arrival rate, and average lead time (Little's Law)
 - **Configurable metrics period** (all data, last N days, or custom date range)
-- **Project export/import** as JSON
+- **Project export/import** as JSON with standardized filenames
 - **Data migration framework** for future upgrades
 - **Optional Cloud Storage** with Firebase Auth (Google and Microsoft sign-in)
 - **Terms of Service / Privacy Policy** consent flow for Cloud Storage users
+- **About page** with app overview, storage info, author, and license details
 
 ## Getting Started
 
@@ -40,7 +43,7 @@ npm run lint           # ESLint
 
 ## Tech Stack
 
-Next.js 16 (App Router) · React 19 · TypeScript 5.9 · Tailwind CSS 4 · Recharts 3 · Firebase · Vitest 4 · date-fns 4
+Next.js 16 (App Router) · React 19 · TypeScript 5.9 · Tailwind CSS 4 · Recharts 3 · @dnd-kit · Firebase · Vitest 4 · date-fns 4
 
 ## Architecture
 

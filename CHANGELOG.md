@@ -2,6 +2,30 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.5.0 — Tab Navigation, Projects Tab & About Page (April 3, 2026)
+
+### Added
+- Three-tab navigation: **Projects** (default), **CFD**, and **About** tabs
+- **Projects tab**: dedicated landing page with tile-style project cards, inline add form, and per-project Open / Export / Rename / Delete actions
+- **About tab**: app overview, feature guide, storage info, author/source, trademark, license, and warranty disclaimer (follows SPERT® Forecaster pattern)
+- Per-project summary stats on project cards: snapshot count, workflow state count, and last-updated date
+- Drag-to-reorder project cards with persistent order (`@dnd-kit/core` + `@dnd-kit/sortable`)
+- **Export All** button on Projects tab — bundles all projects into a single JSON download
+- Standardized export filename pattern: `spert-cfd-<project>-<YYYYMMDD-HHmmss>.json` (and `.csv`)
+- "Go to Projects" button on CFD tab empty state
+
+### Changed
+- Simplified app header (`AppHeader`): retains only branding and Cloud Storage auth controls; all project CRUD moved to Projects tab
+- Projects and About tabs use centered `max-w-4xl` / `max-w-[800px]` layout; CFD tab remains full-width
+- Tab navigation bar centered to align with tab content
+- CFD chart animation disabled (`isAnimationActive={false}`) to prevent replay on tab switch
+- Sample project data year updated to 2026 (dynamically uses current year in 2027+)
+- Footer font size increased from `text-xs` to `text-sm` to match SPERT® Forecaster
+- `ProjectListContext` now exposes `reorderProjects()` for persistent drag-to-reorder
+
+### Removed
+- `ProjectSelector` header component (replaced by `AppHeader` + `ProjectsTab`)
+
 ## v0.4.7 — localStorage Warning Banner (April 2, 2026)
 
 - Added amber warning banner informing users that data exists only in the browser and can be lost without exporting

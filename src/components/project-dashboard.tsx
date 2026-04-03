@@ -12,15 +12,27 @@ import { DataGrid } from './grid/data-grid';
 import { CFDChart } from './chart/cfd-chart';
 import { MetricsPanel } from './metrics/metrics-panel';
 
-export function ProjectDashboard() {
+interface ProjectDashboardProps {
+  onGoToProjects?: () => void;
+}
+
+export function ProjectDashboard({ onGoToProjects }: ProjectDashboardProps) {
   const { project } = useActiveProject();
   // Memoize storage usage calculation - only recalculate when project is updated
   const usage = useMemo(() => getStorageUsage(), [project?.updatedAt]);
 
   if (!project) {
     return (
-      <div className="flex flex-1 items-center justify-center text-gray-500">
-        No project selected. Create or import a project to get started.
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-gray-500">
+        <p>Open a project from the Projects tab to view its CFD.</p>
+        {onGoToProjects && (
+          <button
+            onClick={onGoToProjects}
+            className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+          >
+            Go to Projects
+          </button>
+        )}
       </div>
     );
   }
