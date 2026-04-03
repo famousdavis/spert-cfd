@@ -60,6 +60,7 @@ export const CFDChart = memo(function CFDChart() {
             stroke={state.color}
             fillOpacity={0.8}
             name={state.id}
+            isAnimationActive={false}
           />
         )),
     [sortedWorkflow, hiddenStates],

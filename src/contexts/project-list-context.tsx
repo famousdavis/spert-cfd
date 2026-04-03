@@ -40,6 +40,7 @@ interface ProjectListContextValue {
   switchProject: (id: string) => void;
   renameProject: (id: string, name: string) => void;
   importProjectFromJson: (json: string) => string | null;
+  reorderProjects: (orderedIds: string[]) => void;
 }
 
 const ProjectListContext = createContext<ProjectListContextValue | null>(null);
@@ -203,6 +204,17 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const reorderProjects = useCallback(
+    (orderedIds: string[]) => {
+      setIndex((prev) => {
+        const newIndex: StorageIndex = { ...prev, projectIds: orderedIds };
+        saveIndex(newIndex);
+        return newIndex;
+      });
+    },
+    []
+  );
+
   return (
     <ProjectListContext.Provider
       value={{
@@ -214,6 +226,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
         switchProject,
         renameProject,
         importProjectFromJson,
+        reorderProjects,
       }}
     >
       {children}

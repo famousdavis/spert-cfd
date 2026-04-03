@@ -16,24 +16,29 @@ function makeWorkflow(): WorkflowState[] {
   ];
 }
 
+function sampleYear(): number {
+  return Math.max(new Date().getFullYear(), 2026);
+}
+
 function makeSnapshots(): Snapshot[] {
   const stateIds = ['backlog', 'analysis', 'dev', 'review', 'done'];
+  const year = sampleYear();
 
   const raw: Array<[string, number[]]> = [
-    ['2024-01-01', [24, 0, 0, 0, 0]],
-    ['2024-01-02', [22, 2, 0, 0, 0]],
-    ['2024-01-03', [20, 2, 2, 0, 0]],
-    ['2024-01-04', [18, 3, 2, 1, 0]],
-    ['2024-01-05', [17, 2, 3, 1, 1]],
-    ['2024-01-08', [15, 2, 4, 1, 2]],
-    ['2024-01-09', [13, 3, 3, 2, 3]],
-    ['2024-01-10', [11, 2, 4, 3, 4]],
-    ['2024-01-11', [9, 3, 4, 2, 6]],
-    ['2024-01-12', [7, 2, 5, 2, 8]],
-    ['2024-01-15', [5, 2, 4, 3, 10]],
-    ['2024-01-16', [3, 3, 3, 3, 12]],
-    ['2024-01-17', [2, 2, 4, 2, 14]],
-    ['2024-01-18', [0, 2, 3, 3, 16]],
+    [`${year}-01-01`, [24, 0, 0, 0, 0]],
+    [`${year}-01-02`, [22, 2, 0, 0, 0]],
+    [`${year}-01-03`, [20, 2, 2, 0, 0]],
+    [`${year}-01-04`, [18, 3, 2, 1, 0]],
+    [`${year}-01-05`, [17, 2, 3, 1, 1]],
+    [`${year}-01-08`, [15, 2, 4, 1, 2]],
+    [`${year}-01-09`, [13, 3, 3, 2, 3]],
+    [`${year}-01-10`, [11, 2, 4, 3, 4]],
+    [`${year}-01-11`, [9, 3, 4, 2, 6]],
+    [`${year}-01-12`, [7, 2, 5, 2, 8]],
+    [`${year}-01-15`, [5, 2, 4, 3, 10]],
+    [`${year}-01-16`, [3, 3, 3, 3, 12]],
+    [`${year}-01-17`, [2, 2, 4, 2, 14]],
+    [`${year}-01-18`, [0, 2, 3, 3, 16]],
   ];
 
   return raw.map(([date, counts]) => ({
@@ -50,7 +55,7 @@ export function createSampleProject(): Project {
   return {
     id: nanoid(8),
     name: 'Sample: 2-Week Sprint',
-    createdAt: '2024-01-01T00:00:00.000Z',
+    createdAt: `${sampleYear()}-01-01T00:00:00.000Z`,
     updatedAt: now,
     workflow: makeWorkflow(),
     snapshots: makeSnapshots(),
