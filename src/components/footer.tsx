@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import Link from 'next/link';
-import { APP_VERSION, TOS_URL, PRIVACY_URL, LICENSE_URL } from '@/lib/constants';
+import { APP_VERSION, SPERT_SUITE_URL, TOS_URL, PRIVACY_URL, LICENSE_URL } from '@/lib/constants';
 
 export function Footer() {
   return (
@@ -19,6 +19,15 @@ export function Footer() {
         | Licensed under GNU GPL v3
       </div>
       <div className="mt-1">
+        <a
+          href={SPERT_SUITE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-700"
+        >
+          SPERT® Suite
+        </a>
+        {' | '}
         <a
           href={TOS_URL}
           target="_blank"
