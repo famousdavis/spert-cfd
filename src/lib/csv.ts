@@ -8,10 +8,13 @@ import { isValidDate, sortWorkflow, sortSnapshots, mergeSnapshots } from './date
 // ── CSV Export ───────────────────────────────────────────
 
 function escapeField(field: string): string {
-  if (/[",\n\r]/.test(field)) {
-    return `"${field.replace(/"/g, '""')}"`;
+  // Neutralize CSV formula injection (CWE-1236): prefix formula-triggering
+  // characters with a tab so spreadsheets treat the field as text.
+  const sanitized = /^[=+\-@]/.test(field) ? `\t${field}` : field;
+  if (/[",\n\r\t]/.test(sanitized)) {
+    return `"${sanitized.replace(/"/g, '""')}"`;
   }
-  return field;
+  return sanitized;
 }
 
 export function snapshotsToCSV(

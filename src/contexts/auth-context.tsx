@@ -81,7 +81,7 @@ async function writeConsentRecord(user: User): Promise<void> {
     }
   } catch (err) {
     // Non-blocking: log but allow user through
-    console.error('Failed to write consent record to Firestore:', err);
+    console.error('Failed to write consent record:', (err as { code?: string }).code ?? 'unknown');
   }
 }
 
@@ -101,7 +101,7 @@ async function checkReturningUserConsent(user: User): Promise<boolean> {
     return true;
   } catch (err) {
     // Non-blocking: allow user through on Firestore error
-    console.error('Failed to check consent record in Firestore:', err);
+    console.error('Failed to check consent record:', (err as { code?: string }).code ?? 'unknown');
     return true;
   }
 }
@@ -172,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // spert_tos_write_pending also persists (will be consumed on next successful auth)
       const error = err as { code?: string };
       if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
-        console.error('Sign-in error:', err);
+        console.error('Sign-in error:', error.code ?? 'unknown');
       }
     }
   }, []);

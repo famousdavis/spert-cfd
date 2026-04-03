@@ -2,6 +2,31 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.5.1 — Security Audit, Refactoring & Dependency Audit (April 3, 2026)
+
+### Security
+- Fixed CSV formula injection (CWE-1236): `escapeField()` now prefixes formula-triggering characters (`=`, `+`, `-`, `@`) with a tab character to prevent spreadsheet interpretation
+- Added validation to `reorderProjects()`: incoming array must be a permutation of existing project IDs (same length, no duplicates, all IDs present) before persisting
+- Tightened `validateProjectData()` for imported projects: `wipLimit` must be a positive finite number if present; snapshot dates must match `YYYY-MM-DD` format; `metricsPeriod.kind` must be a valid discriminant (`all` | `days` | `range`)
+- Sanitized `console.error` calls in auth context to log only error codes, not full Firebase error objects
+
+### Fixed
+- Added `role="alert"` to Projects tab error banner for screen reader accessibility
+- Removed unnecessary `handleRename` callback wrapper in Projects tab (passes `renameProject` directly)
+
+### Changed
+- Extracted shared `timestamp()` helper in `download.ts` to DRY up duplicated formatting in `exportFilename()` and `exportAllFilename()`
+
+### Dependencies
+- Updated @tailwindcss/postcss 4.2.1 → 4.2.2
+- Updated @types/node 22.19.15 → 22.19.17
+- Updated firebase 12.10.0 → 12.11.0
+- Updated nanoid 5.1.6 → 5.1.7
+- Updated recharts 3.8.0 → 3.8.1
+- Updated tailwindcss 4.2.1 → 4.2.2
+- Updated vitest 4.0.18 → 4.1.2
+- Confirmed @dnd-kit packages at latest (core 6.3.1, sortable 10.0.0, utilities 3.2.2); mismatched majors are intentional
+
 ## v0.5.0 — Tab Navigation, Projects Tab & About Page (April 3, 2026)
 
 ### Added
