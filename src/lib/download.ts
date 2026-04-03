@@ -10,36 +10,21 @@ export function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9-_]/g, '_').replace(/_+/g, '_');
 }
 
-/**
- * Build a standardized export filename: spert-cfd-<project>-<timestamp>.<ext>
- * Timestamp format: YYYYMMDD-HHmmss (local time).
- */
-export function exportFilename(projectName: string, ext: string): string {
-  const now = new Date();
-  const ts =
-    `${now.getFullYear()}` +
-    `${String(now.getMonth() + 1).padStart(2, '0')}` +
-    `${String(now.getDate()).padStart(2, '0')}-` +
-    `${String(now.getHours()).padStart(2, '0')}` +
-    `${String(now.getMinutes()).padStart(2, '0')}` +
-    `${String(now.getSeconds()).padStart(2, '0')}`;
-  return `spert-cfd-${sanitizeFilename(projectName)}-${ts}.${ext}`;
+/** YYYYMMDD-HHmmss in local time. */
+function timestamp(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
-/**
- * Build a standardized export filename without a project qualifier:
- * spert-cfd-<timestamp>.<ext>
- */
+/** Export filename: spert-cfd-<project>-<timestamp>.<ext> */
+export function exportFilename(projectName: string, ext: string): string {
+  return `spert-cfd-${sanitizeFilename(projectName)}-${timestamp()}.${ext}`;
+}
+
+/** Export-all filename: spert-cfd-<timestamp>.<ext> */
 export function exportAllFilename(ext: string): string {
-  const now = new Date();
-  const ts =
-    `${now.getFullYear()}` +
-    `${String(now.getMonth() + 1).padStart(2, '0')}` +
-    `${String(now.getDate()).padStart(2, '0')}-` +
-    `${String(now.getHours()).padStart(2, '0')}` +
-    `${String(now.getMinutes()).padStart(2, '0')}` +
-    `${String(now.getSeconds()).padStart(2, '0')}`;
-  return `spert-cfd-${ts}.${ext}`;
+  return `spert-cfd-${timestamp()}.${ext}`;
 }
 
 /** Trigger a browser file download from in-memory content. */

@@ -207,6 +207,14 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   const reorderProjects = useCallback(
     (orderedIds: string[]) => {
       setIndex((prev) => {
+        // Validate: must be a permutation of existing projectIds
+        if (
+          orderedIds.length !== prev.projectIds.length ||
+          new Set(orderedIds).size !== orderedIds.length ||
+          !orderedIds.every((id) => prev.projectIds.includes(id))
+        ) {
+          return prev; // Reject malformed array silently
+        }
         const newIndex: StorageIndex = { ...prev, projectIds: orderedIds };
         saveIndex(newIndex);
         return newIndex;

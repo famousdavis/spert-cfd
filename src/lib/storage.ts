@@ -155,6 +155,8 @@ export function validateProjectData(data: unknown): boolean {
     if (typeof s.color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(s.color)) return false;
     if (!['backlog', 'active', 'done'].includes(s.category as string)) return false;
     if (typeof s.order !== 'number') return false;
+    // wipLimit: if present, must be a positive finite number
+    if (s.wipLimit !== undefined && (typeof s.wipLimit !== 'number' || !Number.isFinite(s.wipLimit) || s.wipLimit <= 0)) return false;
   }
 
   // Snapshots array
@@ -162,7 +164,7 @@ export function validateProjectData(data: unknown): boolean {
   for (const snap of d.snapshots) {
     if (typeof snap !== 'object' || snap === null) return false;
     const sn = snap as Record<string, unknown>;
-    if (typeof sn.date !== 'string') return false;
+    if (typeof sn.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(sn.date)) return false;
     if (typeof sn.counts !== 'object' || sn.counts === null || Array.isArray(sn.counts)) return false;
     // Validate that all count values are finite numbers
     const counts = sn.counts as Record<string, unknown>;
@@ -175,6 +177,8 @@ export function validateProjectData(data: unknown): boolean {
   if (typeof settings.gridSortNewestFirst !== 'boolean') return false;
   if (typeof settings.showWipWarnings !== 'boolean') return false;
   if (typeof settings.metricsPeriod !== 'object' || settings.metricsPeriod === null) return false;
+  const mp = settings.metricsPeriod as Record<string, unknown>;
+  if (!['all', 'days', 'range'].includes(mp.kind as string)) return false;
 
   return true;
 }

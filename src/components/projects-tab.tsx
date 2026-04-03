@@ -157,13 +157,6 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     setDeleteConfirmId(null);
   }, [deleteConfirmId, deleteProject]);
 
-  const handleRename = useCallback(
-    (id: string, name: string) => {
-      renameProject(id, name);
-    },
-    [renameProject]
-  );
-
   const deleteTargetName =
     projects.find((p) => p.id === deleteConfirmId)?.name ?? '';
 
@@ -196,7 +189,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
 
       {/* Error banner */}
       {importError && (
-        <div className="flex items-center justify-between rounded bg-red-50 px-4 py-2 text-sm text-red-700">
+        <div role="alert" className="flex items-center justify-between rounded bg-red-50 px-4 py-2 text-sm text-red-700">
           <span>{importError}</span>
           <button
             onClick={() => setImportError(null)}
@@ -259,7 +252,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
                     onOpen={onOpenInCfd}
                     onExport={handleExport}
                     onDelete={handleDeleteClick}
-                    onRename={handleRename}
+                    onRename={renameProject}
                   />
                 ))}
               </div>
