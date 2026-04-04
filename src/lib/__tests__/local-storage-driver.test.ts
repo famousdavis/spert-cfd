@@ -247,6 +247,14 @@ describe('LocalStorageDriver', () => {
       expect(parsed.name).toBe(sample.name);
     });
 
+    it('exportProject injects _storageRef with workspaceId', () => {
+      const sample = createSampleProject();
+      const json = driver.exportProject(sample);
+      const parsed = JSON.parse(json);
+      expect(parsed._storageRef).toBe(driver.workspaceId);
+      expect(parsed._storageRef).toBeTruthy();
+    });
+
     it('importProject returns project with new ID', () => {
       const sample = createSampleProject();
       const json = driver.exportProject(sample);

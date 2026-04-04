@@ -59,6 +59,8 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred async load
         setProject(p);
       }
+    }).catch((err) => {
+      console.error('Failed to load project:', (err as { code?: string }).code ?? 'unknown');
     });
     return () => { cancelled = true; };
   }, [activeProjectId, driver]);

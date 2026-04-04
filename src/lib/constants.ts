@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-export const APP_VERSION = '0.7.0';
+export const APP_VERSION = '0.7.1';
 
 /** Maximum file size for CSV and JSON imports (1MB) */
 export const MAX_IMPORT_FILE_SIZE = 1 * 1024 * 1024;
