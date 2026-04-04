@@ -4,21 +4,15 @@
 
 'use client';
 
-import { useStorage } from '@/contexts/storage-context';
 import { StorageSection } from './storage-section';
-import { SharingSection } from './sharing-section';
 
 export function SettingsTab() {
-  const { mode } = useStorage();
-
   return (
     <div className="flex-1 overflow-y-auto p-4">
       <div className="mx-auto max-w-4xl">
         <h2 className="text-2xl mb-6 text-gray-900">Settings</h2>
 
         <StorageSection />
-
-        {mode === 'cloud' && <SharingSection />}
       </div>
     </div>
   );

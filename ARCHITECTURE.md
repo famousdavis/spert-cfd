@@ -37,7 +37,7 @@ src/
 │   ├── project-row.tsx           # SortableProjectCard: draggable tile with stats + actions
 │   ├── settings-tab.tsx          # Settings tab: StorageSection + SharingSection
 │   ├── storage-section.tsx       # Storage mode toggle, auth UI, migration dialog
-│   ├── sharing-section.tsx       # Per-project member management (cloud, owner only)
+│   ├── sharing-modal.tsx          # Per-project sharing modal (cloud, owner manages)
 │   ├── about-tab.tsx             # About page (Forecaster pattern)
 │   ├── error-boundary.tsx        # React Error Boundary for crash recovery
 │   ├── confirm-dialog.tsx        # Custom confirmation modal (replaces browser confirm())
