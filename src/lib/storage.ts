@@ -67,10 +67,14 @@ export function loadProject(id: string): Project | null {
     if (needsProjectMigration(parsed)) {
       const migrated = migrateProject(parsed);
       localStorage.setItem(projectKey(id), JSON.stringify(migrated));
-      return validateProjectData(migrated) ? migrated : null;
+      if (!validateProjectData(migrated)) return null;
+      sanitizeCloudFields(migrated as unknown as Record<string, unknown>);
+      return migrated;
     }
 
-    return validateProjectData(parsed) ? (parsed as Project) : null;
+    if (!validateProjectData(parsed)) return null;
+    sanitizeCloudFields(parsed as Record<string, unknown>);
+    return parsed as Project;
   } catch {
     return null;
   }
@@ -175,4 +179,70 @@ export function validateProjectData(data: unknown): boolean {
   if (!['all', 'days', 'range'].includes(mp.kind as string)) return false;
 
   return true;
+}
+
+/**
+ * Sanitize optional v0.7.0 cloud/fingerprinting fields on imported data.
+ * Strips malformed optional fields rather than rejecting the entire document.
+ * Call after validateProjectData() passes on the core fields.
+ */
+export function sanitizeCloudFields(data: Record<string, unknown>): void {
+  // owner: must be a string if present
+  if (data.owner !== undefined && typeof data.owner !== 'string') {
+    delete data.owner;
+  }
+
+  // members: must be a valid role map if present
+  if (data.members !== undefined) {
+    if (typeof data.members !== 'object' || data.members === null || Array.isArray(data.members)) {
+      delete data.members;
+    } else {
+      const members = data.members as Record<string, unknown>;
+      for (const [uid, role] of Object.entries(members)) {
+        if (typeof uid !== 'string' || !['owner', 'editor', 'viewer'].includes(role as string)) {
+          delete data.members;
+          break;
+        }
+      }
+    }
+  }
+
+  // schemaVersion: must be a string if present
+  if (data.schemaVersion !== undefined && typeof data.schemaVersion !== 'string') {
+    delete data.schemaVersion;
+  }
+
+  // _originRef: must be a string if present
+  if (data._originRef !== undefined && typeof data._originRef !== 'string') {
+    delete data._originRef;
+  }
+
+  // _storageRef: must be a string if present
+  if (data._storageRef !== undefined && typeof data._storageRef !== 'string') {
+    delete data._storageRef;
+  }
+
+  // _changeLog: must be a valid array of ChangeLogEntry if present
+  if (data._changeLog !== undefined) {
+    if (!Array.isArray(data._changeLog)) {
+      delete data._changeLog;
+    } else {
+      const validActions = ['created', 'imported', 'uploaded', 'shared', 'cloned'];
+      const isValid = data._changeLog.every((entry: unknown) => {
+        if (typeof entry !== 'object' || entry === null) return false;
+        const e = entry as Record<string, unknown>;
+        return (
+          typeof e.action === 'string' && validActions.includes(e.action) &&
+          typeof e.timestamp === 'string' &&
+          typeof e.actor === 'string'
+        );
+      });
+      if (!isValid) {
+        delete data._changeLog;
+      } else if (data._changeLog.length > 50) {
+        // Cap at 50 entries
+        data._changeLog = (data._changeLog as unknown[]).slice(-50);
+      }
+    }
+  }
 }

@@ -43,7 +43,13 @@ export function SharingSection() {
   const isOwner = project.owner === user.uid;
 
   const handleAddMember = useCallback(async () => {
-    if (!db || !project || !email.trim()) return;
+    if (!db || !project || !user || project.owner !== user.uid) return;
+    const trimmedEmail = email.trim().toLowerCase();
+    // Validate email format and length (RFC 5321: max 254 chars)
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail) || trimmedEmail.length > 254) {
+      setError('Please enter a valid email address.');
+      return;
+    }
     setError(null);
     setSuccess(null);
     setIsLoading(true);
@@ -52,7 +58,7 @@ export function SharingSection() {
       // Look up user by email in profiles collection
       const q = query(
         collection(db, PROFILES_COL),
-        where('email', '==', email.trim().toLowerCase()),
+        where('email', '==', trimmedEmail),
       );
       const snap = await getDocs(q);
 
@@ -88,7 +94,7 @@ export function SharingSection() {
         action: 'shared',
         timestamp: new Date().toISOString(),
         actor: user!.uid,
-        detail: `Added ${email.trim()} as editor`,
+        detail: `Added ${trimmedEmail} as editor`,
       };
 
       await setDoc(
@@ -101,7 +107,7 @@ export function SharingSection() {
       );
 
       setEmail('');
-      setSuccess(`Added ${email.trim()} as editor.`);
+      setSuccess(`Added ${trimmedEmail} as editor.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add member');
     } finally {
@@ -111,7 +117,7 @@ export function SharingSection() {
 
   const handleRemoveMember = useCallback(
     async (targetUid: string) => {
-      if (!db || !project) return;
+      if (!db || !project || !user || project.owner !== user.uid) return;
 
       const updatedMembers = { ...project.members };
       delete updatedMembers[targetUid];
@@ -122,12 +128,12 @@ export function SharingSection() {
         { merge: true },
       );
     },
-    [project],
+    [project, user],
   );
 
   const handleChangeRole = useCallback(
     async (targetUid: string, newRole: MemberRole) => {
-      if (!db || !project) return;
+      if (!db || !project || !user || project.owner !== user.uid) return;
 
       const updatedMembers = {
         ...project.members,
@@ -140,7 +146,7 @@ export function SharingSection() {
         { merge: true },
       );
     },
-    [project],
+    [project, user],
   );
 
   if (!isOwner) {

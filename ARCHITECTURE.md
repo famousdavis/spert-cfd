@@ -92,7 +92,7 @@ src/
 │   ├── use-dismiss.ts            # useEscapeKey() + useClickOutside() hooks
 │   ├── use-grid-navigation.ts    # 2D keyboard navigation (arrows, Tab, Enter, Escape)
 │   ├── use-workflow-editor.ts    # Workflow state CRUD hook
-│   └── __tests__/                # 13 test files, 182 tests
+│   └── __tests__/                # 13 test files, 193 tests
 │       ├── calculations.test.ts
 │       ├── colors.test.ts
 │       ├── consent.test.ts       # Consent utility tests (v0.4.0)
@@ -213,7 +213,7 @@ Semver-based, matching the pattern from MyScrumBudget:
 - Each migration has a `version` string and `migrate()` function
 - `compareVersions()` handles semver ordering
 - `loadIndex()` and `loadProject()` auto-detect stale data and run pending migrations
-- Currently at v0.7.1; projects now stamped with `_version` on save for future migrations
+- Currently at v0.7.2; projects now stamped with `_version` on save for future migrations
 
 ## Key Conventions
 

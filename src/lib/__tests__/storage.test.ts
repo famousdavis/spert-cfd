@@ -12,6 +12,7 @@ import {
   exportProject,
   importProject,
   validateProjectData,
+  sanitizeCloudFields,
   INDEX_KEY,
 } from '../storage';
 import { DATA_VERSION } from '../migrations';
@@ -266,5 +267,77 @@ describe('validateProjectData', () => {
     const project = createSampleProject();
     (project.workflow[0] as unknown as Record<string, unknown>).color = '#3b82f6';
     expect(validateProjectData(project)).toBe(true);
+  });
+});
+
+describe('sanitizeCloudFields', () => {
+  it('strips malformed owner (non-string)', () => {
+    const data: Record<string, unknown> = { owner: 123 };
+    sanitizeCloudFields(data);
+    expect(data.owner).toBeUndefined();
+  });
+
+  it('preserves valid owner (string)', () => {
+    const data: Record<string, unknown> = { owner: 'uid-123' };
+    sanitizeCloudFields(data);
+    expect(data.owner).toBe('uid-123');
+  });
+
+  it('strips malformed members (array instead of object)', () => {
+    const data: Record<string, unknown> = { members: ['uid1', 'uid2'] };
+    sanitizeCloudFields(data);
+    expect(data.members).toBeUndefined();
+  });
+
+  it('strips members with invalid roles', () => {
+    const data: Record<string, unknown> = { members: { uid1: 'admin' } };
+    sanitizeCloudFields(data);
+    expect(data.members).toBeUndefined();
+  });
+
+  it('preserves valid members map', () => {
+    const data: Record<string, unknown> = { members: { uid1: 'owner', uid2: 'editor' } };
+    sanitizeCloudFields(data);
+    expect(data.members).toEqual({ uid1: 'owner', uid2: 'editor' });
+  });
+
+  it('strips malformed _changeLog (non-array)', () => {
+    const data: Record<string, unknown> = { _changeLog: 'not-an-array' };
+    sanitizeCloudFields(data);
+    expect(data._changeLog).toBeUndefined();
+  });
+
+  it('strips _changeLog with invalid entries', () => {
+    const data: Record<string, unknown> = { _changeLog: [{ action: 'hacked', timestamp: '2026-01-01', actor: 'x' }] };
+    sanitizeCloudFields(data);
+    expect(data._changeLog).toBeUndefined();
+  });
+
+  it('preserves valid _changeLog', () => {
+    const log = [{ action: 'created', timestamp: '2026-01-01T00:00:00Z', actor: 'uid-1' }];
+    const data: Record<string, unknown> = { _changeLog: log };
+    sanitizeCloudFields(data);
+    expect(data._changeLog).toEqual(log);
+  });
+
+  it('caps _changeLog at 50 entries', () => {
+    const log = Array.from({ length: 60 }, (_, i) => ({
+      action: 'created' as const, timestamp: `2026-01-${String(i + 1).padStart(2, '0')}T00:00:00Z`, actor: 'uid',
+    }));
+    const data: Record<string, unknown> = { _changeLog: log };
+    sanitizeCloudFields(data);
+    expect((data._changeLog as unknown[]).length).toBe(50);
+  });
+
+  it('strips malformed _originRef (non-string)', () => {
+    const data: Record<string, unknown> = { _originRef: 42 };
+    sanitizeCloudFields(data);
+    expect(data._originRef).toBeUndefined();
+  });
+
+  it('does not touch fields that are absent', () => {
+    const data: Record<string, unknown> = { name: 'Test' };
+    sanitizeCloudFields(data);
+    expect(data).toEqual({ name: 'Test' });
   });
 });

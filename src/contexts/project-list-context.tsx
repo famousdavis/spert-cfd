@@ -147,16 +147,17 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
 
   const renameProject = useCallback(
     (id: string, name: string) => {
-      if (!name.trim() || name.length > MAX_NAME_LENGTH) return;
+      const safeName = name.trim();
+      if (!safeName || safeName.length > MAX_NAME_LENGTH) return;
 
       driver.loadProject(id).then((project) => {
         if (!project) return;
-        const updated = { ...project, name };
+        const updated = { ...project, name: safeName };
         driver.saveProject(updated).catch((err) => {
           console.error('Failed to save renamed project:', (err as { code?: string }).code ?? 'unknown');
         });
         setProjects((prev) =>
-          prev.map((p) => (p.id === id ? { ...p, name } : p))
+          prev.map((p) => (p.id === id ? { ...p, name: safeName } : p))
         );
       }).catch((err) => {
         console.error('Failed to load project for rename:', (err as { code?: string }).code ?? 'unknown');

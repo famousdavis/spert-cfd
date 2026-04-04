@@ -2,6 +2,22 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.7.2 — Security Audit (April 4, 2026)
+
+### Security
+- Added application-level ownership checks to all sharing callbacks (`handleAddMember`, `handleRemoveMember`, `handleChangeRole`) — defense-in-depth beyond Firestore rules
+- Added email format validation (RFC 5321, max 254 chars) before Firestore profile lookup in sharing UI
+- Added `sanitizeCloudFields()` to strip malformed optional cloud/fingerprinting fields (`owner`, `members`, `schemaVersion`, `_originRef`, `_storageRef`, `_changeLog`) on project load and import — strips invalid fields rather than rejecting the entire document
+- Fixed `renameProject` to trim whitespace before saving (was checking `!name.trim()` but storing untrimmed value)
+
+### Investigated (no change needed)
+- XSS via member UID display: React JSX escapes text content by default — not a vulnerability
+- `_hasUploadedToCloud` localStorage flag: manipulation equivalent to clicking "Skip" in migration dialog — no security impact
+- `_storageRef` in exported JSON: intentional fingerprinting field per ARCHITECTURE.md §9 — not PII
+- `allow list: if isAuth()` Firestore rule: intentionally permissive, `allow get` gates data access — acknowledged
+- `npm audit`: 5 transitive dependency vulnerabilities (next, undici, picomatch, flatted, brace-expansion) — all fixable only by upgrading parent packages deferred in v0.7.1; none affect CFD's usage
+- CSP `connect-src` directive: not set, all connections allowed — future hardening opportunity, not a current vulnerability
+
 ## v0.7.1 — Refactor & Dependency Update (April 4, 2026)
 
 ### Fixed
