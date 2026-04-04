@@ -60,8 +60,8 @@ export function AboutTab() {
         <section className="mb-8">
           <h3 className="text-xl mb-3 text-blue-600">Your Data &amp; Storage</h3>
           <p className="leading-relaxed text-gray-600 mb-4">
-            <TrademarkedName name="SPERT" /> CFD currently stores all data in your
-            browser&apos;s localStorage.
+            <TrademarkedName name="SPERT" /> CFD supports two storage modes, configurable
+            in the <strong>Settings</strong> tab.
           </p>
 
           <h4 className="text-lg mb-2 text-gray-900 font-semibold">Local Storage</h4>
@@ -71,6 +71,15 @@ export function AboutTab() {
             <li>Ideal for corporate/organizational environments where data must stay within your network</li>
             <li>Use <strong>Export</strong> to back up your data as a JSON file; use <strong>Import</strong> to restore or transfer between browsers</li>
             <li><strong>Note:</strong> Clearing your browser cache/data will delete all stored projects unless you&apos;ve exported a backup</li>
+          </ul>
+
+          <h4 className="text-lg mb-2 mt-4 text-gray-900 font-semibold">Cloud Storage</h4>
+          <ul className="pl-8 leading-loose text-gray-600 list-disc">
+            <li>Opt-in cloud sync via Google or Microsoft sign-in</li>
+            <li>Data persists across devices and browser sessions</li>
+            <li>Real-time sync: changes appear instantly in other open tabs</li>
+            <li>Share projects with collaborators (editor or viewer access)</li>
+            <li>Local projects can be uploaded to the cloud during setup</li>
           </ul>
         </section>
 

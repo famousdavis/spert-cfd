@@ -31,6 +31,17 @@ export interface ProjectSettings {
   metricsPeriod: MetricsPeriod;
 }
 
+export interface ChangeLogEntry {
+  /** Operation that produced this entry */
+  action: 'created' | 'imported' | 'uploaded' | 'shared' | 'cloned';
+  /** ISO 8601 timestamp */
+  timestamp: string;
+  /** UID or workspace ID of the actor */
+  actor: string;
+  /** Optional human-readable detail */
+  detail?: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -41,6 +52,14 @@ export interface Project {
   settings: ProjectSettings;
   /** Data schema version for migrations */
   _version?: string;
+  // Cloud metadata (set only by createProject, never by saveProject)
+  owner?: string;
+  members?: Record<string, 'owner' | 'editor' | 'viewer'>;
+  schemaVersion?: string;
+  // Fingerprinting
+  _originRef?: string;
+  _storageRef?: string;
+  _changeLog?: ChangeLogEntry[];
 }
 
 export interface StorageIndex {

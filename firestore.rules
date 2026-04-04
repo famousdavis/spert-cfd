@@ -1,0 +1,69 @@
+// Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
+
+// App-local reference copy of SPERT-CFD security rules.
+// Canonical rules live in /Users/william/Documents/GanttApp/firestore.rules
+// and are deployed via: npx firebase deploy --only firestore:rules --project spert-suite
+//
+// This file is NOT deployed directly — it exists for version control
+// and code review purposes only.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // ── SPERT-CFD helpers (inline, no get() needed — monolithic docs) ──
+    function isCfdMember(data) {
+      return request.auth.uid in data.members;
+    }
+    function isCfdOwner(data) {
+      return data.members[request.auth.uid] == 'owner';
+    }
+    function isCfdEditor(data) {
+      return data.members[request.auth.uid] in ['owner', 'editor'];
+    }
+
+    // ── SPERT-CFD Projects (monolithic docs, no subcollections) ──
+    match /spertcfd_projects/{projectId} {
+      allow list: if isAuth();
+      allow get: if isAuth() && isCfdMember(resource.data);
+
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == 'owner';
+
+      allow update: if isAuth()
+                    && isCfdEditor(resource.data)
+                    && (
+                      // Non-owners cannot change owner or members
+                      (!request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['owner', 'members']))
+                      // Owners can change anything
+                      || isCfdOwner(resource.data)
+                    );
+
+      allow delete: if isAuth() && isCfdOwner(resource.data);
+    }
+
+    // ── SPERT-CFD User Profiles ──
+    match /spertcfd_profiles/{userId} {
+      allow read: if isAuth();
+      allow write: if isAuth() && request.auth.uid == userId;
+    }
+
+    // ── SPERT-CFD Per-User Settings ──
+    match /spertcfd_settings/{userId} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
+    }
+
+    // ── ToS acceptance records (shared across all SPERT apps) ──
+    match /users/{uid} {
+      allow read, write: if isAuth() && request.auth.uid == uid;
+    }
+  }
+}

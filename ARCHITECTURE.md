@@ -35,7 +35,9 @@ src/
 │   ├── tab-navigation.tsx        # Pill-style tab bar (Projects | CFD | Settings | About)
 │   ├── projects-tab.tsx          # Projects landing tab: card grid, add form, import/export
 │   ├── project-row.tsx           # SortableProjectCard: draggable tile with stats + actions
-│   ├── settings-tab.tsx          # Settings tab (v0.6.0 placeholder, v0.7.0 cloud UI)
+│   ├── settings-tab.tsx          # Settings tab: StorageSection + SharingSection
+│   ├── storage-section.tsx       # Storage mode toggle, auth UI, migration dialog
+│   ├── sharing-section.tsx       # Per-project member management (cloud, owner only)
 │   ├── about-tab.tsx             # About page (Forecaster pattern)
 │   ├── error-boundary.tsx        # React Error Boundary for crash recovery
 │   ├── confirm-dialog.tsx        # Custom confirmation modal (replaces browser confirm())
@@ -75,6 +77,9 @@ src/
 │   ├── consent.ts                # Consent localStorage helpers
 │   ├── storage-driver.ts          # StorageDriver interface + StorageMode + ProjectListItem
 │   ├── local-storage-driver.ts    # createLocalStorageDriver() — async wrapper over storage.ts
+│   ├── firestore-driver.ts       # createFirestoreDriver(uid, db) — Firestore StorageDriver
+│   ├── firestore-helpers.ts      # Collection constants, stripUndefined, appendChangeLogEntry
+│   ├── cloud-migration.ts        # Local → cloud upload with collision detection
 │   ├── storage.ts                # Low-level localStorage CRUD (consumed by local driver)
 │   ├── storage-health.ts         # Usage monitoring (3MB warning, 4.5MB critical)
 │   ├── migrations.ts             # Semver-based migration framework
@@ -87,7 +92,7 @@ src/
 │   ├── use-dismiss.ts            # useEscapeKey() + useClickOutside() hooks
 │   ├── use-grid-navigation.ts    # 2D keyboard navigation (arrows, Tab, Enter, Escape)
 │   ├── use-workflow-editor.ts    # Workflow state CRUD hook
-│   └── __tests__/                # 11 test files, 164 tests
+│   └── __tests__/                # 13 test files, 181 tests
 │       ├── calculations.test.ts
 │       ├── colors.test.ts
 │       ├── consent.test.ts       # Consent utility tests (v0.4.0)
@@ -98,6 +103,8 @@ src/
 │       ├── storage-health.test.ts
 │       ├── storage.test.ts
 │       ├── local-storage-driver.test.ts  # StorageDriver contract tests (v0.6.0)
+│       ├── firestore-driver.test.ts     # FirestoreDriver tests with mocked SDK (v0.7.0)
+│       ├── cloud-migration.test.ts      # Migration collision/upload tests (v0.7.0)
 │       └── use-workflow-editor.test.ts
 │
 └── types/
@@ -147,11 +154,12 @@ MetricsPeriod (discriminated union, uses `kind` not `type`)
 
 ## Storage Architecture
 
-**Abstraction layer (v0.6.0):** All persistence goes through the `StorageDriver` interface, provided to the app via `StorageProvider` context. Contexts and components call `useStorage()` — no direct `storage.ts` imports outside the driver.
+**Abstraction layer (v0.6.0) + cloud backend (v0.7.0):** All persistence goes through the `StorageDriver` interface, provided to the app via `StorageProvider` context. Contexts and components call `useStorage()` — no direct `storage.ts` imports outside the driver.
 
 - `StorageDriver` — async interface: CRUD, preferences, real-time sync, export/import, flush
 - `LocalStorageDriver` — wraps `storage.ts` functions with `Promise.resolve()`; `saveProject()` is a pure data write (no index side effects)
-- `StorageProvider` — uses `useState` lazy initializer to create the driver once (prevents infinite re-render if downstream contexts depend on `[driver]`)
+- `FirestoreDriver` — Firestore implementation with 500ms debounced writes, `hasPendingWrites` echo prevention, monolithic project documents, `stripUndefined()` for Firestore compatibility
+- `StorageProvider` — auth-aware: uses `useState` lazy initializer, blocks children with loading spinner until driver is ready, flushes old driver before swapping on mode change
 
 **localStorage keys:**
 
@@ -159,7 +167,14 @@ MetricsPeriod (discriminated union, uses `kind` not `type`)
 - **Projects** `cfd-lab-project-{id}` — one key per project
 - **Active project** `spertcfd-active-project` — dedicated key (migrated from `StorageIndex.activeProjectId` on first access)
 - **Workspace ID** `spertcfd-workspace-id` — nanoid(8) for local-mode fingerprinting
-- **Storage mode** `spertcfd-storage-mode` — `'local'` or `'cloud'` (v0.7.0)
+- **Storage mode** `spertcfd-storage-mode` — `'local'` or `'cloud'`
+- **Migration flag** `spertcfd-has-uploaded-to-cloud` — skips re-upload dialog on re-sign-in
+
+**Firestore collections (cloud mode):**
+
+- `spertcfd_projects/{projectId}` — monolithic project documents with `owner`, `members`, fingerprinting fields
+- `spertcfd_profiles/{uid}` — user profiles for sharing UI email lookups
+- `spertcfd_settings/{uid}` — per-user preferences (`projectOrder`)
 
 All storage functions include `typeof window === 'undefined'` guards for SSR safety. Contexts use deferred async loading (`useEffect` → `await driver.loadProjectList()` → `isLoaded` flag gates rendering).
 
@@ -168,7 +183,7 @@ All storage functions include `typeof window === 'undefined'` guards for SSR saf
 Four contexts with intentional nesting order:
 
 1. **AuthContext** — Firebase Auth state, sign-in/out methods, consent modal orchestration. Wraps the entire app.
-2. **StorageContext** — provides the active `StorageDriver` via `useStorage()`. In v0.6.0, always `LocalStorageDriver`. In v0.7.0, switches between local and cloud drivers based on auth state and user preference.
+2. **StorageContext** — provides the active `StorageDriver` via `useStorage()`. Switches between `LocalStorageDriver` and `FirestoreDriver` based on auth state and user preference. Blocks children until driver is ready.
 3. **ProjectListContext** — project list, active project ID, CRUD operations via driver, `reorderProjects()` for persistent drag order. Sample project seeding gated on `driver.mode === 'local'`.
 4. **ActiveProjectContext** — workflow, snapshots, settings for the active project. Provides `updateWorkflow`, `updateSnapshots`, `updateSettings` with driver-managed persistence. Includes `beforeunload` flush handler.
 
@@ -198,7 +213,7 @@ Semver-based, matching the pattern from MyScrumBudget:
 - Each migration has a `version` string and `migrate()` function
 - `compareVersions()` handles semver ordering
 - `loadIndex()` and `loadProject()` auto-detect stale data and run pending migrations
-- Currently at v0.6.0; projects now stamped with `_version` on save for future migrations
+- Currently at v0.7.0; projects now stamped with `_version` on save for future migrations
 
 ## Key Conventions
 

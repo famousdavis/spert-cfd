@@ -72,6 +72,16 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [driver]);
 
+  // Subscribe to remote changes in cloud mode
+  useEffect(() => {
+    if (driver.mode !== 'cloud') return;
+    const unsub = driver.onProjectListChange((list) => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- real-time sync callback
+      setProjects(list);
+    });
+    return unsub;
+  }, [driver]);
+
   const createProject = useCallback(
     (name: string): string => {
       const safeName = name.slice(0, MAX_NAME_LENGTH);
