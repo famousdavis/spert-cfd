@@ -24,6 +24,7 @@ import { useStorage } from '@/contexts/storage-context';
 import { exportFilename, exportAllFilename, downloadFile } from '@/lib/download';
 import { MAX_IMPORT_FILE_SIZE, MAX_NAME_LENGTH } from '@/lib/constants';
 import { ConfirmDialog } from './confirm-dialog';
+import { SharingModal } from './sharing-modal';
 import { SortableProjectCard, type ProjectStats } from './project-row';
 
 interface ProjectsTabProps {
@@ -45,6 +46,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
   const [newName, setNewName] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [sharingProjectId, setSharingProjectId] = useState<string | null>(null);
   const [projectStats, setProjectStats] = useState<Map<string, ProjectStats>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -80,6 +82,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
             snapshotCount: full.snapshots.length,
             workflowStateCount: full.workflow.length,
             updatedAt: full.updatedAt,
+            memberCount: full.members ? Object.keys(full.members).length : undefined,
           });
         }
       }
@@ -257,6 +260,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
                     isActive={p.id === activeProjectId}
                     onOpen={onOpenInCfd}
                     onExport={handleExport}
+                    onShare={driver.mode === 'cloud' ? (id: string) => setSharingProjectId(id) : undefined}
                     onDelete={handleDeleteClick}
                     onRename={renameProject}
                   />
@@ -266,6 +270,14 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
           </DndContext>
         )}
       </section>
+
+      {/* Sharing modal */}
+      {sharingProjectId && (
+        <SharingModal
+          projectId={sharingProjectId}
+          onClose={() => setSharingProjectId(null)}
+        />
+      )}
 
       {/* Delete confirmation */}
       {deleteConfirmId && (

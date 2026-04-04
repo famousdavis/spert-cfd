@@ -2,6 +2,22 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.7.3 — Per-Project Sharing UI (April 4, 2026)
+
+### Added
+- **Share button on project tiles** (cloud mode only) — opens a modal for per-project member management, following the GanttApp pattern
+- **Sharing modal** (`src/components/sharing-modal.tsx`) — replaces the Settings tab sharing section; loads project by ID, real-time member updates via `onSnapshot`, escape key dismissal
+- **"Shared" badge** on project tiles when a project has more than one member
+- `memberCount` field in `ProjectStats` for badge display
+
+### Changed
+- Sharing UI moved from Settings tab to project tiles — now discoverable at the per-project level
+- Settings tab now contains only `StorageSection` (storage mode, auth, migration)
+- Non-owners see read-only "Shared with you" message in the sharing modal
+
+### Removed
+- `src/components/sharing-section.tsx` — replaced by `sharing-modal.tsx`
+
 ## v0.7.2 — Security Audit (April 4, 2026)
 
 ### Security

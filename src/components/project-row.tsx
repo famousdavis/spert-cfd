@@ -14,6 +14,7 @@ export interface ProjectStats {
   snapshotCount: number;
   workflowStateCount: number;
   updatedAt: string;
+  memberCount?: number;
 }
 
 interface ProjectCardProps {
@@ -25,6 +26,7 @@ interface ProjectCardProps {
   onExport: (id: string) => void;
   onDelete: (id: string) => void;
   onRename: (id: string, name: string) => void;
+  onShare?: (id: string) => void;
   dragHandleProps?: Record<string, unknown>;
   isDragging?: boolean;
 }
@@ -38,6 +40,7 @@ function ProjectCard({
   onExport,
   onDelete,
   onRename,
+  onShare,
   dragHandleProps,
   isDragging,
 }: ProjectCardProps) {
@@ -116,6 +119,11 @@ function ProjectCard({
                   Active
                 </span>
               )}
+              {stats?.memberCount && stats.memberCount > 1 && (
+                <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                  Shared
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -145,6 +153,14 @@ function ProjectCard({
         >
           Export
         </button>
+        {onShare && (
+          <button
+            onClick={() => onShare(id)}
+            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+          >
+            Share
+          </button>
+        )}
         <button
           onClick={handleStartRename}
           className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
