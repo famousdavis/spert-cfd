@@ -5,9 +5,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useStorage } from '@/contexts/storage-context';
 import { LS_SUPPRESS_LS_WARNING } from '@/lib/constants';
 
 export function LocalStorageWarningBanner() {
+  const { driver } = useStorage();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -17,6 +19,8 @@ export function LocalStorageWarningBanner() {
     }
   }, []);
 
+  // Cloud mode: localStorage warning is irrelevant
+  if (driver.mode === 'cloud') return null;
   if (!visible) return null;
 
   const handleDismiss = () => setVisible(false);

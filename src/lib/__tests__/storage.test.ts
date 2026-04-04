@@ -92,27 +92,23 @@ describe('Project CRUD', () => {
     expect(loaded!.snapshots).toHaveLength(14);
   });
 
-  it('adds project ID to index on save', () => {
+  it('saveProject does not modify the index', () => {
     const project = createSampleProject();
+    const indexBefore = loadIndex();
     saveProject(project);
+    const indexAfter = loadIndex();
 
-    const index = loadIndex();
-    expect(index.projectIds).toContain(project.id);
-  });
-
-  it('does not duplicate project ID on repeated saves', () => {
-    const project = createSampleProject();
-    saveProject(project);
-    saveProject(project);
-
-    const index = loadIndex();
-    const count = index.projectIds.filter((id) => id === project.id).length;
-    expect(count).toBe(1);
+    expect(indexAfter.projectIds).toEqual(indexBefore.projectIds);
   });
 
   it('deletes a project and removes from index', () => {
     const project = createSampleProject();
     saveProject(project);
+    // Manually add to index (saveProject no longer does this)
+    const idx = loadIndex();
+    idx.projectIds.push(project.id);
+    saveIndex(idx);
+
     deleteProject(project.id);
 
     expect(loadProject(project.id)).toBeNull();
@@ -125,7 +121,9 @@ describe('Project CRUD', () => {
     saveProject(p1);
     saveProject(p2);
 
+    // Manually register both in index (saveProject no longer does this)
     const index = loadIndex();
+    index.projectIds.push(p1.id, p2.id);
     index.activeProjectId = p1.id;
     saveIndex(index);
 

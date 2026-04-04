@@ -6,6 +6,7 @@
 
 import { useMemo } from 'react';
 import { useActiveProject } from '@/contexts/active-project-context';
+import { useStorage } from '@/contexts/storage-context';
 import { getStorageUsage } from '@/lib/storage-health';
 import { WorkflowEditor } from './workflow/workflow-editor';
 import { DataGrid } from './grid/data-grid';
@@ -18,6 +19,7 @@ interface ProjectDashboardProps {
 
 export function ProjectDashboard({ onGoToProjects }: ProjectDashboardProps) {
   const { project } = useActiveProject();
+  const { driver } = useStorage();
   // Memoize storage usage calculation - only recalculate when project is updated
   const usage = useMemo(() => getStorageUsage(), [project?.updatedAt]);
 
@@ -45,23 +47,25 @@ export function ProjectDashboard({ onGoToProjects }: ProjectDashboardProps) {
 
         <MetricsPanel />
 
-        {/* Storage indicator */}
-        <div className="mt-auto pt-6">
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <span>Storage:</span>
-            <span
-              className={
-                usage.status === 'critical'
-                  ? 'text-red-600 font-medium'
-                  : usage.status === 'warning'
-                    ? 'text-amber-600 font-medium'
-                    : ''
-              }
-            >
-              {(usage.bytes / 1024).toFixed(1)} KB
-            </span>
+        {/* Storage indicator (local mode only) */}
+        {driver.mode === 'local' && (
+          <div className="mt-auto pt-6">
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <span>Storage:</span>
+              <span
+                className={
+                  usage.status === 'critical'
+                    ? 'text-red-600 font-medium'
+                    : usage.status === 'warning'
+                      ? 'text-amber-600 font-medium'
+                      : ''
+                }
+              >
+                {(usage.bytes / 1024).toFixed(1)} KB
+              </span>
+            </div>
           </div>
-        </div>
+        )}
       </aside>
 
       {/* Main content */}

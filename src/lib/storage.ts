@@ -85,12 +85,6 @@ export function saveProject(project: Project): void {
     updatedAt: new Date().toISOString(),
   };
   localStorage.setItem(projectKey(project.id), JSON.stringify(toSave));
-
-  const index = loadIndex();
-  if (!index.projectIds.includes(project.id)) {
-    index.projectIds.push(project.id);
-  }
-  saveIndex(index);
 }
 
 export function deleteProject(id: string): void {

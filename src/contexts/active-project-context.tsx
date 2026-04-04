@@ -10,12 +10,11 @@ import {
   useState,
   useCallback,
   useEffect,
-  useRef,
   type ReactNode,
 } from 'react';
 import type { Project, WorkflowState, Snapshot, ProjectSettings } from '@/types';
-import { loadProject, saveProject } from '@/lib/storage';
 import { useProjectList } from './project-list-context';
+import { useStorage } from './storage-context';
 
 interface ActiveProjectContextValue {
   project: Project | null;
@@ -45,57 +44,47 @@ export function useActiveProject() {
 
 export function ActiveProjectProvider({ children }: { children: ReactNode }) {
   const { activeProjectId } = useProjectList();
-  // Start with null to avoid reading localStorage in useState initializer (SSR safety)
+  const { driver } = useStorage();
   const [project, setProject] = useState<Project | null>(null);
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingProjectRef = useRef<Project | null>(null);
 
-  // Load project when activeProjectId changes (localStorage sync for SSR safety)
+  // Load project when activeProjectId changes — async with cancellation
   useEffect(() => {
-    if (activeProjectId) {
-      const loaded = loadProject(activeProjectId);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setProject(loaded);
-    } else {
+    if (!activeProjectId) {
       setProject(null);
+      return;
     }
-  }, [activeProjectId]);
+    let cancelled = false;
+    driver.loadProject(activeProjectId).then((p) => {
+      if (!cancelled) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred async load
+        setProject(p);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [activeProjectId, driver]);
 
-  // Flush pending save on unmount to prevent data loss
+  // Flush pending writes on unmount
   useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-      if (pendingProjectRef.current) {
-        saveProject(pendingProjectRef.current);
-        pendingProjectRef.current = null;
-      }
-    };
-  }, []);
+    return () => driver.flush();
+  }, [driver]);
 
-  // Debounced save
-  const debouncedSave = useCallback((updated: Project) => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    pendingProjectRef.current = updated;
-    saveTimeoutRef.current = setTimeout(() => {
-      saveProject(updated);
-      pendingProjectRef.current = null;
-    }, 300);
-  }, []);
+  // Flush pending writes before tab close (§8.8)
+  useEffect(() => {
+    const handler = () => driver.flush();
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [driver]);
 
   const updateWorkflow = useCallback(
     (states: WorkflowState[]) => {
       setProject((prev) => {
         if (!prev) return prev;
         const updated = { ...prev, workflow: states };
-        debouncedSave(updated);
+        driver.saveProject(updated);
         return updated;
       });
     },
-    [debouncedSave]
+    [driver]
   );
 
   const updateSnapshots = useCallback(
@@ -103,11 +92,11 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
       setProject((prev) => {
         if (!prev) return prev;
         const updated = { ...prev, snapshots };
-        debouncedSave(updated);
+        driver.saveProject(updated);
         return updated;
       });
     },
-    [debouncedSave]
+    [driver]
   );
 
   const updateSettings = useCallback(
@@ -118,11 +107,11 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
           ...prev,
           settings: { ...prev.settings, ...patch },
         };
-        debouncedSave(updated);
+        driver.saveProject(updated);
         return updated;
       });
     },
-    [debouncedSave]
+    [driver]
   );
 
   return (

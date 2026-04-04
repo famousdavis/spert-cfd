@@ -8,6 +8,7 @@ import { useState, useCallback } from 'react';
 import { ProjectListProvider, useProjectList } from '@/contexts/project-list-context';
 import { ActiveProjectProvider } from '@/contexts/active-project-context';
 import { AuthProvider } from '@/contexts/auth-context';
+import { StorageProvider } from '@/contexts/storage-context';
 import { ErrorBoundary } from './error-boundary';
 import { AppHeader } from './app-header';
 import { TabNavigation, type TabId } from './tab-navigation';
@@ -15,6 +16,7 @@ import { ProjectsTab } from './projects-tab';
 import { ProjectDashboard } from './project-dashboard';
 import { FirstRunBanner } from './first-run-banner';
 import { LocalStorageWarningBanner } from './local-storage-warning-banner';
+import { SettingsTab } from './settings-tab';
 import { AboutTab } from './about-tab';
 import { Footer } from './footer';
 
@@ -52,6 +54,7 @@ function AppContent() {
           {activeTab === 'cfd' && (
             <ProjectDashboard onGoToProjects={() => setActiveTab('projects')} />
           )}
+          {activeTab === 'settings' && <SettingsTab />}
           {activeTab === 'about' && <AboutTab />}
         </div>
         <Footer />
@@ -64,9 +67,11 @@ export function AppShell() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <ProjectListProvider>
-          <AppContent />
-        </ProjectListProvider>
+        <StorageProvider>
+          <ProjectListProvider>
+            <AppContent />
+          </ProjectListProvider>
+        </StorageProvider>
       </AuthProvider>
     </ErrorBoundary>
   );
