@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-export const APP_VERSION = '0.5.1';
+export const APP_VERSION = '0.6.0';
 
 /** Maximum file size for CSV and JSON imports (1MB) */
 export const MAX_IMPORT_FILE_SIZE = 1 * 1024 * 1024;
@@ -27,3 +27,12 @@ export const LS_FIRST_RUN_SEEN = 'spert_firstRun_seen';
 export const LS_TOS_ACCEPTED_VERSION = 'spert_tos_accepted_version';
 export const LS_TOS_WRITE_PENDING = 'spert_tos_write_pending';
 export const LS_SUPPRESS_LS_WARNING = 'spert_suppress_ls_warning';
+
+/** localStorage keys for storage driver */
+export const LS_ACTIVE_PROJECT = 'spertcfd-active-project';
+export const LS_STORAGE_MODE = 'spertcfd-storage-mode';
+export const LS_WORKSPACE_ID = 'spertcfd-workspace-id';
+
+/** Debounce delays for storage writes (ms) */
+export const DEBOUNCE_LOCAL_MS = 300;
+export const DEBOUNCE_CLOUD_MS = 500;

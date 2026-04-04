@@ -13,23 +13,10 @@ import {
   type ReactNode,
 } from 'react';
 import { nanoid } from 'nanoid';
-import type { StorageIndex } from '@/types';
-import {
-  loadIndex,
-  saveIndex,
-  loadProject,
-  saveProject,
-  deleteProject as deleteProjectFromStorage,
-  importProject,
-} from '@/lib/storage';
-import { DATA_VERSION } from '@/lib/migrations';
+import { useStorage } from './storage-context';
+import type { ProjectListItem } from '@/lib/storage-driver';
 import { MAX_NAME_LENGTH } from '@/lib/constants';
 import { createSampleProject } from '@/lib/sample-data';
-
-interface ProjectListItem {
-  id: string;
-  name: string;
-}
 
 interface ProjectListContextValue {
   projects: ProjectListItem[];
@@ -53,56 +40,37 @@ export function useProjectList() {
   return ctx;
 }
 
-function loadProjectList(index: StorageIndex): ProjectListItem[] {
-  return index.projectIds
-    .map((id) => {
-      const project = loadProject(id);
-      return project ? { id: project.id, name: project.name } : null;
-    })
-    .filter((p): p is ProjectListItem => p !== null);
-}
-
-const EMPTY_INDEX: StorageIndex = {
-  version: DATA_VERSION,
-  activeProjectId: null,
-  projectIds: [],
-};
-
 export function ProjectListProvider({ children }: { children: ReactNode }) {
-  // Start with empty state on both server and client to avoid hydration mismatch
-  const [index, setIndex] = useState<StorageIndex>(EMPTY_INDEX);
+  const { driver } = useStorage();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load from localStorage on mount (client only)
+  // Load project list from driver on mount
   useEffect(() => {
-    let stored = loadIndex();
+    let cancelled = false;
+    (async () => {
+      const list = await driver.loadProjectList();
+      if (cancelled) return;
 
-    if (stored.projectIds.length === 0) {
-      const sample = createSampleProject();
-      saveProject(sample);
-      stored = {
-        version: DATA_VERSION,
-        activeProjectId: sample.id,
-        projectIds: [sample.id],
-      };
-      saveIndex(stored);
-    }
-
-    // Deferred localStorage load for SSR hydration safety — this is an external system sync
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred localStorage load for SSR safety
-    setIndex(stored);
-    setProjects(loadProjectList(stored));
-    setIsLoaded(true);
-  }, []);
-
-  // Sync projects list when index changes (after initial load)
-  useEffect(() => {
-    if (isLoaded) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setProjects(loadProjectList(index));
-    }
-  }, [index, isLoaded]);
+      // Sample project seeding: local mode only (§8.4)
+      // In cloud mode, an empty list shows the empty state.
+      if (list.length === 0 && driver.mode === 'local') {
+        const sample = createSampleProject();
+        await driver.createProject(sample);
+        driver.setActiveProjectId(sample.id);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred async load
+        setProjects([{ id: sample.id, name: sample.name }]);
+        setActiveProjectId(sample.id);
+      } else {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred async load
+        setProjects(list);
+        setActiveProjectId(driver.getActiveProjectId());
+      }
+      setIsLoaded(true);
+    })();
+    return () => { cancelled = true; };
+  }, [driver]);
 
   const createProject = useCallback(
     (name: string): string => {
@@ -126,108 +94,105 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
           metricsPeriod: { kind: 'all' as const },
         },
       };
-      saveProject(project);
 
-      // Use functional update to avoid stale closure
-      setIndex((prev) => {
-        const newIndex: StorageIndex = {
-          ...prev,
-          activeProjectId: id,
-          projectIds: [...prev.projectIds, id],
-        };
-        saveIndex(newIndex);
-        return newIndex;
-      });
+      // Fire and forget — driver handles persistence
+      driver.createProject(project);
+      driver.setActiveProjectId(id);
 
       setProjects((prev) => [...prev, { id, name: safeName }]);
+      setActiveProjectId(id);
       return id;
     },
-    []
+    [driver]
   );
 
   const deleteProject = useCallback(
     (id: string) => {
-      deleteProjectFromStorage(id);
-      const newIndex = loadIndex();
-      setIndex(newIndex);
+      driver.deleteProject(id).then(async () => {
+        const list = await driver.loadProjectList();
+        setProjects(list);
+
+        // Reset active project if the deleted one was active
+        if (id === activeProjectId) {
+          const newActive = list[0]?.id ?? null;
+          driver.setActiveProjectId(newActive);
+          setActiveProjectId(newActive);
+        }
+      });
     },
-    []
+    [driver, activeProjectId]
   );
 
   const switchProject = useCallback(
     (id: string) => {
-      // Use functional update to avoid stale closure
-      setIndex((prev) => {
-        const newIndex: StorageIndex = { ...prev, activeProjectId: id };
-        saveIndex(newIndex);
-        return newIndex;
-      });
+      driver.setActiveProjectId(id);
+      setActiveProjectId(id);
     },
-    []
+    [driver]
   );
 
   const renameProject = useCallback(
     (id: string, name: string) => {
       if (!name.trim() || name.length > MAX_NAME_LENGTH) return;
-      const project = loadProject(id);
-      if (!project) return;
-      project.name = name;
-      saveProject(project);
-      setProjects((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, name } : p))
-      );
+
+      driver.loadProject(id).then((project) => {
+        if (!project) return;
+        const updated = { ...project, name };
+        driver.saveProject(updated);
+        setProjects((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, name } : p))
+        );
+      });
     },
-    []
+    [driver]
   );
 
   const importProjectFromJson = useCallback(
     (json: string): string | null => {
-      const imported = importProject(json);
+      const imported = driver.importProject(json);
       if (!imported) return null;
 
-      saveProject(imported);
-
-      // Use functional update to avoid stale closure
-      setIndex((prev) => {
-        const newIndex: StorageIndex = {
-          ...prev,
-          activeProjectId: imported.id,
-          projectIds: [...prev.projectIds, imported.id],
-        };
-        saveIndex(newIndex);
-        return newIndex;
-      });
+      // Use createProject (not saveProject) so index is updated in local mode
+      // and ownership fields are set in cloud mode (§8.9)
+      driver.createProject(imported);
+      driver.setActiveProjectId(imported.id);
 
       setProjects((prev) => [...prev, { id: imported.id, name: imported.name }]);
+      setActiveProjectId(imported.id);
       return imported.id;
     },
-    []
+    [driver]
   );
 
   const reorderProjects = useCallback(
     (orderedIds: string[]) => {
-      setIndex((prev) => {
-        // Validate: must be a permutation of existing projectIds
+      // Optimistic update — reorder local state immediately
+      setProjects((prev) => {
+        // Validate: must be a permutation of existing project IDs
+        const currentIds = prev.map((p) => p.id);
         if (
-          orderedIds.length !== prev.projectIds.length ||
+          orderedIds.length !== currentIds.length ||
           new Set(orderedIds).size !== orderedIds.length ||
-          !orderedIds.every((id) => prev.projectIds.includes(id))
+          !orderedIds.every((id) => currentIds.includes(id))
         ) {
-          return prev; // Reject malformed array silently
+          return prev; // Reject silently
         }
-        const newIndex: StorageIndex = { ...prev, projectIds: orderedIds };
-        saveIndex(newIndex);
-        return newIndex;
+
+        const byId = new Map(prev.map((p) => [p.id, p]));
+        return orderedIds.map((id) => byId.get(id)!);
       });
+
+      // Persist via driver
+      driver.reorderProjects(orderedIds);
     },
-    []
+    [driver]
   );
 
   return (
     <ProjectListContext.Provider
       value={{
         projects,
-        activeProjectId: index.activeProjectId,
+        activeProjectId,
         isLoaded,
         createProject,
         deleteProject,

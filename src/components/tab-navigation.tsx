@@ -4,7 +4,7 @@
 
 'use client';
 
-export type TabId = 'projects' | 'cfd' | 'about';
+export type TabId = 'projects' | 'cfd' | 'settings' | 'about';
 
 interface TabNavigationProps {
   activeTab: TabId;
@@ -14,6 +14,7 @@ interface TabNavigationProps {
 const TABS: { id: TabId; label: string }[] = [
   { id: 'projects', label: 'Projects' },
   { id: 'cfd', label: 'CFD' },
+  { id: 'settings', label: 'Settings' },
   { id: 'about', label: 'About' },
 ];
 

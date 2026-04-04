@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useRef, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -20,7 +20,7 @@ import {
 } from '@dnd-kit/sortable';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useProjectList } from '@/contexts/project-list-context';
-import { loadProject, exportProject } from '@/lib/storage';
+import { useStorage } from '@/contexts/storage-context';
 import { exportFilename, exportAllFilename, downloadFile } from '@/lib/download';
 import { MAX_IMPORT_FILE_SIZE, MAX_NAME_LENGTH } from '@/lib/constants';
 import { ConfirmDialog } from './confirm-dialog';
@@ -40,10 +40,12 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     importProjectFromJson,
     reorderProjects,
   } = useProjectList();
+  const { driver } = useStorage();
 
   const [newName, setNewName] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [projectStats, setProjectStats] = useState<Map<string, ProjectStats>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
@@ -51,7 +53,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     useSensor(KeyboardSensor),
   );
 
-  const projectIds = useMemo(() => projects.map((p) => p.id), [projects]);
+  const projectIds = projects.map((p) => p.id);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -66,21 +68,25 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     [projectIds, reorderProjects]
   );
 
-  // Load full project data for stats — memoized keyed on projects array reference
-  const projectStats = useMemo(() => {
-    const map = new Map<string, ProjectStats>();
-    for (const p of projects) {
-      const full = loadProject(p.id);
-      if (full) {
-        map.set(p.id, {
-          snapshotCount: full.snapshots.length,
-          workflowStateCount: full.workflow.length,
-          updatedAt: full.updatedAt,
-        });
+  // Load full project data for stats via driver (async)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const map = new Map<string, ProjectStats>();
+      for (const p of projects) {
+        const full = await driver.loadProject(p.id);
+        if (full) {
+          map.set(p.id, {
+            snapshotCount: full.snapshots.length,
+            workflowStateCount: full.workflow.length,
+            updatedAt: full.updatedAt,
+          });
+        }
       }
-    }
-    return map;
-  }, [projects]);
+      if (!cancelled) setProjectStats(map);
+    })();
+    return () => { cancelled = true; };
+  }, [projects, driver]);
 
   const handleCreate = useCallback(() => {
     const name = newName.trim();
@@ -123,21 +129,21 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     e.target.value = '';
   };
 
-  const handleExport = useCallback((id: string) => {
-    const project = loadProject(id);
+  const handleExport = useCallback(async (id: string) => {
+    const project = await driver.loadProject(id);
     if (!project) return;
-    const json = exportProject(project);
+    const json = driver.exportProject(project);
     downloadFile(json, exportFilename(project.name, 'json'), 'application/json');
-  }, []);
+  }, [driver]);
 
-  const handleExportAll = useCallback(() => {
-    const allProjects = projects
-      .map((p) => loadProject(p.id))
-      .filter((p): p is NonNullable<typeof p> => p !== null);
+  const handleExportAll = useCallback(async () => {
+    const allProjects = (await Promise.all(
+      projects.map((p) => driver.loadProject(p.id))
+    )).filter((p): p is NonNullable<typeof p> => p !== null);
     if (allProjects.length === 0) return;
     const json = JSON.stringify(allProjects, null, 2);
     downloadFile(json, exportAllFilename('json'), 'application/json');
-  }, [projects]);
+  }, [projects, driver]);
 
   const handleDeleteClick = useCallback(
     (id: string) => {
