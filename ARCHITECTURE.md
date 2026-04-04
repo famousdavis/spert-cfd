@@ -32,9 +32,10 @@ src/
 ├── components/
 │   ├── app-shell.tsx             # Top-level provider wiring + tab state + loading gate
 │   ├── app-header.tsx            # Simplified header: branding + Cloud Storage auth
-│   ├── tab-navigation.tsx        # Pill-style tab bar (Projects | CFD | About)
+│   ├── tab-navigation.tsx        # Pill-style tab bar (Projects | CFD | Settings | About)
 │   ├── projects-tab.tsx          # Projects landing tab: card grid, add form, import/export
 │   ├── project-row.tsx           # SortableProjectCard: draggable tile with stats + actions
+│   ├── settings-tab.tsx          # Settings tab (v0.6.0 placeholder, v0.7.0 cloud UI)
 │   ├── about-tab.tsx             # About page (Forecaster pattern)
 │   ├── error-boundary.tsx        # React Error Boundary for crash recovery
 │   ├── confirm-dialog.tsx        # Custom confirmation modal (replaces browser confirm())
@@ -64,14 +65,17 @@ src/
 │
 ├── contexts/
 │   ├── auth-context.tsx          # AuthProvider: Firebase Auth + Firestore consent
-│   ├── project-list-context.tsx  # Project list, switching, CRUD
-│   └── active-project-context.tsx # Active project data + 300ms debounced saves
+│   ├── storage-context.tsx       # StorageProvider: active StorageDriver + useStorage()
+│   ├── project-list-context.tsx  # Project list, switching, CRUD (via driver)
+│   └── active-project-context.tsx # Active project data + saves via driver
 │
 ├── lib/
 │   ├── constants.ts              # APP_VERSION, TOS_VERSION, legal URLs, localStorage keys
 │   ├── firebase.ts               # Firebase app/auth/firestore initialization
 │   ├── consent.ts                # Consent localStorage helpers
-│   ├── storage.ts                # localStorage CRUD (index + per-project keys)
+│   ├── storage-driver.ts          # StorageDriver interface + StorageMode + ProjectListItem
+│   ├── local-storage-driver.ts    # createLocalStorageDriver() — async wrapper over storage.ts
+│   ├── storage.ts                # Low-level localStorage CRUD (consumed by local driver)
 │   ├── storage-health.ts         # Usage monitoring (3MB warning, 4.5MB critical)
 │   ├── migrations.ts             # Semver-based migration framework
 │   ├── sample-data.ts            # Sample project factory (14 snapshots, 5 states)
@@ -83,7 +87,7 @@ src/
 │   ├── use-dismiss.ts            # useEscapeKey() + useClickOutside() hooks
 │   ├── use-grid-navigation.ts    # 2D keyboard navigation (arrows, Tab, Enter, Escape)
 │   ├── use-workflow-editor.ts    # Workflow state CRUD hook
-│   └── __tests__/                # 10 test files, 140 tests
+│   └── __tests__/                # 11 test files, 164 tests
 │       ├── calculations.test.ts
 │       ├── colors.test.ts
 │       ├── consent.test.ts       # Consent utility tests (v0.4.0)
@@ -93,6 +97,7 @@ src/
 │       ├── migrations.test.ts
 │       ├── storage-health.test.ts
 │       ├── storage.test.ts
+│       ├── local-storage-driver.test.ts  # StorageDriver contract tests (v0.6.0)
 │       └── use-workflow-editor.test.ts
 │
 └── types/
@@ -142,24 +147,32 @@ MetricsPeriod (discriminated union, uses `kind` not `type`)
 
 ## Storage Architecture
 
-Split localStorage design for scalability:
+**Abstraction layer (v0.6.0):** All persistence goes through the `StorageDriver` interface, provided to the app via `StorageProvider` context. Contexts and components call `useStorage()` — no direct `storage.ts` imports outside the driver.
 
-- **Index key** `cfd-lab` — stores `StorageIndex` (project list, active ID, version)
-- **Project keys** `cfd-lab-project-{id}` — one key per project with full `Project` data
+- `StorageDriver` — async interface: CRUD, preferences, real-time sync, export/import, flush
+- `LocalStorageDriver` — wraps `storage.ts` functions with `Promise.resolve()`; `saveProject()` is a pure data write (no index side effects)
+- `StorageProvider` — uses `useState` lazy initializer to create the driver once (prevents infinite re-render if downstream contexts depend on `[driver]`)
 
-All storage functions include `typeof window === 'undefined'` guards for SSR safety. Contexts use deferred loading (empty initial state → `useEffect` loads from localStorage → `isLoaded` flag gates rendering) to prevent hydration mismatches.
+**localStorage keys:**
 
-Active project saves are debounced at 300ms via `ActiveProjectContext`.
+- **Index** `cfd-lab` — `StorageIndex` (project list, version)
+- **Projects** `cfd-lab-project-{id}` — one key per project
+- **Active project** `spertcfd-active-project` — dedicated key (migrated from `StorageIndex.activeProjectId` on first access)
+- **Workspace ID** `spertcfd-workspace-id` — nanoid(8) for local-mode fingerprinting
+- **Storage mode** `spertcfd-storage-mode` — `'local'` or `'cloud'` (v0.7.0)
+
+All storage functions include `typeof window === 'undefined'` guards for SSR safety. Contexts use deferred async loading (`useEffect` → `await driver.loadProjectList()` → `isLoaded` flag gates rendering).
 
 ## Context Architecture
 
-Three contexts with intentional nesting order:
+Four contexts with intentional nesting order:
 
 1. **AuthContext** — Firebase Auth state, sign-in/out methods, consent modal orchestration. Wraps the entire app.
-2. **ProjectListContext** — project list, active project ID, CRUD operations, `reorderProjects()` for persistent drag order. Changes here (switching projects, renaming) don't re-render the data grid or chart.
-3. **ActiveProjectContext** — workflow, snapshots, settings for the active project. Provides `updateWorkflow`, `updateSnapshots`, `updateSettings` with debounced persistence.
+2. **StorageContext** — provides the active `StorageDriver` via `useStorage()`. In v0.6.0, always `LocalStorageDriver`. In v0.7.0, switches between local and cloud drivers based on auth state and user preference.
+3. **ProjectListContext** — project list, active project ID, CRUD operations via driver, `reorderProjects()` for persistent drag order. Sample project seeding gated on `driver.mode === 'local'`.
+4. **ActiveProjectContext** — workflow, snapshots, settings for the active project. Provides `updateWorkflow`, `updateSnapshots`, `updateSettings` with driver-managed persistence. Includes `beforeunload` flush handler.
 
-`AppShell` nests them: `ErrorBoundary > AuthProvider > ProjectListProvider > AppContent (tab state + ActiveProjectProvider) > UI`.
+`AppShell` nests them: `ErrorBoundary > AuthProvider > StorageProvider > ProjectListProvider > AppContent (tab state + ActiveProjectProvider) > UI`.
 
 ## Auth & Consent Architecture
 
@@ -185,7 +198,7 @@ Semver-based, matching the pattern from MyScrumBudget:
 - Each migration has a `version` string and `migrate()` function
 - `compareVersions()` handles semver ordering
 - `loadIndex()` and `loadProject()` auto-detect stale data and run pending migrations
-- Currently at v0.5.0; projects now stamped with `_version` on save for future migrations
+- Currently at v0.6.0; projects now stamped with `_version` on save for future migrations
 
 ## Key Conventions
 

@@ -2,6 +2,30 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.6.0 — Storage Abstraction Layer (April 4, 2026)
+
+### Added
+- `StorageDriver` interface (`src/lib/storage-driver.ts`) — async abstraction over persistence, supporting CRUD, preferences, real-time sync stubs, export/import, and flush lifecycle
+- `LocalStorageDriver` factory (`src/lib/local-storage-driver.ts`) — wraps existing `storage.ts` behind the `StorageDriver` interface; all operations resolve immediately
+- `StorageProvider` context (`src/contexts/storage-context.tsx`) — provides the active driver to all consumers via `useStorage()` hook; uses `useState` lazy initializer to prevent infinite re-render (GanttApp lesson)
+- **Settings tab** (`src/components/settings-tab.tsx`) — fourth tab in navigation (Projects | CFD | Settings | About); placeholder for cloud storage UI in v0.7.0
+- Dedicated `spertcfd-active-project` localStorage key for active project ID, with one-time migration from old `StorageIndex.activeProjectId`
+- `spertcfd-workspace-id` localStorage key for local-mode fingerprinting (nanoid(8), created on first access)
+- `beforeunload` flush handler in `ActiveProjectContext` for cloud-mode data safety
+- Cloud-mode UI guards: storage indicator hidden and localStorage warning banner suppressed when `driver.mode === 'cloud'`
+- 25 new tests for `LocalStorageDriver` (164 total across 11 files)
+
+### Changed
+- **Provider hierarchy** updated: `ErrorBoundary > AuthProvider > StorageProvider > ProjectListProvider > AppContent > ActiveProjectProvider`
+- `ProjectListContext` refactored to consume `useStorage()` — all persistence via driver, no direct `storage.ts` imports
+- `ActiveProjectContext` refactored to consume `useStorage()` — manual debounce logic removed (driver handles internally), load is async with cancellation
+- `projects-tab.tsx` refactored to consume `useStorage()` — project stats loading converted from `useMemo` to async `useEffect`, export functions now async
+- Sample project seeding gated on `driver.mode === 'local'` — cloud mode shows empty state instead
+- Tab navigation expanded from 3 to 4 tabs (`TabId` union updated)
+
+### Fixed
+- **Priority 1:** Removed hidden index-update side effect from `saveProject()` in `storage.ts` (lines 89–93). Index bookkeeping now lives exclusively in `LocalStorageDriver.createProject()`, breaking the coupling that would have caused phantom index writes in cloud mode.
+
 ## v0.5.1 — Security Audit, Refactoring & Dependency Audit (April 3, 2026)
 
 ### Security
