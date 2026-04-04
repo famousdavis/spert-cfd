@@ -2,6 +2,33 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.7.0 — Cloud Storage (April 4, 2026)
+
+### Added
+- **Optional Firebase cloud storage** with Firestore backend — opt-in via Settings tab
+- `FirestoreDriver` factory (`src/lib/firestore-driver.ts`) — implements `StorageDriver` against Firestore with 500ms debounced writes, `hasPendingWrites` echo prevention, and monolithic project documents
+- **Settings tab** fully populated: storage mode toggle (Local/Cloud), sign-in UI (Google/Microsoft), migration dialog, account info
+- **Sharing UI** (`src/components/sharing-section.tsx`) — per-project member management with owner/editor/viewer roles, email-based member lookup via `spertcfd_profiles`
+- **Local → Cloud migration** (`src/lib/cloud-migration.ts`) — uploads local projects to Firestore with collision detection (§21.13 `PERMISSION_DENIED` pattern), `_hasUploadedToCloud` flag prevents re-upload on re-sign-in
+- **Real-time sync** in cloud mode — `onSnapshot` listeners on active project and project list; changes from other tabs/devices appear instantly
+- **User profiles** written to `spertcfd_profiles/{uid}` on every sign-in for sharing UI email lookups
+- **Cloud mode indicator** — "Cloud" badge in app header when in cloud mode
+- **Fingerprinting fields** on `Project` type: `_originRef`, `_storageRef`, `_changeLog` (optional, backward compatible)
+- Cloud metadata fields on `Project` type: `owner`, `members`, `schemaVersion` (optional)
+- `ChangeLogEntry` type for structured audit trail
+- Firestore helper utilities (`src/lib/firestore-helpers.ts`): `stripUndefined()`, `appendChangeLogEntry()`, collection name constants
+- Security rules reference copy (`firestore.rules`) with `isCfdMember`/`isCfdOwner`/`isCfdEditor` helpers
+- `.env.local.example` for new developer onboarding
+- 17 new tests: 10 for `FirestoreDriver`, 7 for cloud migration (181 total across 13 files)
+
+### Changed
+- `StorageProvider` now auth-aware: blocks children with loading spinner until driver is ready, prevents flash of local data when cloud mode is active
+- `StorageContextValue` expanded with `switchMode()`, `isCloudAvailable`, `storageReady`
+- `firebase.ts` uses `initializeFirestore` with `memoryLocalCache()` instead of `getFirestore` — prevents stale security rule decisions in IndexedDB (§21.5)
+- `LocalStorageDriver.exportProject` now injects `_storageRef: workspaceId` at export time (interface contract fix)
+- App header simplified: sign-in UI moved to Settings tab, header shows cloud badge and user name only
+- About tab "Your Data & Storage" section updated with Cloud Storage subsection
+
 ## v0.6.0 — Storage Abstraction Layer (April 4, 2026)
 
 ### Added

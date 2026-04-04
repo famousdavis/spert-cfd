@@ -137,7 +137,8 @@ export function createLocalStorageDriver(): StorageDriver {
     // ── Export / Import ───────────────────────────────────
 
     exportProject(project: Project): string {
-      return exportProject(project);
+      // Inject _storageRef at export time (Issue 7 — interface contract)
+      return exportProject({ ...project, _storageRef: this.workspaceId });
     },
 
     importProject(json: string): Project | null {

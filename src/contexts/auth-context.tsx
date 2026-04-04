@@ -21,6 +21,7 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, googleProvider, microsoftProvider, isFirebaseConfigured } from '@/lib/firebase';
 import { TOS_VERSION, APP_ID } from '@/lib/constants';
+import { PROFILES_COL } from '@/lib/firestore-helpers';
 import {
   hasAcceptedCurrentTos,
   recordLocalAcceptance,
@@ -106,6 +107,23 @@ async function checkReturningUserConsent(user: User): Promise<boolean> {
   }
 }
 
+/** Write/update user profile for sharing UI email lookups (non-blocking) */
+function writeUserProfile(user: User): void {
+  if (!db) return;
+  setDoc(
+    doc(db, PROFILES_COL, user.uid),
+    {
+      displayName: user.displayName ?? '',
+      email: user.email ?? '',
+      photoURL: user.photoURL ?? null,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  ).catch((err) => {
+    console.error('Failed to update profile:', (err as { code?: string }).code ?? 'unknown');
+  });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(isFirebaseConfigured);
@@ -127,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (isPendingWrite) {
         // Branch A: User just accepted consent and signed in
         await writeConsentRecord(firebaseUser);
+        writeUserProfile(firebaseUser);
         recordLocalAcceptance();
         setUser(firebaseUser);
         setIsAuthLoading(false);
@@ -134,12 +153,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Branch B: Returning user (existing session on app load)
         if (hasAcceptedCurrentTos()) {
           // Fast path: local cache matches current version
+          writeUserProfile(firebaseUser);
           setUser(firebaseUser);
           setIsAuthLoading(false);
         } else {
           // Need to verify with Firestore
           const isValid = await checkReturningUserConsent(firebaseUser);
           if (isValid) {
+            writeUserProfile(firebaseUser);
             setUser(firebaseUser);
           } else {
             // Version mismatch or no record — sign out

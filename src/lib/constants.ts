@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-export const APP_VERSION = '0.6.0';
+export const APP_VERSION = '0.7.0';
 
 /** Maximum file size for CSV and JSON imports (1MB) */
 export const MAX_IMPORT_FILE_SIZE = 1 * 1024 * 1024;
@@ -36,3 +36,6 @@ export const LS_WORKSPACE_ID = 'spertcfd-workspace-id';
 /** Debounce delays for storage writes (ms) */
 export const DEBOUNCE_LOCAL_MS = 300;
 export const DEBOUNCE_CLOUD_MS = 500;
+
+/** localStorage key for migration flag */
+export const LS_HAS_UPLOADED = 'spertcfd-has-uploaded-to-cloud';

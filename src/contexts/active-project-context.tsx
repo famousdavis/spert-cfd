@@ -63,6 +63,18 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [activeProjectId, driver]);
 
+  // Subscribe to remote changes in cloud mode
+  useEffect(() => {
+    if (!activeProjectId || driver.mode !== 'cloud') return;
+    const unsub = driver.onProjectChange(activeProjectId, (remoteProject) => {
+      if (remoteProject) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- real-time sync callback
+        setProject(remoteProject);
+      }
+    });
+    return unsub;
+  }, [activeProjectId, driver]);
+
   // Flush pending writes on unmount
   useEffect(() => {
     return () => driver.flush();

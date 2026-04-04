@@ -4,7 +4,7 @@
 
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, memoryLocalCache } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,6 +25,11 @@ const app = isFirebaseConfigured
   : null;
 
 export const auth = app ? getAuth(app) : null;
-export const db = app ? getFirestore(app) : null;
+// memoryLocalCache avoids stale security rule decisions that persist in IndexedDB
+// and cause "Missing or insufficient permissions" errors after rules change.
+// See cloud-storage-guide ARCHITECTURE.md §21.5.
+export const db = app
+  ? initializeFirestore(app, { localCache: memoryLocalCache() })
+  : null;
 export const googleProvider = app ? new GoogleAuthProvider() : null;
 export const microsoftProvider = app ? new OAuthProvider('microsoft.com') : null;
