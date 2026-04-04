@@ -92,7 +92,7 @@ src/
 │   ├── use-dismiss.ts            # useEscapeKey() + useClickOutside() hooks
 │   ├── use-grid-navigation.ts    # 2D keyboard navigation (arrows, Tab, Enter, Escape)
 │   ├── use-workflow-editor.ts    # Workflow state CRUD hook
-│   └── __tests__/                # 13 test files, 181 tests
+│   └── __tests__/                # 13 test files, 182 tests
 │       ├── calculations.test.ts
 │       ├── colors.test.ts
 │       ├── consent.test.ts       # Consent utility tests (v0.4.0)

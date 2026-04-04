@@ -2,6 +2,25 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.7.1 — Refactor & Dependency Update (April 4, 2026)
+
+### Fixed
+- Added `.catch()` error handlers to all fire-and-forget driver operations in `ProjectListContext` (`createProject`, `deleteProject`, `renameProject`) and `ActiveProjectContext` (`loadProject`) — prevents unhandled promise rejections in cloud mode
+- Added missing test for `_storageRef` injection in `LocalStorageDriver.exportProject` (Issue 7 coverage gap from v0.6.0)
+
+### Dependencies
+- Updated nanoid 5.1.6 → 5.1.7
+- Updated recharts 3.7.0 → 3.8.1
+- Updated tailwindcss 4.1.18 → 4.2.2
+- Updated @tailwindcss/postcss 4.1.18 → 4.2.2
+- Updated postcss 8.5.6 → 8.5.8
+
+### Investigated (no change needed)
+- `flush()` inside `setDriver` state updater: confirmed idempotent — second call finds empty `pendingWrites` map
+- `activeProjectId` migration TOCTOU race: confirmed benign — writes identical value, localStorage is single-threaded
+- `onProjectListChange` `hasPendingWrites` query-level suppression: intentional (Issue 8)
+- `saveProject` debounce dangling Promise: callers fire-and-forget, same pattern as Story Map and MyScrumBudget
+
 ## v0.7.0 — Cloud Storage (April 4, 2026)
 
 ### Added

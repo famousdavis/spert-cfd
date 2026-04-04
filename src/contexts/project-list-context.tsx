@@ -106,7 +106,9 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
       };
 
       // Fire and forget — driver handles persistence
-      driver.createProject(project);
+      driver.createProject(project).catch((err) => {
+        console.error('Failed to create project:', (err as { code?: string }).code ?? 'unknown');
+      });
       driver.setActiveProjectId(id);
 
       setProjects((prev) => [...prev, { id, name: safeName }]);
@@ -128,6 +130,8 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
           driver.setActiveProjectId(newActive);
           setActiveProjectId(newActive);
         }
+      }).catch((err) => {
+        console.error('Failed to delete project:', (err as { code?: string }).code ?? 'unknown');
       });
     },
     [driver, activeProjectId]
@@ -148,10 +152,14 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
       driver.loadProject(id).then((project) => {
         if (!project) return;
         const updated = { ...project, name };
-        driver.saveProject(updated);
+        driver.saveProject(updated).catch((err) => {
+          console.error('Failed to save renamed project:', (err as { code?: string }).code ?? 'unknown');
+        });
         setProjects((prev) =>
           prev.map((p) => (p.id === id ? { ...p, name } : p))
         );
+      }).catch((err) => {
+        console.error('Failed to load project for rename:', (err as { code?: string }).code ?? 'unknown');
       });
     },
     [driver]
