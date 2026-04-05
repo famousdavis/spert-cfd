@@ -45,7 +45,7 @@ function AppContent() {
       <div className="flex h-screen flex-col">
         <FirstRunBanner />
         <LocalStorageWarningBanner />
-        <AppHeader />
+        <AppHeader onNavigateToSettings={() => setActiveTab('settings')} />
         <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
         <div className="flex flex-1 overflow-hidden">
           {activeTab === 'projects' && (

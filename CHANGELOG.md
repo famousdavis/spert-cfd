@@ -2,6 +2,14 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.7.4 — Standardized Auth Chip (April 5, 2026)
+
+### Changed
+- Replaced header auth indicator with Option C split pill — consistent across all SPERT® Suite apps
+- Signed-in cloud mode shows avatar circle (first initial, `#0070f3`) + first name + cloud icon linking to Settings
+- Local/signed-out mode shows lock icon + "Local only" + "Sign in" link to Settings
+- Removed separate "Cloud" text badge and full display name from header
+
 ## v0.7.3 — Per-Project Sharing UI (April 4, 2026)
 
 ### Added

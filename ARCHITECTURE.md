@@ -31,7 +31,7 @@ src/
 │
 ├── components/
 │   ├── app-shell.tsx             # Top-level provider wiring + tab state + loading gate
-│   ├── app-header.tsx            # Simplified header: branding + Cloud Storage auth
+│   ├── app-header.tsx            # Header: branding + Option C split pill auth chip
 │   ├── tab-navigation.tsx        # Pill-style tab bar (Projects | CFD | Settings | About)
 │   ├── projects-tab.tsx          # Projects landing tab: card grid, add form, import/export
 │   ├── project-row.tsx           # SortableProjectCard: draggable tile with stats + actions
