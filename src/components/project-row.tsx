@@ -140,7 +140,7 @@ function ProjectCard({
       </div>
 
       {/* Actions */}
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           onClick={() => onOpen(id)}
           className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
