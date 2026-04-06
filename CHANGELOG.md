@@ -2,6 +2,14 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.7.5 — Legal Update (April 5, 2026)
+
+### Legal
+- Updated Terms of Service and Privacy Policy to v04-05-2026
+- Added SPERT® AHP to list of covered apps
+- Updated effective date to April 5, 2026
+- Bumped `TOS_VERSION` to `'04-05-2026'` (triggers re-consent for returning Cloud Storage users)
+
 ## v0.7.4 — Standardized Auth Chip (April 5, 2026)
 
 ### Changed
