@@ -2,6 +2,20 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.7.6 — Auth Chip Sign-Out Popover (April 9, 2026)
+
+### Changed
+- Auth chip in header is now a single `<button>` for both signed-in and signed-out states — one pill, one click target (matches SPERT® Suite convention)
+- Signed-in: clicking anywhere on the pill opens a lightweight popover showing display name, email, and a **Sign out** button (no longer navigates to the Settings tab)
+- Signed-out: clicking the pill still opens the existing sign-in flow via the Settings tab (unchanged)
+
+### Added
+- `src/components/sign-out-popover.tsx` — anchored popover with `role="dialog"`, Escape + outside-click dismissal, and a try/finally loading state (`"Signing out…"`) that guards against re-entry and dismissal mid-await
+- `aria-haspopup="dialog"` / `aria-expanded` on the signed-in chip button, `aria-label` on both states, focus-visible ring for keyboard users
+
+### Notes
+- Popover sign-out handler mirrors the existing Settings → Storage sign-out (`signOut()` only, no `switchMode` side-effects) for parity
+
 ## v0.7.5 — Legal Update (April 5, 2026)
 
 ### Legal
