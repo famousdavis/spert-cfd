@@ -2,6 +2,11 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.7.8 — Banner Render Order Alignment (April 20, 2026)
+
+### Changed
+- **FirstRunBanner and LocalStorageWarningBanner now render below the header and tab navigation** — banners appear above the main content area instead of above the header, matching the layout convention used across the SPERT® Suite
+
 ## v0.7.7 — Auth/Storage Security Remediation (April 19, 2026)
 
 ### Fixed (Critical)
