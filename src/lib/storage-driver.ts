@@ -100,4 +100,12 @@ export interface StorageDriver {
 
   /** Flush any pending debounced writes immediately. */
   flush(): void;
+
+  /**
+   * Discard all pending debounced writes without firing them.
+   * Use on sign-out to avoid writing with revoked credentials.
+   * Contrast with flush(), which fires pending writes; use flush() on
+   * beforeunload.
+   */
+  cancelPendingSaves(): void;
 }

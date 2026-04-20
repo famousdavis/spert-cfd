@@ -18,7 +18,13 @@ import type { StorageDriver } from './storage-driver';
 import { PROJECTS_COL } from './firestore-helpers';
 
 /**
- * Upload all local projects to Firestore.
+ * Upload an in-memory list of projects to Firestore.
+ *
+ * The caller provides the projects array directly (from in-memory state
+ * — e.g., useProjectList().projects resolved to full Project objects).
+ * This avoids reading raw localStorage at migration time, which prevented
+ * a prior user's leftover localStorage data from being silently uploaded
+ * to the current user's Firestore account (finding C3).
  *
  * Collision handling (§21.13):
  * - getDoc() wrapped in try/catch because Firestore security rules
@@ -27,22 +33,18 @@ import { PROJECTS_COL } from './firestore-helpers';
  * - If a doc with the same ID exists AND user is a member → skip
  * - If PERMISSION_DENIED or doc doesn't exist → generate new nanoid(8), proceed
  *
- * Local data is left in place as a backup.
- *
  * @returns {{ uploaded: number, skipped: number }}
  */
 export async function migrateLocalToCloud(
   uid: string,
   db: Firestore,
-  localDriver: StorageDriver,
+  projects: Project[],
   cloudDriver: StorageDriver,
 ): Promise<{ uploaded: number; skipped: number }> {
-  const localProjects = await localDriver.loadProjectList();
   let uploaded = 0;
   let skipped = 0;
 
-  for (const entry of localProjects) {
-    const project = await localDriver.loadProject(entry.id);
+  for (const project of projects) {
     if (!project) {
       skipped++;
       continue;

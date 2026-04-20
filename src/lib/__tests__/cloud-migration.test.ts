@@ -60,6 +60,7 @@ function createMockDriver(projects: Project[]): StorageDriver {
     exportProject: (p) => JSON.stringify(p),
     importProject: () => null,
     flush: () => {},
+    cancelPendingSaves: () => {},
   };
 }
 
@@ -70,15 +71,14 @@ beforeEach(() => {
 });
 
 describe('migrateLocalToCloud', () => {
-  it('uploads all local projects with correct ownership', async () => {
+  it('uploads all projects with correct ownership', async () => {
     const p1 = sampleProject('p1', 'Project 1');
-    const localDriver = createMockDriver([p1]);
     const cloudDriver = createMockDriver([]);
 
     // No collision — doc doesn't exist
     mockGetDoc.mockResolvedValue({ exists: () => false, data: () => null });
 
-    const result = await migrateLocalToCloud(TEST_UID, FAKE_DB, localDriver, cloudDriver);
+    const result = await migrateLocalToCloud(TEST_UID, FAKE_DB, [p1], cloudDriver);
 
     expect(result.uploaded).toBe(1);
     expect(result.skipped).toBe(0);
@@ -88,9 +88,14 @@ describe('migrateLocalToCloud', () => {
     expect(cloudList).toHaveLength(1);
   });
 
+  it('returns zero counts for an empty projects array', async () => {
+    const cloudDriver = createMockDriver([]);
+    const result = await migrateLocalToCloud(TEST_UID, FAKE_DB, [], cloudDriver);
+    expect(result).toEqual({ uploaded: 0, skipped: 0 });
+  });
+
   it('skips projects that already exist in cloud (user is member)', async () => {
     const p1 = sampleProject('p1', 'Project 1');
-    const localDriver = createMockDriver([p1]);
     const cloudDriver = createMockDriver([]);
 
     // Doc exists and user is a member
@@ -99,7 +104,7 @@ describe('migrateLocalToCloud', () => {
       data: () => ({ members: { [TEST_UID]: 'owner' } }),
     });
 
-    const result = await migrateLocalToCloud(TEST_UID, FAKE_DB, localDriver, cloudDriver);
+    const result = await migrateLocalToCloud(TEST_UID, FAKE_DB, [p1], cloudDriver);
 
     expect(result.uploaded).toBe(0);
     expect(result.skipped).toBe(1);
@@ -107,13 +112,12 @@ describe('migrateLocalToCloud', () => {
 
   it('generates new ID when collision detected (PERMISSION_DENIED)', async () => {
     const p1 = sampleProject('p1', 'Project 1');
-    const localDriver = createMockDriver([p1]);
     const cloudDriver = createMockDriver([]);
 
     // PERMISSION_DENIED — doc exists but user isn't a member
     mockGetDoc.mockRejectedValue({ code: 'permission-denied' });
 
-    const result = await migrateLocalToCloud(TEST_UID, FAKE_DB, localDriver, cloudDriver);
+    const result = await migrateLocalToCloud(TEST_UID, FAKE_DB, [p1], cloudDriver);
 
     expect(result.uploaded).toBe(1);
 
@@ -127,7 +131,6 @@ describe('migrateLocalToCloud', () => {
     const p1 = sampleProject('p1', 'Project 1');
     const p2 = sampleProject('p2', 'Project 2');
     const p3 = sampleProject('p3', 'Project 3');
-    const localDriver = createMockDriver([p1, p2, p3]);
     const cloudDriver = createMockDriver([]);
 
     // p1: no collision, p2: already exists (skip), p3: PERMISSION_DENIED (new ID)
@@ -136,7 +139,7 @@ describe('migrateLocalToCloud', () => {
       .mockResolvedValueOnce({ exists: () => true, data: () => ({ members: { [TEST_UID]: 'owner' } }) }) // p2
       .mockRejectedValueOnce({ code: 'permission-denied' }); // p3
 
-    const result = await migrateLocalToCloud(TEST_UID, FAKE_DB, localDriver, cloudDriver);
+    const result = await migrateLocalToCloud(TEST_UID, FAKE_DB, [p1, p2, p3], cloudDriver);
 
     expect(result.uploaded).toBe(2);
     expect(result.skipped).toBe(1);
@@ -144,12 +147,11 @@ describe('migrateLocalToCloud', () => {
 
   it('adds _changeLog entry with action "uploaded"', async () => {
     const p1 = sampleProject('p1', 'Project 1');
-    const localDriver = createMockDriver([p1]);
     const cloudDriver = createMockDriver([]);
 
     mockGetDoc.mockResolvedValue({ exists: () => false, data: () => null });
 
-    await migrateLocalToCloud(TEST_UID, FAKE_DB, localDriver, cloudDriver);
+    await migrateLocalToCloud(TEST_UID, FAKE_DB, [p1], cloudDriver);
 
     // Check the uploaded project's changelog
     const cloudList = await cloudDriver.loadProjectList();

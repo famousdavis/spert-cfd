@@ -15,6 +15,7 @@ import {
 import type { Project, WorkflowState, Snapshot, ProjectSettings } from '@/types';
 import { useProjectList } from './project-list-context';
 import { useStorage } from './storage-context';
+import { registerDataReset } from '@/lib/app-data-reset-registry';
 
 interface ActiveProjectContextValue {
   project: Project | null;
@@ -50,13 +51,13 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
   // Load project when activeProjectId changes — async with cancellation
   useEffect(() => {
     if (!activeProjectId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale project when ID is removed
       setProject(null);
       return;
     }
     let cancelled = false;
     driver.loadProject(activeProjectId).then((p) => {
       if (!cancelled) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred async load
         setProject(p);
       }
     }).catch((err) => {
@@ -70,7 +71,6 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
     if (!activeProjectId || driver.mode !== 'cloud') return;
     const unsub = driver.onProjectChange(activeProjectId, (remoteProject) => {
       if (remoteProject) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- real-time sync callback
         setProject(remoteProject);
       }
     });
@@ -88,6 +88,14 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [driver]);
+
+  // Register a synchronous reset callback invoked by StorageProvider's
+  // sign-out cleanup BEFORE the storage swap fires.
+  useEffect(() => {
+    return registerDataReset(() => {
+      setProject(null);
+    });
+  }, []);
 
   const updateWorkflow = useCallback(
     (states: WorkflowState[]) => {

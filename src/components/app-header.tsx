@@ -7,7 +7,9 @@
 import { useRef, useState } from 'react';
 import { useStorage } from '@/contexts/storage-context';
 import { useAuth } from '@/contexts/auth-context';
+import { getFirstName } from '@/lib/user-display';
 import { SignOutPopover } from './sign-out-popover';
+import { SignedInLocalPopover } from './signed-in-local-popover';
 
 interface AppHeaderProps {
   onNavigateToSettings: () => void;
@@ -40,11 +42,9 @@ export function AppHeader({ onNavigateToSettings }: AppHeaderProps) {
   const chipRef = useRef<HTMLButtonElement>(null);
 
   const isCloudSignedIn = mode === 'cloud' && !!user;
-  const rawName = user?.displayName ?? '';
-  // Handle "Last, First" (Microsoft Entra) and "First Last" formats
-  const firstName = rawName.includes(',')
-    ? rawName.split(',')[1]?.trim().split(' ')[0] ?? user?.email ?? ''
-    : rawName.split(' ')[0] || user?.email || '';
+  const isSignedInLocal = !!user && mode !== 'cloud';
+
+  const firstName = getFirstName(user?.displayName, user?.email);
   const initial = firstName.charAt(0).toUpperCase();
 
   const pillBorderStyle = { border: '0.5px solid #D1D5DB' } as const;
@@ -95,11 +95,59 @@ export function AppHeader({ onNavigateToSettings }: AppHeaderProps) {
           </button>
           {popoverOpen && user && (
             <SignOutPopover
-              displayName={user.displayName || firstName || 'Signed in'}
+              firstName={firstName || 'Signed in'}
               email={user.email ?? ''}
               anchorRef={chipRef}
               onClose={() => setPopoverOpen(false)}
               onSignOut={signOut}
+            />
+          )}
+        </div>
+      ) : isSignedInLocal ? (
+        <div className="relative">
+          <button
+            ref={chipRef}
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={popoverOpen}
+            aria-label="Account menu"
+            onClick={() => setPopoverOpen((o) => !o)}
+            className="flex items-center rounded-full bg-white hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            style={pillBorderStyle}
+          >
+            {/* Left segment: avatar + first name */}
+            <span className="flex items-center gap-1.5 py-1 pl-1 pr-2.5">
+              <span
+                className="flex items-center justify-center rounded-full text-white shrink-0"
+                style={{
+                  width: 26,
+                  height: 26,
+                  backgroundColor: '#0070f3',
+                  fontSize: 11,
+                  fontWeight: 500,
+                }}
+              >
+                {initial}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 500 }} className="text-gray-900">
+                {firstName}
+              </span>
+            </span>
+            {/* Vertical divider */}
+            <span className="self-stretch" style={dividerStyle} />
+            {/* Right segment: lock icon (visual only) */}
+            <span className="flex items-center justify-center px-2.5 py-1">
+              <LockIcon />
+            </span>
+          </button>
+          {popoverOpen && user && (
+            <SignedInLocalPopover
+              firstName={firstName || 'Signed in'}
+              email={user.email ?? ''}
+              anchorRef={chipRef}
+              onClose={() => setPopoverOpen(false)}
+              onSignOut={signOut}
+              onSwitchToCloudStorage={onNavigateToSettings}
             />
           )}
         </div>

@@ -7,11 +7,14 @@
 import { useState, useCallback } from 'react';
 import { useStorage } from '@/contexts/storage-context';
 import { useAuth } from '@/contexts/auth-context';
+import { useProjectList } from '@/contexts/project-list-context';
 import { createLocalStorageDriver } from '@/lib/local-storage-driver';
 import { createFirestoreDriver } from '@/lib/firestore-driver';
 import { migrateLocalToCloud, clearLocalProjects } from '@/lib/cloud-migration';
 import { db } from '@/lib/firebase';
-import { LS_HAS_UPLOADED } from '@/lib/constants';
+import { LS_HAS_UPLOADED, LS_ACTIVE_PROJECT } from '@/lib/constants';
+import { SwitchToLocalDialog } from './switch-to-local-dialog';
+import type { Project } from '@/types';
 
 type MigrationState =
   | { status: 'idle' }
@@ -21,10 +24,19 @@ type MigrationState =
   | { status: 'error'; message: string };
 
 export function StorageSection() {
-  const { mode, switchMode, isCloudAvailable } = useStorage();
-  const { user, signInWithGoogle, signInWithMicrosoft, signOut } = useAuth();
+  const { mode, switchMode, isCloudAvailable, driver } = useStorage();
+  const {
+    user,
+    signInWithGoogle,
+    signInWithMicrosoft,
+    signOut,
+    signInError,
+    clearSignInError,
+  } = useAuth();
+  const { projects } = useProjectList();
   const [migration, setMigration] = useState<MigrationState>({ status: 'idle' });
   const [clearLocal, setClearLocal] = useState(false);
+  const [showSwitchToLocalConfirm, setShowSwitchToLocalConfirm] = useState(false);
 
   const handleSwitchToCloud = useCallback(async () => {
     if (!user || !db) return;
@@ -36,26 +48,37 @@ export function StorageSection() {
       return;
     }
 
-    // Count local projects to decide whether to offer migration
-    const localDriver = createLocalStorageDriver();
-    const localList = await localDriver.loadProjectList();
-
-    if (localList.length === 0) {
+    // Read local project count from the in-memory list (C3 fix).
+    if (projects.length === 0) {
       switchMode('cloud');
       return;
     }
 
-    setMigration({ status: 'confirm', localCount: localList.length });
-  }, [user, switchMode]);
+    setMigration({ status: 'confirm', localCount: projects.length });
+  }, [user, switchMode, projects]);
 
   const handleMigrate = useCallback(async () => {
     if (!user || !db) return;
     setMigration({ status: 'migrating' });
 
     try {
-      const localDriver = createLocalStorageDriver();
+      // Source projects from in-memory list + current local driver (C3 fix).
+      // handleMigrate runs while mode is still 'local', so useStorage().driver
+      // is the local driver.
+      const localDriver = driver;
+      const fullProjects: Project[] = [];
+      for (const p of projects) {
+        const full = await localDriver.loadProject(p.id);
+        if (full) fullProjects.push(full);
+      }
+
       const cloudDriver = createFirestoreDriver(user.uid, db);
-      const result = await migrateLocalToCloud(user.uid, db, localDriver, cloudDriver);
+      const result = await migrateLocalToCloud(
+        user.uid,
+        db,
+        fullProjects,
+        cloudDriver,
+      );
 
       localStorage.setItem(LS_HAS_UPLOADED, 'true');
 
@@ -71,7 +94,7 @@ export function StorageSection() {
         message: err instanceof Error ? err.message : 'Migration failed',
       });
     }
-  }, [user, clearLocal, switchMode]);
+  }, [user, clearLocal, switchMode, projects, driver]);
 
   const handleSkipMigration = useCallback(() => {
     localStorage.setItem(LS_HAS_UPLOADED, 'true');
@@ -79,10 +102,50 @@ export function StorageSection() {
     switchMode('cloud');
   }, [switchMode]);
 
-  const handleSwitchToLocal = useCallback(() => {
+  const handleLocalModeClick = useCallback(() => {
+    if (mode !== 'cloud') {
+      // Already local; nothing to preserve or discard.
+      return;
+    }
+    if (projects.length === 0) {
+      switchMode('local');
+      return;
+    }
+    setShowSwitchToLocalConfirm(true);
+  }, [mode, projects.length, switchMode]);
+
+  const handleKeepLocalCopy = useCallback(async () => {
+    // Copy in-memory cloud projects to localStorage via a new local
+    // driver. Must read from the CURRENT (cloud) driver because after
+    // switchMode('local') the driver swaps and cloud-only data is gone.
+    const localDriver = createLocalStorageDriver();
+    for (const p of projects) {
+      try {
+        const full = await driver.loadProject(p.id);
+        if (full) {
+          await localDriver.createProject(full);
+        }
+      } catch (err) {
+        console.error(
+          'Failed to copy project to local storage:',
+          (err as { code?: string }).code ?? 'unknown',
+        );
+      }
+    }
+    localStorage.removeItem(LS_ACTIVE_PROJECT);
+    setShowSwitchToLocalConfirm(false);
     switchMode('local');
-    setMigration({ status: 'idle' });
+  }, [projects, driver, switchMode]);
+
+  const handleDiscard = useCallback(() => {
+    localStorage.removeItem(LS_ACTIVE_PROJECT);
+    setShowSwitchToLocalConfirm(false);
+    switchMode('local');
   }, [switchMode]);
+
+  const handleCancelSwitch = useCallback(() => {
+    setShowSwitchToLocalConfirm(false);
+  }, []);
 
   return (
     <section className="mb-8">
@@ -95,7 +158,7 @@ export function StorageSection() {
             type="radio"
             name="storage-mode"
             checked={mode === 'local'}
-            onChange={() => handleSwitchToLocal()}
+            onChange={handleLocalModeClick}
             className="accent-blue-600"
           />
           Local Storage
@@ -154,6 +217,20 @@ export function StorageSection() {
                   Sign in with Microsoft
                 </button>
               </div>
+              {signInError && (
+                <div
+                  role="alert"
+                  className="mt-2 flex items-center justify-between rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+                >
+                  <span>{signInError}</span>
+                  <button
+                    onClick={clearSignInError}
+                    className="ml-3 text-amber-700 hover:text-amber-900 underline"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -213,6 +290,16 @@ export function StorageSection() {
             Dismiss
           </button>
         </div>
+      )}
+
+      {/* Cloud → Local switch confirmation */}
+      {showSwitchToLocalConfirm && (
+        <SwitchToLocalDialog
+          projectCount={projects.length}
+          onKeepLocalCopy={handleKeepLocalCopy}
+          onDiscard={handleDiscard}
+          onCancel={handleCancelSwitch}
+        />
       )}
     </section>
   );

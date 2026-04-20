@@ -289,4 +289,10 @@ describe('LocalStorageDriver', () => {
       expect(() => driver.flush()).not.toThrow();
     });
   });
+
+  describe('cancelPendingSaves', () => {
+    it('is a no-op that does not throw', () => {
+      expect(() => driver.cancelPendingSaves()).not.toThrow();
+    });
+  });
 });
