@@ -2,6 +2,41 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.7.7 — Auth/Storage Security Remediation (April 19, 2026)
+
+### Fixed (Critical)
+- **Sign-out now cancels pending Firestore writes before revoking credentials** — previously, the last ~500ms of edits were silently flushed with revoked credentials and rejected with `PERMISSION_DENIED` (finding A3)
+- **Cross-user localStorage leakage on shared browsers** — project data under `cfd-lab*`, `spertcfd-active-project`, and `spertcfd-has-uploaded-to-cloud` are now cleared on sign-out so a subsequent user does not see or upload the prior user's projects (findings A2, A2-b, C3, D4)
+- **`LS_HAS_UPLOADED` migration-skip bug** — this per-user flag was persisting across sign-out and silently skipping the upload dialog for the next user (finding A2)
+
+### Fixed (Medium)
+- **`saveProject` promise now correctly rejects on `setDoc` failure** — previously the promise hung forever on any Firestore write error (finding A3-c)
+- **Coalesced `saveProject` promises now resolve on supersession** — no more hanging fire-and-forget awaiters (finding A3-d)
+- **ToS Firestore write failure no longer orphans the consent record** — `LS_TOS_WRITE_PENDING` is now preserved on setDoc failure so the next sign-in retries Branch A (finding A7)
+- **Auth chip now renders the signed-in + local state (d)** — avatar + first name + lock icon, with a popover offering "Switch to Cloud Storage" (navigates to Settings) and "Sign Out" (finding F2)
+- **Cloud → local switch now prompts the user** — three-way dialog with "Keep Local Copy", "Discard", and "Cancel"; Keep copies in-memory cloud projects to this browser (finding C4, C5)
+- **Migration reads from in-memory project list, not raw localStorage** — prevents cross-user data from being uploaded (finding C3)
+- **`auth/popup-blocked` surfaces a user-visible banner** — "Popups are blocked. Please allow popups for this site and try again." (finding D1)
+
+### Added
+- `src/lib/sign-out-cleanup-registry.ts` — module-level registry bridging AuthProvider → StorageProvider for pre-sign-out cleanup
+- `src/lib/app-data-reset-registry.ts` — synchronous in-memory reset registry so `ProjectListContext` and `ActiveProjectContext` can zero state during sign-out before the auth cascade fires
+- `src/lib/user-display.ts` — shared `getFirstName(displayName, email)` utility, handles Microsoft Entra ID "Last, First" format
+- `src/components/signed-in-local-popover.tsx` — new popover for the (d) auth chip state
+- `src/components/switch-to-local-dialog.tsx` — three-button Keep/Discard/Cancel dialog for cloud → local switch
+- `StorageDriver.cancelPendingSaves()` — discards pending debounced writes without firing them (used on sign-out)
+- `AuthContext.signInError` / `clearSignInError` — surface auth popup errors to UI
+
+### Changed
+- `performSignOutWithCleanup` in `StorageProvider` runs the full ordered teardown: zero in-memory state → cancel pending writes → clear per-user localStorage → `firebaseSignOut`
+- `migrateLocalToCloud` signature now accepts a `Project[]` array directly (breaking within-repo change; no external consumers)
+- `SignOutPopover` now takes `firstName` instead of raw `displayName` for consistent display
+
+### Preserved on sign-out (per-browser carve-outs)
+- `spertcfd-storage-mode` (auto-resume intent)
+- `spert_tos_accepted_version` (shared ToS document across all users)
+- `spertcfd-workspace-id`, `spert_firstRun_seen`, `spert_suppress_ls_warning`
+
 ## v0.7.6 — Auth Chip Sign-Out Popover (April 9, 2026)
 
 ### Changed

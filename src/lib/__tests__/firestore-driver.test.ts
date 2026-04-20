@@ -264,5 +264,109 @@ describe('FirestoreDriver', () => {
 
       vi.useRealTimers();
     });
+
+    it('resolves pending saveProject promises after firing', async () => {
+      vi.useFakeTimers();
+      const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+      const project = sampleProject();
+
+      const promise = driver.saveProject(project);
+      driver.flush();
+      await expect(promise).resolves.toBeUndefined();
+
+      vi.useRealTimers();
+    });
+  });
+
+  describe('cancelPendingSaves', () => {
+    it('clears pending timers without firing setDoc', async () => {
+      vi.useFakeTimers();
+      const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+      const project = sampleProject();
+
+      driver.saveProject(project);
+      expect(mockSetDoc).not.toHaveBeenCalled();
+
+      driver.cancelPendingSaves();
+
+      // Advance past the debounce window — setDoc must NOT fire.
+      vi.advanceTimersByTime(5000);
+      expect(mockSetDoc).not.toHaveBeenCalled();
+
+      vi.useRealTimers();
+    });
+
+    it('resolves (does not reject) outstanding saveProject promises', async () => {
+      vi.useFakeTimers();
+      const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+      const promise = driver.saveProject(sampleProject());
+
+      driver.cancelPendingSaves();
+
+      await expect(promise).resolves.toBeUndefined();
+
+      vi.useRealTimers();
+    });
+
+    it('is idempotent', () => {
+      const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+      expect(() => {
+        driver.cancelPendingSaves();
+        driver.cancelPendingSaves();
+      }).not.toThrow();
+    });
+
+    it('leaves the driver usable for future saves', async () => {
+      vi.useFakeTimers();
+      const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+      const p1 = sampleProject({ id: 'p1' });
+      const p2 = sampleProject({ id: 'p2' });
+
+      driver.saveProject(p1);
+      driver.cancelPendingSaves();
+      expect(mockSetDoc).not.toHaveBeenCalled();
+
+      driver.saveProject(p2);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(mockSetDoc).toHaveBeenCalledTimes(1);
+
+      vi.useRealTimers();
+    });
+  });
+
+  describe('saveProject promise semantics', () => {
+    it('rejects when setDoc throws', async () => {
+      vi.useFakeTimers();
+      mockSetDoc.mockRejectedValueOnce(new Error('PERMISSION_DENIED'));
+      const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+
+      const promise = driver.saveProject(sampleProject());
+      // Attach a handler synchronously to prevent the microtask queue
+      // from briefly observing an unhandled rejection when the mock
+      // settles after advanceTimersByTimeAsync.
+      const expectation = expect(promise).rejects.toThrow('PERMISSION_DENIED');
+      await vi.advanceTimersByTimeAsync(1000);
+      await expectation;
+
+      vi.useRealTimers();
+    });
+
+    it('resolves the superseded promise when a second save replaces it', async () => {
+      vi.useFakeTimers();
+      const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+      const project = sampleProject();
+
+      const first = driver.saveProject(project);
+      // Re-save within the debounce window — supersedes the first.
+      const second = driver.saveProject(project);
+
+      await expect(first).resolves.toBeUndefined();
+
+      await vi.advanceTimersByTimeAsync(1000);
+      await expect(second).resolves.toBeUndefined();
+      expect(mockSetDoc).toHaveBeenCalledTimes(1);
+
+      vi.useRealTimers();
+    });
   });
 });

@@ -7,21 +7,30 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { useEscapeKey } from '@/lib/use-dismiss';
 
-interface SignOutPopoverProps {
+interface SignedInLocalPopoverProps {
   firstName: string;
   email: string;
   anchorRef: RefObject<HTMLElement | null>;
   onClose: () => void;
   onSignOut: () => Promise<void>;
+  /**
+   * Navigate the user to Settings (where the Cloud Storage radio lives).
+   * This action MUST NOT call switchMode('cloud') directly — the
+   * mode-toggle click in Settings is the intended UX because it fires
+   * the local → cloud migration prompt in a tab the user is actively
+   * viewing.
+   */
+  onSwitchToCloudStorage: () => void;
 }
 
-export function SignOutPopover({
+export function SignedInLocalPopover({
   firstName,
   email,
   anchorRef,
   onClose,
   onSignOut,
-}: SignOutPopoverProps) {
+  onSwitchToCloudStorage,
+}: SignedInLocalPopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -32,7 +41,6 @@ export function SignOutPopover({
 
   useEscapeKey(guardedClose);
 
-  // Outside-click: ignore clicks inside the panel OR the anchor chip.
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (signingOut) return;
@@ -44,6 +52,12 @@ export function SignOutPopover({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [signingOut, onClose, anchorRef]);
+
+  const handleSwitch = () => {
+    if (signingOut) return;
+    onSwitchToCloudStorage();
+    onClose();
+  };
 
   const handleSignOut = async () => {
     if (signingOut) return;
@@ -69,6 +83,14 @@ export function SignOutPopover({
       </div>
       <div className="border-t border-gray-200" />
       <div className="flex flex-col gap-2 px-4 py-3">
+        <button
+          type="button"
+          onClick={handleSwitch}
+          disabled={signingOut}
+          className="rounded border border-blue-600 bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Switch to Cloud Storage
+        </button>
         <button
           type="button"
           onClick={handleSignOut}

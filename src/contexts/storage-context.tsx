@@ -10,14 +10,23 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ReactNode,
 } from 'react';
+import { signOut as firebaseSignOut } from 'firebase/auth';
 import { createLocalStorageDriver } from '@/lib/local-storage-driver';
 import { createFirestoreDriver } from '@/lib/firestore-driver';
-import { isFirebaseConfigured, db } from '@/lib/firebase';
+import { auth, isFirebaseConfigured, db } from '@/lib/firebase';
 import { useAuth } from './auth-context';
 import type { StorageDriver, StorageMode } from '@/lib/storage-driver';
-import { LS_STORAGE_MODE } from '@/lib/constants';
+import {
+  LS_STORAGE_MODE,
+  LS_ACTIVE_PROJECT,
+  LS_HAS_UPLOADED,
+} from '@/lib/constants';
+import { INDEX_KEY, PROJECT_PREFIX, loadIndex } from '@/lib/storage';
+import { registerSignOutCleanup } from '@/lib/sign-out-cleanup-registry';
+import { runDataReset } from '@/lib/app-data-reset-registry';
 
 interface StorageContextValue {
   driver: StorageDriver;
@@ -60,8 +69,16 @@ export function StorageProvider({ children }: { children: ReactNode }) {
   const effectiveMode: StorageMode =
     isFirebaseConfigured && user && persistedMode === 'cloud' ? 'cloud' : 'local';
 
+  // driverRef tracks the current driver for performSignOutWithCleanup.
+  // Updated atomically inside every setDriver call (never in a follow-up
+  // useEffect — that would leave a one-render stale-ref window when
+  // sign-out fires during a concurrent render).
+  const driverRef = useRef<StorageDriver | null>(null);
+
   // Use useState with lazy initializer (not useMemo) to prevent infinite re-render.
-  // See GanttApp APP-STATUS.md lessons learned.
+  // See GanttApp APP-STATUS.md lessons learned. driverRef is populated by
+  // the driver-swap useEffect on first run; it is briefly null on the very
+  // first render but sign-out cannot be invoked before auth resolves.
   const [driver, setDriver] = useState<StorageDriver | null>(() => {
     if (persistedMode === 'cloud' && isFirebaseConfigured) {
       return null; // Wait for auth to resolve
@@ -79,30 +96,77 @@ export function StorageProvider({ children }: { children: ReactNode }) {
     }
 
     if (effectiveMode === 'cloud' && user && db) {
-      // Flush old driver before swapping
+      // Swap to cloud driver. If the user is still present, flush old
+      // pending writes (credentials still valid). If user is null (sign-
+      // out path), cancelPendingSaves was already called by
+      // performSignOutWithCleanup — do nothing further.
       const firestore = db; // narrow for closure
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- driver swap requires flush + create
       setDriver((prev) => {
-        prev?.flush();
-        return createFirestoreDriver(user.uid, firestore);
+        if (user) prev?.flush();
+        const next = createFirestoreDriver(user.uid, firestore);
+        driverRef.current = next;
+        return next;
       });
     } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- driver swap requires flush + create
       setDriver((prev) => {
-        prev?.flush();
-        return createLocalStorageDriver();
+        // Only flush if user is still present. On sign-out
+        // (user === null), performSignOutWithCleanup already cancelled
+        // pending writes; flushing would fire setDoc with revoked creds.
+        if (user) prev?.flush();
+        const next = createLocalStorageDriver();
+        driverRef.current = next;
+        return next;
       });
     }
   }, [isAuthLoading, effectiveMode, user, persistedMode]);
 
-  // Flush pending writes on unmount
+  // Flush pending writes on unmount — only when credentials are still
+  // valid. If user became null (sign-out), pending writes were already
+  // cancelled by performSignOutWithCleanup.
   useEffect(() => {
-    return () => driver?.flush();
-  }, [driver]);
+    return () => {
+      if (user) driver?.flush();
+    };
+  }, [driver, user]);
 
   const switchMode = useCallback((newMode: StorageMode) => {
     localStorage.setItem(LS_STORAGE_MODE, newMode);
     setPersistedMode(newMode);
+  }, []);
+
+  // Register sign-out cleanup. The registered function closes over
+  // driverRef, not `driver` — it reads driverRef.current at invocation
+  // time, which reflects the driver current at the moment of sign-out.
+  useEffect(() => {
+    const performSignOutWithCleanup = async (): Promise<void> => {
+      // 1. Zero in-memory state synchronously — prevents prior user's
+      //    projects from flashing in the UI during the auth cascade.
+      runDataReset();
+
+      // 2. Cancel pending Firestore writes BEFORE credentials revoke.
+      driverRef.current?.cancelPendingSaves();
+
+      // 3. Clear per-user localStorage keys. Per-browser carve-outs
+      //    (LS_STORAGE_MODE, LS_TOS_ACCEPTED_VERSION, LS_WORKSPACE_ID,
+      //    LS_FIRST_RUN_SEEN, LS_SUPPRESS_LS_WARNING) are preserved.
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(LS_ACTIVE_PROJECT);
+        localStorage.removeItem(LS_HAS_UPLOADED);
+        const index = loadIndex();
+        for (const id of index.projectIds) {
+          localStorage.removeItem(PROJECT_PREFIX + id);
+        }
+        localStorage.removeItem(INDEX_KEY);
+      }
+
+      // 4. Revoke credentials. onAuthStateChanged(null) fires, cascading
+      //    setUser(null) → effectiveMode → 'local' → driver swap.
+      if (auth) {
+        await firebaseSignOut(auth);
+      }
+    };
+
+    return registerSignOutCleanup(performSignOutWithCleanup);
   }, []);
 
   // Block children until driver is ready (Issue 6 — loading gate)

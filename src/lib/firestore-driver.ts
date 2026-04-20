@@ -83,10 +83,17 @@ function buildSavePayload(project: Project): Record<string, unknown> {
  * All project operations are scoped to projects where the user is a member.
  */
 export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver {
-  // Debounce map: projectId → { timeout, project }
+  // Debounce map: projectId → { timeout, project, resolve, reject }
+  // resolve/reject reference the outer saveProject Promise so it can be
+  // terminated from setTimeout, cancelPendingSaves, or supersession.
   const pendingWrites = new Map<
     string,
-    { timeout: ReturnType<typeof setTimeout>; project: Project }
+    {
+      timeout: ReturnType<typeof setTimeout>;
+      project: Project;
+      resolve: () => void;
+      reject: (err: unknown) => void;
+    }
   >();
 
   /** Build the membership query for this user's projects. */
@@ -189,23 +196,30 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     },
 
     saveProject(project: Project): Promise<void> {
-      // Clear any existing pending write for this project
+      // Supersede any existing pending write for this project and
+      // resolve its promise — the replacement write now carries the
+      // latest data; the earlier caller was fire-and-forget.
       const existing = pendingWrites.get(project.id);
       if (existing) {
         clearTimeout(existing.timeout);
+        existing.resolve();
       }
 
-      return new Promise<void>((resolve) => {
+      return new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(async () => {
           pendingWrites.delete(project.id);
           const payload = buildSavePayload(project);
-          await setDoc(doc(db, PROJECTS_COL, project.id), payload, {
-            merge: true,
-          });
-          resolve();
+          try {
+            await setDoc(doc(db, PROJECTS_COL, project.id), payload, {
+              merge: true,
+            });
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
         }, DEBOUNCE_CLOUD_MS);
 
-        pendingWrites.set(project.id, { timeout, project });
+        pendingWrites.set(project.id, { timeout, project, resolve, reject });
       });
     },
 
@@ -313,15 +327,30 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     // ── Lifecycle ─────────────────────────────────────────
 
     flush(): void {
-      for (const [id, { timeout, project }] of pendingWrites) {
+      for (const [id, { timeout, project, resolve }] of pendingWrites) {
         clearTimeout(timeout);
         pendingWrites.delete(id);
         const payload = buildSavePayload(project);
-        // Fire-and-forget — best-effort flush before unmount/tab close
+        // Fire-and-forget — best-effort flush before unmount/tab close.
+        // Resolve the promise unconditionally because flush() is invoked
+        // when the UI cannot respond to rejections (beforeunload, unmount).
         setDoc(doc(db, PROJECTS_COL, project.id), payload, {
           merge: true,
         }).catch(() => {});
+        resolve();
       }
+    },
+
+    cancelPendingSaves(): void {
+      // Discard pending debounced writes without firing them. Used on
+      // sign-out to avoid setDoc with revoked credentials. Resolve (not
+      // reject) outstanding promises so fire-and-forget callers are not
+      // broken; they were awaiting coalesced writes that are now moot.
+      for (const { timeout, resolve } of pendingWrites.values()) {
+        clearTimeout(timeout);
+        resolve();
+      }
+      pendingWrites.clear();
     },
   };
 }

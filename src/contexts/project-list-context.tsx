@@ -17,6 +17,7 @@ import { useStorage } from './storage-context';
 import type { ProjectListItem } from '@/lib/storage-driver';
 import { MAX_NAME_LENGTH } from '@/lib/constants';
 import { createSampleProject } from '@/lib/sample-data';
+import { registerDataReset } from '@/lib/app-data-reset-registry';
 
 interface ProjectListContextValue {
   projects: ProjectListItem[];
@@ -59,11 +60,9 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
         const sample = createSampleProject();
         await driver.createProject(sample);
         driver.setActiveProjectId(sample.id);
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred async load
         setProjects([{ id: sample.id, name: sample.name }]);
         setActiveProjectId(sample.id);
       } else {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- deferred async load
         setProjects(list);
         setActiveProjectId(driver.getActiveProjectId());
       }
@@ -76,11 +75,22 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (driver.mode !== 'cloud') return;
     const unsub = driver.onProjectListChange((list) => {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- real-time sync callback
       setProjects(list);
     });
     return unsub;
   }, [driver]);
+
+  // Register a synchronous reset callback invoked by StorageProvider's
+  // sign-out cleanup BEFORE the storage swap fires. Zeroes in-memory
+  // state so the prior user's projects do not flash in the UI during
+  // the onAuthStateChanged(null) cascade.
+  useEffect(() => {
+    return registerDataReset(() => {
+      setProjects([]);
+      setActiveProjectId(null);
+      setIsLoaded(false);
+    });
+  }, []);
 
   const createProject = useCallback(
     (name: string): string => {

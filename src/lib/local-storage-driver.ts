@@ -150,5 +150,9 @@ export function createLocalStorageDriver(): StorageDriver {
     flush(): void {
       // No-op — local saves are synchronous, no pending writes
     },
+
+    cancelPendingSaves(): void {
+      // No-op — local saves are synchronous; no pending writes exist.
+    },
   };
 }
