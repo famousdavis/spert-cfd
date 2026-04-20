@@ -43,10 +43,10 @@ function AppContent() {
   return (
     <ActiveProjectProvider>
       <div className="flex h-screen flex-col">
-        <FirstRunBanner />
-        <LocalStorageWarningBanner />
         <AppHeader onNavigateToSettings={() => setActiveTab('settings')} />
         <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+        <FirstRunBanner />
+        <LocalStorageWarningBanner />
         <div className="flex flex-1 overflow-hidden">
           {activeTab === 'projects' && (
             <ProjectsTab onOpenInCfd={handleOpenInCfd} />
