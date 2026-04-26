@@ -30,13 +30,17 @@ src/
 │   └── changelog/page.tsx        # Static changelog page
 │
 ├── components/
-│   ├── app-shell.tsx             # Top-level provider wiring + tab state + loading gate
-│   ├── app-header.tsx            # Header: branding + Option C split pill auth chip
+│   ├── app-shell.tsx             # Top-level provider wiring + tab state + loading gate + CloudStorageModal mount
+│   ├── app-header.tsx            # Header: branding + Option C split pill auth chip — opens CloudStorageModal
+│   ├── cloud-storage-modal.tsx   # Three-state Cloud Storage modal + Notifications toggle (auth-chip target)
+│   ├── cloud-migration-flow.tsx  # Shared local→cloud migration UX (consumed by StorageSection + modal; see JSDoc re intentional cloud→local duplication)
+│   ├── icons/google-logo.tsx     # Inline native-color Google G mark
+│   ├── icons/microsoft-logo.tsx  # Inline native-color Microsoft four-square mark
 │   ├── tab-navigation.tsx        # Pill-style tab bar (Projects | CFD | Settings | About)
 │   ├── projects-tab.tsx          # Projects landing tab: card grid, add form, import/export
 │   ├── project-row.tsx           # SortableProjectCard: draggable tile with stats + actions
 │   ├── settings-tab.tsx          # Settings tab: StorageSection + SharingSection
-│   ├── storage-section.tsx       # Storage mode toggle, auth UI, migration dialog
+│   ├── storage-section.tsx       # Storage mode toggle, auth UI; consumes CloudMigrationFlow
 │   ├── sharing-modal.tsx          # Per-project sharing modal (cloud, owner manages)
 │   ├── about-tab.tsx             # About page (Forecaster pattern)
 │   ├── error-boundary.tsx        # React Error Boundary for crash recovery

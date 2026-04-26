@@ -4,15 +4,12 @@
 
 'use client';
 
-import { useRef, useState } from 'react';
 import { useStorage } from '@/contexts/storage-context';
 import { useAuth } from '@/contexts/auth-context';
 import { getFirstName } from '@/lib/user-display';
-import { SignOutPopover } from './sign-out-popover';
-import { SignedInLocalPopover } from './signed-in-local-popover';
 
 interface AppHeaderProps {
-  onNavigateToSettings: () => void;
+  onOpenModal: () => void;
 }
 
 function CloudIcon() {
@@ -35,11 +32,9 @@ function LockIcon() {
   );
 }
 
-export function AppHeader({ onNavigateToSettings }: AppHeaderProps) {
+export function AppHeader({ onOpenModal }: AppHeaderProps) {
   const { mode } = useStorage();
-  const { user, signOut } = useAuth();
-  const [popoverOpen, setPopoverOpen] = useState(false);
-  const chipRef = useRef<HTMLButtonElement>(null);
+  const { user } = useAuth();
 
   const isCloudSignedIn = mode === 'cloud' && !!user;
   const isSignedInLocal = !!user && mode !== 'cloud';
@@ -57,105 +52,78 @@ export function AppHeader({ onNavigateToSettings }: AppHeaderProps) {
       </h1>
 
       {isCloudSignedIn ? (
-        <div className="relative">
-          <button
-            ref={chipRef}
-            type="button"
-            aria-haspopup="dialog"
-            aria-expanded={popoverOpen}
-            aria-label="Account menu"
-            onClick={() => setPopoverOpen((o) => !o)}
-            className="flex items-center rounded-full bg-white hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-            style={pillBorderStyle}
-          >
-            {/* Left segment: avatar + first name */}
-            <span className="flex items-center gap-1.5 py-1 pl-1 pr-2.5">
-              <span
-                className="flex items-center justify-center rounded-full text-white shrink-0"
-                style={{
-                  width: 26,
-                  height: 26,
-                  backgroundColor: '#0070f3',
-                  fontSize: 11,
-                  fontWeight: 500,
-                }}
-              >
-                {initial}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 500 }} className="text-gray-900">
-                {firstName}
-              </span>
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-label="Account menu"
+          onClick={onOpenModal}
+          className="flex items-center rounded-full bg-white hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          style={pillBorderStyle}
+        >
+          {/* Left segment: avatar + first name */}
+          <span className="flex items-center gap-1.5 py-1 pl-1 pr-2.5">
+            <span
+              className="flex items-center justify-center rounded-full text-white shrink-0"
+              style={{
+                width: 26,
+                height: 26,
+                backgroundColor: '#0070f3',
+                fontSize: 11,
+                fontWeight: 500,
+              }}
+            >
+              {initial}
             </span>
-            {/* Vertical divider */}
-            <span className="self-stretch" style={dividerStyle} />
-            {/* Right segment: cloud icon (visual only) */}
-            <span className="flex items-center justify-center px-2.5 py-1">
-              <CloudIcon />
+            <span style={{ fontSize: 13, fontWeight: 500 }} className="text-gray-900">
+              {firstName}
             </span>
-          </button>
-          {popoverOpen && user && (
-            <SignOutPopover
-              firstName={firstName || 'Signed in'}
-              email={user.email ?? ''}
-              anchorRef={chipRef}
-              onClose={() => setPopoverOpen(false)}
-              onSignOut={signOut}
-            />
-          )}
-        </div>
+          </span>
+          {/* Vertical divider */}
+          <span className="self-stretch" style={dividerStyle} />
+          {/* Right segment: cloud icon (visual only) */}
+          <span className="flex items-center justify-center px-2.5 py-1">
+            <CloudIcon />
+          </span>
+        </button>
       ) : isSignedInLocal ? (
-        <div className="relative">
-          <button
-            ref={chipRef}
-            type="button"
-            aria-haspopup="dialog"
-            aria-expanded={popoverOpen}
-            aria-label="Account menu"
-            onClick={() => setPopoverOpen((o) => !o)}
-            className="flex items-center rounded-full bg-white hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-            style={pillBorderStyle}
-          >
-            {/* Left segment: avatar + first name */}
-            <span className="flex items-center gap-1.5 py-1 pl-1 pr-2.5">
-              <span
-                className="flex items-center justify-center rounded-full text-white shrink-0"
-                style={{
-                  width: 26,
-                  height: 26,
-                  backgroundColor: '#0070f3',
-                  fontSize: 11,
-                  fontWeight: 500,
-                }}
-              >
-                {initial}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 500 }} className="text-gray-900">
-                {firstName}
-              </span>
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-label="Account menu"
+          onClick={onOpenModal}
+          className="flex items-center rounded-full bg-white hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          style={pillBorderStyle}
+        >
+          {/* Left segment: avatar + first name */}
+          <span className="flex items-center gap-1.5 py-1 pl-1 pr-2.5">
+            <span
+              className="flex items-center justify-center rounded-full text-white shrink-0"
+              style={{
+                width: 26,
+                height: 26,
+                backgroundColor: '#0070f3',
+                fontSize: 11,
+                fontWeight: 500,
+              }}
+            >
+              {initial}
             </span>
-            {/* Vertical divider */}
-            <span className="self-stretch" style={dividerStyle} />
-            {/* Right segment: lock icon (visual only) */}
-            <span className="flex items-center justify-center px-2.5 py-1">
-              <LockIcon />
+            <span style={{ fontSize: 13, fontWeight: 500 }} className="text-gray-900">
+              {firstName}
             </span>
-          </button>
-          {popoverOpen && user && (
-            <SignedInLocalPopover
-              firstName={firstName || 'Signed in'}
-              email={user.email ?? ''}
-              anchorRef={chipRef}
-              onClose={() => setPopoverOpen(false)}
-              onSignOut={signOut}
-              onSwitchToCloudStorage={onNavigateToSettings}
-            />
-          )}
-        </div>
+          </span>
+          {/* Vertical divider */}
+          <span className="self-stretch" style={dividerStyle} />
+          {/* Right segment: lock icon (visual only) */}
+          <span className="flex items-center justify-center px-2.5 py-1">
+            <LockIcon />
+          </span>
+        </button>
       ) : (
         <button
           type="button"
           aria-label="Sign in"
-          onClick={onNavigateToSettings}
+          onClick={onOpenModal}
           className="flex items-center rounded-full bg-white hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           style={pillBorderStyle}
         >

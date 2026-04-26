@@ -19,10 +19,12 @@ import { LocalStorageWarningBanner } from './local-storage-warning-banner';
 import { SettingsTab } from './settings-tab';
 import { AboutTab } from './about-tab';
 import { Footer } from './footer';
+import { CloudStorageModal } from './cloud-storage-modal';
 
 function AppContent() {
   const { isLoaded, switchProject } = useProjectList();
   const [activeTab, setActiveTab] = useState<TabId>('projects');
+  const [cloudModalOpen, setCloudModalOpen] = useState(false);
 
   const handleOpenInCfd = useCallback(
     (id: string) => {
@@ -43,10 +45,14 @@ function AppContent() {
   return (
     <ActiveProjectProvider>
       <div className="flex h-screen flex-col">
-        <AppHeader onNavigateToSettings={() => setActiveTab('settings')} />
+        <AppHeader onOpenModal={() => setCloudModalOpen(true)} />
         <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
         <FirstRunBanner />
         <LocalStorageWarningBanner />
+        <CloudStorageModal
+          open={cloudModalOpen}
+          onClose={() => setCloudModalOpen(false)}
+        />
         <div className="flex flex-1 overflow-hidden">
           {activeTab === 'projects' && (
             <ProjectsTab onOpenInCfd={handleOpenInCfd} />
