@@ -2,6 +2,30 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.8.0 — Cloud Storage Modal (April 26, 2026)
+
+### Added
+- **Cloud Storage modal launched from the auth chip** — single dialog handles all three valid auth × storage states (signed-out, signed-in-local, signed-in-cloud). Replaces the prior popover/Settings-tab routing from the auth chip.
+- **Full-color Google and Microsoft sign-in buttons** — native-color brand SVGs on a unified blue background, equal-width row that wraps below ~320px viewport.
+- **Notifications toggle** — "Warn me on startup when using local storage" controls the same `LS_SUPPRESS_LS_WARNING` key already read by `LocalStorageWarningBanner`, so the modal toggle and the banner's inline dismiss stay in sync automatically.
+- `src/components/cloud-storage-modal.tsx` — the new four-state modal (state 4, signed-out + cloud, is structurally impossible).
+- `src/components/cloud-migration-flow.tsx` — shared `forwardRef` component encapsulating the local→cloud migration UX (idle → confirm → migrating → done | error). Consumed by both `StorageSection` and the new modal so the migration flow is implemented once.
+- `src/components/icons/google-logo.tsx` and `src/components/icons/microsoft-logo.tsx` — inline full-color brand SVGs.
+- `normalizeDisplayName(displayName)` in `src/lib/user-display.ts` — sibling of `getFirstName`; swaps Microsoft Entra ID's "Last, First MI" to "First MI Last" for full-name display in identity cards.
+
+### Changed
+- `AppHeader` prop renamed `onNavigateToSettings` → `onOpenModal`; all three chip variants now open the new modal instead of routing to Settings or rendering a popover.
+- `AppContent` (in `app-shell.tsx`) hoists `cloudModalOpen` state and mounts `<CloudStorageModal>` unconditionally so it bails internally when closed.
+- `StorageSection` retains the same external behavior but now consumes `<CloudMigrationFlow ref={migrationRef} />` instead of inlining the migration state machine and panels. The Settings tab remains a secondary access path with full functionality.
+
+### Removed
+- `src/components/sign-out-popover.tsx` — fully replaced by the modal.
+- `src/components/signed-in-local-popover.tsx` — fully replaced by the modal.
+
+### Notes
+- The cloud→local direction (`SwitchToLocalDialog` orchestration) is intentionally not extracted into `CloudMigrationFlow`. Each parent owns its own copy because the modal must remain open after the dialog resolves so the user sees the in-place transition to State 2, while `StorageSection` simply re-renders without that constraint. Rationale captured in `cloud-migration-flow.tsx`'s JSDoc and in ARCHITECTURE.md.
+- Sign-out from the modal closes the modal explicitly via `onClose()` — no page reload. `onAuthStateChanged` cascades naturally and the chip re-renders to the signed-out variant.
+
 ## v0.7.8 — Banner Render Order Alignment (April 20, 2026)
 
 ### Changed
