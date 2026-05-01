@@ -2,6 +2,11 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.8.1 — Branded favicon + header icon (April 30, 2026)
+
+### Added
+- **Branded favicon and header icon** — new `spert-favicon-cfd.png` (192×192 PNG, purple `#7c3aed` panels with rounded corners) is wired as the browser tab favicon via `metadata.icons` in `src/app/layout.tsx` and rendered to the immediate left of the "SPERT® CFD" wordmark in `src/components/app-header.tsx`. A charcoal dark-mode variant (`spert-favicon-cfd-dark.png`) ships alongside it in `public/` for future use; the markup currently wires only the light variant since CFD has no theme hook yet.
+
 ## v0.8.0 — Cloud Storage Modal (April 26, 2026)
 
 ### Added
