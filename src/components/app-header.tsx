@@ -47,9 +47,19 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
 
   return (
     <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
-      <h1 className="text-lg font-bold whitespace-nowrap">
-        SPERT<sup className="text-[0.5em] text-gray-400 font-normal">®</sup> CFD
-      </h1>
+      <div className="flex items-center gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/spert-favicon-cfd.png"
+          alt="SPERT CFD icon"
+          width={28}
+          height={28}
+          className="rounded-[11%] shrink-0"
+        />
+        <h1 className="text-lg font-bold whitespace-nowrap">
+          SPERT<sup className="text-[0.5em] text-gray-400 font-normal">®</sup> CFD
+        </h1>
+      </div>
 
       {isCloudSignedIn ? (
         <button
