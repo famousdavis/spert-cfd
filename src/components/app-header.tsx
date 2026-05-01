@@ -52,9 +52,7 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
         <img
           src="/spert-favicon-cfd.png"
           alt="SPERT CFD icon"
-          width={28}
-          height={28}
-          className="rounded-[11%] shrink-0"
+          className="mr-2 h-7 w-7 rounded-lg ring-1 ring-white/20"
         />
         <h1 className="text-lg font-bold whitespace-nowrap">
           SPERT<sup className="text-[0.5em] text-gray-400 font-normal">®</sup> CFD
