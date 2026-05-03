@@ -2,6 +2,16 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.9.2 — Form-hygiene residual sweep (May 3, 2026)
+
+### Fixed
+- **`<input type="date" id="add-row-date">` now also carries `name="add-row-date"`** — `src/components/grid/add-row-dialog.tsx` had the id (matched by the adjacent `<label htmlFor>`) but no `name` attribute, the only field across the codebase the prior id+name pass missed.
+- **Hidden Import-Project file input gets `id` + `name`** — `src/components/projects-tab.tsx`'s `<input type="file" className="hidden">` had neither attribute. Added `id="import-project-file"` + `name="import-project-file"`. Pure DevTools-issue cleanup; the input is programmatically clicked, so no behavior change.
+- **`ColorPicker` hex input switched from a hardcoded `id`/`name` to `useId()`** — `src/components/workflow/color-picker.tsx` is rendered conditionally inside each `StateRow` of the workflow list, so the bare `id="color-picker-hex"` was a duplicate-id risk if two pickers ever coexisted in the DOM. Generated id via `useId()`, applied to both `id` and `name`. Preemptive hygiene; no observed UX path mounts two pickers simultaneously today.
+
+### Notes
+- After this sweep the codebase is clean against all five Chrome form-field hygiene rules (autoComplete, id-or-name, label association, htmlFor sanity, duplicate ids). 24 form fields total, 21 already compliant from prior passes, 3 fixed here.
+
 ## v0.9.1 — Firestore error-handling hygiene (May 3, 2026)
 
 ### Fixed

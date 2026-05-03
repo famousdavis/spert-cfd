@@ -187,6 +187,8 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
           Import
         </button>
         <input
+          id="import-project-file"
+          name="import-project-file"
           ref={fileInputRef}
           type="file"
           accept=".json"
