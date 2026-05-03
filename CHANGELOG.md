@@ -2,6 +2,13 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.9.1 — Firestore error-handling hygiene (May 3, 2026)
+
+### Fixed
+- **`SharingModal.handleChangeRole` now surfaces write errors** — the role-change `setDoc` was previously unhandled, so a Firestore failure left the dropdown silently reverted with no user feedback. Wraps the write in `try/catch` and pipes the error into the modal's existing `setError` state, which already renders inline at the bottom of the dialog body.
+- **`onSnapshot` listeners in `firestore-driver.ts` now have error callbacks** — both `onProjectChange` and `onProjectListChange` previously passed only a success callback, so listener-side failures (permission revoked mid-session, network drop while subscribed) were swallowed. Each listener now receives a third-arg error handler that `console.error`s the Firestore error code. The codebase has no global notification surface and no per-doc subscription tracking set, so a user-visible toast and an automatic resubscribe path are deferred — this change closes the silent-failure gap without inventing infrastructure for it.
+- **Collaborator-invite email field no longer autofills the inviter's own address** — `<input type="email">` in `SharingModal`'s legacy single-invite form had `autoComplete="email"`, which causes browsers to pre-fill the signed-in user's email into a field meant for entering someone else's. Switched to `autoComplete="off"` to match the field's actual purpose (sharing/lookup/invitation per the suite-wide convention).
+
 ## v0.9.0 — Bulk email invitations (May 3, 2026)
 
 ### Added
