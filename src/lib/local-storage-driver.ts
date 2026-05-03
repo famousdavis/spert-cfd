@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { nanoid } from 'nanoid';
-import type { Project } from '@/types';
+import type { Project, PendingInvite } from '@/types';
 import type { StorageDriver, ProjectListItem } from './storage-driver';
 import {
   loadIndex,
@@ -153,6 +153,25 @@ export function createLocalStorageDriver(): StorageDriver {
 
     cancelPendingSaves(): void {
       // No-op — local saves are synchronous; no pending writes exist.
+    },
+
+    // ── Invitations (cloud-only feature) ─────────────────
+
+    async removeCollaborator(_projectId: string, _userId: string): Promise<void> {
+      // Sharing is cloud-only; local mode has no member map to mutate.
+    },
+
+    async listPendingInvites(_projectId: string): Promise<PendingInvite[]> {
+      // Invitations are a cloud-only feature; local mode has no inbox.
+      return [];
+    },
+
+    async revokeInvite(_tokenId: string): Promise<void> {
+      // Cloud-only; local mode silently no-ops.
+    },
+
+    async resendInvite(_tokenId: string): Promise<void> {
+      // Cloud-only; local mode silently no-ops.
     },
   };
 }

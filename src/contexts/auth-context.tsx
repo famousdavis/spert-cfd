@@ -18,13 +18,22 @@ import {
   type User,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, googleProvider, microsoftProvider, isFirebaseConfigured } from '@/lib/firebase';
+import {
+  auth,
+  db,
+  googleProvider,
+  microsoftProvider,
+  isFirebaseConfigured,
+  getClaimPendingInvitations,
+} from '@/lib/firebase';
 import {
   TOS_VERSION,
   APP_ID,
   LS_TOS_WRITE_PENDING,
 } from '@/lib/constants';
 import { PROFILES_COL } from '@/lib/firestore-helpers';
+import { INVITATIONS_ENABLED } from '@/lib/feature-flags';
+import { denormalizeLastFirst } from '@/lib/auth-name';
 import {
   hasAcceptedCurrentTos,
   recordLocalAcceptance,
@@ -37,8 +46,12 @@ import { ConsentModal } from '@/components/consent-modal';
 interface AuthContextValue {
   user: User | null;
   isAuthLoading: boolean;
-  signInWithGoogle: () => void;
-  signInWithMicrosoft: () => void;
+  /** Whether Firebase is configured for this build. Lets shell
+   *  components (notably InvitationBanner) gate sign-in CTAs. */
+  firebaseAvailable: boolean;
+  /** Returns a promise so banner CTAs can await sign-in completion. */
+  signInWithGoogle: () => Promise<void>;
+  signInWithMicrosoft: () => Promise<void>;
   signOut: () => Promise<void>;
   /** User-visible sign-in error, or null if none. Set on auth/popup-blocked or generic failures. */
   signInError: string | null;
@@ -122,21 +135,84 @@ async function checkReturningUserConsent(user: User): Promise<boolean> {
   }
 }
 
-/** Write/update user profile for sharing UI email lookups (non-blocking) */
+/**
+ * Write or update user profile for sharing UI email lookups
+ * (non-blocking).
+ *
+ * v0.9.0: also mirrors the same payload into the suite-wide
+ * spertsuite_profiles/{uid} collection so cross-app invitations from
+ * the other SPERT apps (AHP, Gantt, Scheduler, ...) can resolve
+ * email→uid server-side. Both writes use { merge: true } and are
+ * fire-and-forget.
+ *
+ * displayName is normalized via denormalizeLastFirst() so Microsoft
+ * AD's "Last, First Middle" convention is converted to "First Middle
+ * Last" before it lands in either profile collection. Doing this at
+ * write time means the Cloud Function never has to defensively
+ * re-normalize — and any downstream consumer (the auto-add
+ * notification email's From-line) renders cleanly without RFC 5322
+ * quoting. Mirrors the same fix the function applies to fresh tokens.
+ */
 function writeUserProfile(user: User): void {
   if (!db) return;
-  setDoc(
-    doc(db, PROFILES_COL, user.uid),
-    {
-      displayName: user.displayName ?? '',
-      email: user.email ?? '',
-      photoURL: user.photoURL ?? null,
-      updatedAt: serverTimestamp(),
+  const payload = {
+    displayName: denormalizeLastFirst(user.displayName ?? ''),
+    email: (user.email ?? '').toLowerCase(),
+    photoURL: user.photoURL ?? null,
+    updatedAt: serverTimestamp(),
+  };
+  setDoc(doc(db, PROFILES_COL, user.uid), payload, { merge: true }).catch(
+    (err) => {
+      console.error(
+        'Failed to update profile:',
+        (err as { code?: string }).code ?? 'unknown',
+      );
     },
-    { merge: true },
-  ).catch((err) => {
-    console.error('Failed to update profile:', (err as { code?: string }).code ?? 'unknown');
+  );
+  setDoc(doc(db, 'spertsuite_profiles', user.uid), payload, {
+    merge: true,
+  }).catch((err) => {
+    console.error(
+      'Failed to update suite profile:',
+      (err as { code?: string }).code ?? 'unknown',
+    );
   });
+}
+
+/**
+ * Fire-and-forget call to the claimPendingInvitations Cloud Function.
+ * Idempotent — safe on every auth resolution (Branch A and Branch B).
+ * On success, dispatches a window-level `spert:models-changed` event
+ * so any mounted hook (notably useInvitationLanding) can transition
+ * to the claimed state. The CFD project list also updates
+ * automatically because FirestoreDriver.onProjectListChange's
+ * membership query fires when the function writes members.{uid}.
+ * Failures are logged silently — the user can still claim later (or
+ * reload).
+ *
+ * Gated behind INVITATIONS_ENABLED so flag-off builds skip the
+ * callable entirely (also avoids a crash if the function is
+ * unavailable for any reason).
+ */
+function claimPendingInvitationsAndNotify(): void {
+  if (!INVITATIONS_ENABLED) return;
+  const callable = getClaimPendingInvitations();
+  if (!callable) return;
+  void callable({})
+    .then((res) => {
+      const claimed = res.data?.claimed ?? [];
+      if (claimed.length > 0 && typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('spert:models-changed', { detail: { claimed } }),
+        );
+      }
+    })
+    .catch((err) => {
+      console.error(
+        'claimPendingInvitations failed:',
+        (err as { code?: string }).code ?? 'unknown',
+      );
+    });
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -166,6 +242,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Branch A: User just accepted consent and signed in
         const success = await writeConsentRecord(firebaseUser);
         writeUserProfile(firebaseUser);
+        claimPendingInvitationsAndNotify();
         if (success) {
           // Firestore record exists (or was unnecessary) — finalize local state.
           localStorage.removeItem(LS_TOS_WRITE_PENDING);
@@ -181,6 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (hasAcceptedCurrentTos()) {
           // Fast path: local cache matches current version
           writeUserProfile(firebaseUser);
+          claimPendingInvitationsAndNotify();
           setUser(firebaseUser);
           setIsAuthLoading(false);
         } else {
@@ -188,6 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const isValid = await checkReturningUserConsent(firebaseUser);
           if (isValid) {
             writeUserProfile(firebaseUser);
+            claimPendingInvitationsAndNotify();
             setUser(firebaseUser);
           } else {
             // Version mismatch or no record — sign out via centralized cleanup.
@@ -250,16 +329,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSignInError(null);
   }, []);
 
-  const handleSignInRequest = useCallback((provider: 'google' | 'microsoft') => {
-    if (hasAcceptedCurrentTos()) {
-      // Already accepted — go straight to auth
-      initiateSignIn(provider);
-    } else {
-      // Need consent first — show modal
-      setPendingProvider(provider);
-      setShowConsentModal(true);
-    }
-  }, [initiateSignIn]);
+  const handleSignInRequest = useCallback(
+    async (provider: 'google' | 'microsoft'): Promise<void> => {
+      if (hasAcceptedCurrentTos()) {
+        // Already accepted — go straight to auth and propagate the
+        // promise so banner CTAs can await completion.
+        await initiateSignIn(provider);
+      } else {
+        // Need consent first — show modal. The promise resolves
+        // immediately (consent flow has its own continuation path
+        // via handleConsentAccept).
+        setPendingProvider(provider);
+        setShowConsentModal(true);
+      }
+    },
+    [initiateSignIn],
+  );
 
   const handleConsentAccept = useCallback(() => {
     recordLocalAcceptance();
@@ -291,6 +376,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     user,
     isAuthLoading,
+    firebaseAvailable: isFirebaseConfigured,
     signInWithGoogle: () => handleSignInRequest('google'),
     signInWithMicrosoft: () => handleSignInRequest('microsoft'),
     signOut: handleSignOut,

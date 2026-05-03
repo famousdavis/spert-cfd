@@ -7,7 +7,9 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
   deleteDoc,
+  deleteField,
   collection,
   query,
   where,
@@ -17,7 +19,7 @@ import {
   type DocumentSnapshot,
   type QuerySnapshot,
 } from 'firebase/firestore';
-import type { Project, ChangeLogEntry } from '@/types';
+import type { Project, ChangeLogEntry, PendingInvite, InvitationStatus } from '@/types';
 import type { StorageDriver, ProjectListItem } from './storage-driver';
 import {
   PROJECTS_COL,
@@ -28,6 +30,66 @@ import {
 import { validateProjectData } from './storage';
 import { LS_ACTIVE_PROJECT, DEBOUNCE_CLOUD_MS } from './constants';
 import { DATA_VERSION } from './migrations';
+import { getRevokeInvite, getResendInvite } from './firebase';
+
+// ── Invitation helpers ──────────────────────────────────
+
+const INVITATIONS_COL = 'spertsuite_invitations';
+
+/**
+ * Coerce a Firestore Timestamp (or number, or undefined) into millis.
+ * Server-written `createdAt`/`expiresAt` fields land as Timestamp
+ * objects; the SDK exposes `.toMillis()` for conversion.
+ */
+function tsToMillis(value: unknown): number {
+  if (value == null) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'object' && value !== null && 'toMillis' in value) {
+    const fn = (value as { toMillis: () => number }).toMillis;
+    if (typeof fn === 'function') return fn.call(value);
+  }
+  return 0;
+}
+
+/**
+ * Map a raw spertsuite_invitations Firestore document into the
+ * strongly-typed PendingInvite domain object. Defaults match the
+ * suite-shared schema — missing string fields fall back to '' or
+ * sensible enum values, missing timestamps to 0, missing send count
+ * to 0. Caller is responsible for filtering by status === 'pending'.
+ */
+function mapToPendingInvite(
+  id: string,
+  d: Record<string, unknown>,
+  fallbackProjectId: string,
+  callerUid: string,
+): PendingInvite {
+  return {
+    tokenId: id,
+    appId: (d['appId'] as string) ?? 'spertcfd',
+    modelId: (d['modelId'] as string) ?? fallbackProjectId,
+    modelName: (d['modelName'] as string) ?? '',
+    inviteeEmail: (d['inviteeEmail'] as string) ?? '',
+    role: (d['role'] as PendingInvite['role']) ?? 'editor',
+    isVoting: Boolean(d['isVoting']),
+    inviterUid: (d['inviterUid'] as string) ?? callerUid,
+    inviterName: (d['inviterName'] as string) ?? '',
+    inviterEmail: (d['inviterEmail'] as string) ?? '',
+    status: (d['status'] as InvitationStatus) ?? 'pending',
+    createdAt: tsToMillis(d['createdAt']),
+    expiresAt: tsToMillis(d['expiresAt']),
+    lastEmailSentAt: tsToMillis(d['lastEmailSentAt']),
+    emailSendCount:
+      typeof d['emailSendCount'] === 'number'
+        ? (d['emailSendCount'] as number)
+        : 0,
+    updatedAt: tsToMillis(d['updatedAt']),
+    ...(d['acceptedAt'] !== undefined ? { acceptedAt: tsToMillis(d['acceptedAt']) } : {}),
+    ...(d['acceptedByUid'] !== undefined
+      ? { acceptedByUid: d['acceptedByUid'] as string }
+      : {}),
+  };
+}
 
 // ── Internal helpers ────────────────────────────────────
 
@@ -351,6 +413,69 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
         resolve();
       }
       pendingWrites.clear();
+    },
+
+    // ── Invitations (suite-wide) ─────────────────────────
+
+    /**
+     * Remove a member from a project. Targeted merge update on
+     * `members.${userId}` via deleteField() — race-safe vs. a
+     * read-modify-write of the whole members map. Replaces the
+     * inline updateDoc bypass that previously lived in SharingModal.
+     */
+    async removeCollaborator(projectId: string, userId: string): Promise<void> {
+      await updateDoc(doc(db, PROJECTS_COL, projectId), {
+        [`members.${userId}`]: deleteField(),
+        updatedAt: new Date().toISOString(),
+      });
+    },
+
+    /**
+     * List pending invitations for a project. Reads
+     * spertsuite_invitations directly via the owner-branch security
+     * rule (inviterUid == request.auth.uid). The invitation doc's
+     * `modelId` field stores CFD's projectId. Uses the deployed
+     * (inviterUid, modelId, createdAt) composite index. Filters
+     * status === 'pending' in code (cheaper than a third where).
+     */
+    async listPendingInvites(projectId: string): Promise<PendingInvite[]> {
+      const q = query(
+        collection(db, INVITATIONS_COL),
+        where('inviterUid', '==', uid),
+        where('modelId', '==', projectId),
+      );
+      const snap = await getDocs(q);
+      const out: PendingInvite[] = [];
+      snap.forEach((s) => {
+        const d = s.data() as Record<string, unknown>;
+        if (d['status'] !== 'pending') return;
+        out.push(mapToPendingInvite(s.id, d, projectId, uid));
+      });
+      out.sort((a, b) => b.createdAt - a.createdAt);
+      return out;
+    },
+
+    /**
+     * Soft-revoke a pending invitation via the revokeInvite Cloud
+     * Function. Server flips status='revoked' (no delete). Errors
+     * propagate as Firebase HttpsError; SharingModal's
+     * mapInvitationError translates them to user-facing copy.
+     */
+    async revokeInvite(tokenId: string): Promise<void> {
+      const callable = getRevokeInvite();
+      if (!callable) throw new Error('Cloud invitations are not configured.');
+      await callable({ tokenId });
+    },
+
+    /**
+     * Re-send a pending invitation via the resendInvite Cloud
+     * Function. Server enforces emailSendCount <= 5; HttpsError
+     * 'resource-exhausted' is mapped to cap copy by the UI.
+     */
+    async resendInvite(tokenId: string): Promise<void> {
+      const callable = getResendInvite();
+      if (!callable) throw new Error('Cloud invitations are not configured.');
+      await callable({ tokenId });
     },
   };
 }

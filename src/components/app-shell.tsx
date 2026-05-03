@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { Suspense, useState, useCallback } from 'react';
 import { ProjectListProvider, useProjectList } from '@/contexts/project-list-context';
 import { ActiveProjectProvider } from '@/contexts/active-project-context';
 import { AuthProvider } from '@/contexts/auth-context';
@@ -20,6 +20,7 @@ import { SettingsTab } from './settings-tab';
 import { AboutTab } from './about-tab';
 import { Footer } from './footer';
 import { CloudStorageModal } from './cloud-storage-modal';
+import { InvitationBanner } from './invitation-banner';
 
 function AppContent() {
   const { isLoaded, switchProject } = useProjectList();
@@ -47,6 +48,13 @@ function AppContent() {
       <div className="flex h-screen flex-col">
         <AppHeader onOpenModal={() => setCloudModalOpen(true)} />
         <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+        {/* InvitationBanner uses next/navigation hooks (useSearchParams)
+            which require a Suspense boundary in the App Router or
+            `next build` will fail. Mounted above FirstRunBanner since
+            it is claim-critical when present. */}
+        <Suspense fallback={null}>
+          <InvitationBanner />
+        </Suspense>
         <FirstRunBanner />
         <LocalStorageWarningBanner />
         <CloudStorageModal

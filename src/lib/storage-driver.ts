@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import type { Project } from '@/types';
+import type { Project, PendingInvite } from '@/types';
 
 export type StorageMode = 'local' | 'cloud';
 
@@ -10,6 +10,8 @@ export interface ProjectListItem {
   id: string;
   name: string;
 }
+
+export type ProjectMemberRole = 'owner' | 'editor' | 'viewer';
 
 export interface StorageDriver {
   /** Current storage mode. */
@@ -108,4 +110,39 @@ export interface StorageDriver {
    * beforeunload.
    */
   cancelPendingSaves(): void;
+
+  // ── Invitations (cloud-only feature; local-mode stubs) ──────
+
+  /**
+   * Remove a member from a project. Targeted merge update on
+   * `members.${userId}` via deleteField() — race-safe vs. a
+   * read-modify-write of the whole members map.
+   * Local-mode is a no-op stub (sharing is cloud-only).
+   */
+  removeCollaborator(projectId: string, userId: string): Promise<void>;
+
+  /**
+   * List pending invitations for a project owned by the caller. Reads
+   * spertsuite_invitations directly via the owner-branch security rule
+   * (inviterUid == request.auth.uid). Returns only status === 'pending'.
+   * Local-mode returns an empty array.
+   *
+   * Note: the invitation document's `modelId` field stores CFD's
+   * projectId (suite-shared schema keeps the field name stable).
+   */
+  listPendingInvites(projectId: string): Promise<PendingInvite[]>;
+
+  /**
+   * Soft-revoke a pending invitation. Server marks status='revoked'
+   * (no delete). Caller must be the inviter. Local-mode is a no-op.
+   */
+  revokeInvite(tokenId: string): Promise<void>;
+
+  /**
+   * Re-send a pending invitation email. Server enforces a hard cap of
+   * 5 sends per invitation; bumping past the cap returns
+   * resource-exhausted. Caller must be the inviter. Local-mode is a
+   * no-op.
+   */
+  resendInvite(tokenId: string): Promise<void>;
 }

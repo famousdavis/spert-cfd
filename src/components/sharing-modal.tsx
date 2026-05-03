@@ -13,13 +13,19 @@ import {
   where,
   getDocs,
 } from 'firebase/firestore';
+import type { FirebaseError } from 'firebase/app';
 import { X } from 'lucide-react';
-import { db } from '@/lib/firebase';
+import { db, getSendInvitationEmail, type SendInvitationEmailResult } from '@/lib/firebase';
 import { useAuth } from '@/contexts/auth-context';
 import { useStorage } from '@/contexts/storage-context';
 import { useEscapeKey } from '@/lib/use-dismiss';
 import { PROJECTS_COL, PROFILES_COL, appendChangeLogEntry } from '@/lib/firestore-helpers';
-import type { Project, ChangeLogEntry } from '@/types';
+import { INVITATIONS_ENABLED } from '@/lib/feature-flags';
+import { parseBulkEmails } from '@/lib/parse-bulk-emails';
+import { mapInvitationError } from '@/lib/invitation-errors';
+import { ConfirmDialog } from '@/components/confirm-dialog';
+import { PendingInvitesList } from '@/components/pending-invites-list';
+import type { Project, ChangeLogEntry, PendingInvite } from '@/types';
 
 type MemberRole = 'owner' | 'editor' | 'viewer';
 
@@ -38,10 +44,22 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
   const { driver } = useStorage();
   const modalRef = useRef<HTMLDivElement>(null);
   const [project, setProject] = useState<Project | null>(null);
+  // Legacy (flag off) — single email input.
   const [email, setEmail] = useState('');
+  // New (flag on) — bulk-paste textarea + per-batch role.
+  const [bulkEmails, setBulkEmails] = useState('');
+  const [role, setRole] = useState<'editor' | 'viewer'>('editor');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [lastResult, setLastResult] = useState<SendInvitationEmailResult | null>(null);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  // tokenId of the pending-invite row whose action is in flight; null
+  // otherwise. Disables every row's buttons while one runs.
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
+  // Confirmation dialogs (replace window.confirm).
+  const [revokeTokenId, setRevokeTokenId] = useState<string | null>(null);
+  const [removeUid, setRemoveUid] = useState<string | null>(null);
 
   useEscapeKey(onClose);
 
@@ -70,12 +88,28 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
     return unsub;
   }, [projectId, driver]);
 
+  const refreshPending = useCallback(async () => {
+    if (!INVITATIONS_ENABLED) return;
+    if (driver.mode !== 'cloud') return;
+    try {
+      const list = await driver.listPendingInvites(projectId);
+      setPendingInvites(list);
+    } catch (e) {
+      console.error('listPendingInvites failed:', (e as Error).message);
+    }
+  }, [driver, projectId]);
+
+  useEffect(() => {
+    void refreshPending();
+  }, [refreshPending]);
+
   const members: MemberDisplay[] = Object.entries(project?.members ?? {}).map(
     ([uid, role]) => ({ uid, role }),
   );
   const isOwner = !!user && project?.owner === user.uid;
 
-  const handleAddMember = useCallback(async () => {
+  // ─── Legacy add path (flag off) ────────────────────────────
+  const handleAddMemberLegacy = useCallback(async () => {
     if (!db || !project || !user || project.owner !== user.uid) return;
     const trimmedEmail = email.trim().toLowerCase();
     // Validate email format and length (RFC 5321: max 254 chars)
@@ -144,21 +178,99 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
     }
   }, [project, email, user]);
 
-  const handleRemoveMember = useCallback(
-    async (targetUid: string) => {
-      if (!db || !project || !user || project.owner !== user.uid) return;
+  // ─── Invitation add path (flag on) ─────────────────────────
+  const handleAddInvitations = useCallback(async () => {
+    if (!project || !user || project.owner !== user.uid) return;
+    setError(null);
+    setSuccess(null);
+    setLastResult(null);
+    const emails = parseBulkEmails(bulkEmails);
+    if (emails.length === 0) {
+      setError('Enter at least one email address.');
+      return;
+    }
+    if (emails.length > 25) {
+      setError('You can invite at most 25 people per submission.');
+      return;
+    }
+    const callable = getSendInvitationEmail();
+    if (!callable) {
+      setError('Cloud sharing is unavailable in this build.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const res = await callable({
+        appId: 'spertcfd',
+        modelId: project.id,
+        emails,
+        role,
+        // CFD has no voting concept — always false. Kept on the
+        // suite-shared schema for cross-app compatibility.
+        isVoting: false,
+      });
+      setLastResult(res.data);
+      setBulkEmails('');
+      // The auto-add path mutates the project document; the cloud
+      // onProjectChange subscription updates `project` automatically,
+      // and the pending-invite list needs an explicit refresh.
+      await refreshPending();
+    } catch (e) {
+      setError(mapInvitationError(e as FirebaseError, 'send'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [project, user, bulkEmails, role, refreshPending]);
 
-      const updatedMembers = { ...project.members };
-      delete updatedMembers[targetUid];
+  // ─── Pending-invite actions ────────────────────────────────
+  const handleResendInvite = useCallback(async (tokenId: string) => {
+    setActionBusy(tokenId);
+    setError(null);
+    try {
+      await driver.resendInvite(tokenId);
+      await refreshPending();
+    } catch (e) {
+      setError(mapInvitationError(e as FirebaseError, 'resend'));
+    } finally {
+      setActionBusy(null);
+    }
+  }, [driver, refreshPending]);
 
-      await setDoc(
-        doc(db, PROJECTS_COL, project.id),
-        { members: updatedMembers },
-        { merge: true },
-      );
-    },
-    [project, user],
-  );
+  const handleRevokeConfirm = useCallback(async () => {
+    if (!revokeTokenId) return;
+    const tokenId = revokeTokenId;
+    setRevokeTokenId(null);
+    setActionBusy(tokenId);
+    setError(null);
+    try {
+      await driver.revokeInvite(tokenId);
+      await refreshPending();
+    } catch (e) {
+      setError(mapInvitationError(e as FirebaseError, 'revoke'));
+    } finally {
+      setActionBusy(null);
+    }
+  }, [revokeTokenId, driver, refreshPending]);
+
+  // ─── Member-row actions (apply in BOTH flag states) ────────
+  const handleRemoveConfirm = useCallback(async () => {
+    if (!removeUid || !project) return;
+    const targetUid = removeUid;
+    setRemoveUid(null);
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Routed through the driver adapter — replaces the prior inline
+      // setDoc bypass. FirestoreDriver.removeCollaborator uses
+      // deleteField() on members.{uid}, race-safe vs. read-modify-write
+      // of the entire members map.
+      await driver.removeCollaborator(project.id, targetUid);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to remove member');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [removeUid, project, driver]);
 
   const handleChangeRole = useCallback(
     async (targetUid: string, newRole: MemberRole) => {
@@ -187,6 +299,30 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
       </div>
     );
   }
+
+  // ─── Result chip rendering (flag on) ───────────────────────
+  const renderResultSummary = () => {
+    if (!lastResult) return null;
+    const lines: string[] = [];
+    if (lastResult.added.length > 0) {
+      lines.push(`Added ${lastResult.added.length}: ${lastResult.added.join(', ')}`);
+    }
+    if (lastResult.invited.length > 0) {
+      lines.push(`Invited ${lastResult.invited.length}: ${lastResult.invited.join(', ')}`);
+    }
+    if (lastResult.failed.length > 0) {
+      const grouped = lastResult.failed.map((f) => `${f.email} (${f.reason})`).join(', ');
+      lines.push(`Skipped ${lastResult.failed.length}: ${grouped}`);
+    }
+    if (lines.length === 0) return null;
+    return (
+      <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+        {lines.map((l, i) => (
+          <div key={i}>{l}</div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -248,7 +384,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
                         <option value="viewer">Viewer</option>
                       </select>
                       <button
-                        onClick={() => handleRemoveMember(m.uid)}
+                        onClick={() => setRemoveUid(m.uid)}
                         className="rounded border border-red-200 px-2 py-0.5 text-xs text-red-600 hover:bg-red-50"
                       >
                         Remove
@@ -264,28 +400,65 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
             ))}
           </div>
 
-          {/* Add member form (owner only) */}
-          {isOwner && (
+          {/* Add UI — owner only */}
+          {isOwner && (INVITATIONS_ENABLED ? (
+            <>
+              <p className="mb-2 text-xs text-gray-500">
+                Invite collaborators by email. Existing SPERT users are added immediately;
+                new emails receive a one-time invitation link (expires in 30 days).
+              </p>
+              <textarea
+                value={bulkEmails}
+                onChange={(e) => setBulkEmails(e.target.value)}
+                placeholder="alice@example.com, bob@example.com&#10;carol@example.com"
+                disabled={isLoading}
+                rows={3}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                aria-label="Email addresses to invite"
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as 'editor' | 'viewer')}
+                  disabled={isLoading}
+                  className="rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  aria-label="Role for invitees"
+                >
+                  <option value="editor">Editor</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+                <button
+                  onClick={handleAddInvitations}
+                  disabled={isLoading || !bulkEmails.trim()}
+                  className="rounded bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isLoading ? 'Sending…' : 'Add'}
+                </button>
+                <span className="text-xs text-gray-400">Max 25 per day.</span>
+              </div>
+              {renderResultSummary()}
+            </>
+          ) : (
             <div className="flex gap-2">
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAddMember();
+                  if (e.key === 'Enter') handleAddMemberLegacy();
                 }}
                 placeholder="Email address"
                 className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
               <button
-                onClick={handleAddMember}
+                onClick={handleAddMemberLegacy}
                 disabled={!email.trim() || isLoading}
                 className="rounded bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 {isLoading ? 'Adding...' : 'Add'}
               </button>
             </div>
-          )}
+          ))}
 
           {/* Feedback messages */}
           {error && (
@@ -294,8 +467,42 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
           {success && (
             <p className="mt-2 text-xs text-green-600">{success}</p>
           )}
+
+          {/* Pending invites list (flag-on, owner-only) */}
+          {INVITATIONS_ENABLED && isOwner && (
+            <div className="mt-4">
+              <PendingInvitesList
+                pendingInvites={pendingInvites}
+                actionBusy={actionBusy}
+                onResend={handleResendInvite}
+                onRevoke={(tokenId) => setRevokeTokenId(tokenId)}
+              />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Confirmation dialogs (replace window.confirm) */}
+      {revokeTokenId && (
+        <ConfirmDialog
+          title="Revoke invitation"
+          message="The invitee won't be able to claim it after revoke."
+          confirmLabel="Revoke"
+          variant="danger"
+          onConfirm={handleRevokeConfirm}
+          onCancel={() => setRevokeTokenId(null)}
+        />
+      )}
+      {removeUid && (
+        <ConfirmDialog
+          title="Remove collaborator"
+          message="This person will lose access to the project."
+          confirmLabel="Remove"
+          variant="danger"
+          onConfirm={handleRemoveConfirm}
+          onCancel={() => setRemoveUid(null)}
+        />
+      )}
     </div>
   );
 }
