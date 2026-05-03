@@ -56,6 +56,7 @@ export function AddRowDialog({
         </label>
         <input
           id="add-row-date"
+          name="add-row-date"
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}

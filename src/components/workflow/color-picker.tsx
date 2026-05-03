@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useRef } from 'react';
+import { useId, useState, useRef } from 'react';
 import { PRESET_COLORS, getContrastColor } from '@/lib/colors';
 import { useEscapeKey, useClickOutside } from '@/lib/use-dismiss';
 import { Check } from 'lucide-react';
@@ -16,6 +16,7 @@ interface ColorPickerProps {
 }
 
 export function ColorPicker({ value, onChange, onClose }: ColorPickerProps) {
+  const hexInputId = useId();
   const [hexInput, setHexInput] = useState(value);
   const [isValid, setIsValid] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
@@ -70,8 +71,8 @@ export function ColorPicker({ value, onChange, onClose }: ColorPickerProps) {
 
       {/* Custom hex input */}
       <input
-        id="color-picker-hex"
-        name="color-picker-hex"
+        id={hexInputId}
+        name={hexInputId}
         type="text"
         value={hexInput}
         onChange={(e) => handleHexChange(e.target.value)}
