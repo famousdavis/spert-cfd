@@ -2,6 +2,38 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.9.0 — Bulk email invitations (May 3, 2026)
+
+### Added
+- **Bulk email invitations** — owners can paste up to 25 emails (comma, semicolon, or newline separated) and invite collaborators in one shot. Existing SPERT users are auto-added immediately and receive a "you've been added" notification email; unknown emails receive a one-time invitation link via Resend that expires in 30 days.
+- **Pending invitations list** — owners see all outstanding invitations for a project with `Resend` and `Revoke` action buttons, send-count visibility (`N/5`), and expiry dates. Resend is capped at 5 per invitation server-side; Revoke uses the existing `ConfirmDialog` (no `window.confirm`).
+- **Invitation claim flow with banner** — recipients clicking `?invite=tokenId` from an email land on the app, see a dismissible banner with inline Google + Microsoft sign-in CTAs, and after sign-in the banner transitions to a "you've been added to {project}" confirmation. Token is persisted in `sessionStorage` so it survives the OAuth popup AND the consent-modal flow. Storage mode auto-flips to cloud on `?invite=` detection so the freshly-claimed project is visible.
+- **Suite-wide profile mirror** — `AuthContext.writeUserProfile` now dual-writes to both `spertcfd_profiles/{uid}` and the suite-shared `spertsuite_profiles/{uid}` so cross-app invitations from any SPERT app can resolve email→uid server-side.
+- **Microsoft AD name normalization at write time** — `denormalizeLastFirst()` reorders Microsoft "Last, First Middle" displayName format to "First Middle Last" before it lands in either profile collection. Prevents the broken RFC 5322 From-line bug at the source.
+- `src/lib/feature-flags.ts` — `INVITATIONS_ENABLED` toggle (now `true`).
+- `src/lib/parse-bulk-emails.ts`, `src/lib/invitation-errors.ts`, `src/lib/auth-name.ts` — pure utilities, fully unit-tested (56 new test cases).
+- `src/hooks/use-invitation-landing.ts` — App Router state machine using `useSearchParams` + `router.replace`; mounted under `<Suspense>` in `app-shell.tsx`.
+- `src/components/invitation-banner.tsx`, `src/components/pending-invites-list.tsx` — new shell components.
+
+### Changed
+- **Cloud Functions generalized to multi-app** — `sendInvitationEmail`, `claimPendingInvitations`, and `resendInvite` in the suite-shared `spert-suite` Firebase project now branch on the caller's `appId` (`spertahp` | `spertcfd`) instead of hardcoding AHP. Project collection name derived as `${appId}_projects`; brand strings ("SPERT AHP" / "SPERT CFD") and origin allowlists are per-app maps. CFD model docs (no `collaborators` array, no `responses` map) skip the AHP-shaped writes via a `collaborators !== undefined` guard, so the universal `members.{uid}` mutation alone is sufficient. Shipped via [spert-landing#25](https://github.com/famousdavis/spert-landing/pull/25).
+- **`SharingModal.handleRemoveMember` routes through `driver.removeCollaborator`** — replaces the prior inline `setDoc({ members })` read-modify-write with a targeted `members.{userId}: deleteField()` merge. Race-safe vs. concurrent owner edits and uses the storage-driver abstraction the rest of the app already lives behind.
+- **`AuthContext` exposes `firebaseAvailable`** — `InvitationBanner` needs it to gate sign-in CTAs when Firebase isn't configured. Sign-in functions now typed as `() => Promise<void>` so banner CTAs can await completion.
+- **`StorageDriver` interface extended** with `listPendingInvites`, `revokeInvite`, `resendInvite`, `removeCollaborator` — implemented in `firestore-driver.ts` (real callable wrappers + `tsToMillis` / `mapToPendingInvite` helpers) and stubbed as no-ops in `local-storage-driver.ts` (sharing is cloud-only).
+- **`PendingInvite` and `InvitationStatus` types** added to `src/types/index.ts`. `modelId` field stores CFD's projectId — the suite-shared schema keeps the field name stable across SPERT apps.
+- **Form-field accessibility cleanup** — every `<input>`, `<textarea>`, `<select>` across the app now has stable `id` and `name` attributes. Suppresses Brave/Chrome DevTools "form field element should have an id or name attribute" autofill hints. Per-row fields derive their identifier from the parent's stable id (e.g. `grid-cell-${date}-${stateId}`, `state-name-${state.id}`). No behavior change. Shipped via [#33](https://github.com/famousdavis/spert-cfd/pull/33).
+
+### Notes
+- Firebase Cloud Functions live in the `spert-landing` repo and were deployed and CORS-smoke-tested before this release.
+- CFD's callable `appId` is `'spertcfd'` (no hyphen, matches collection prefix); distinct from CFD's `APP_ID` constant `'spert-cfd'` which remains the per-user consent-record discriminator.
+- `isVoting` field is kept on `PendingInvite` for cross-suite schema compatibility but is always `false` from CFD and never rendered (no voting concept in CFD).
+- Rollback: flip `INVITATIONS_ENABLED = false` in `src/lib/feature-flags.ts` and ship a patch release. The flag-off path preserves the legacy single-email-input UI byte-identically; pending invitations stay in Firestore and can be claimed later when the flag re-flips.
+
+## v0.8.2 — Header icon polish (May 1, 2026)
+
+### Changed
+- **Header favicon styling aligned with SPERT® Suite** — applied `rounded-lg` and `ring-1 ring-white/20` to the favicon `<img>` in `src/components/app-header.tsx`, matching the SPERT® Scheduler convention. Pure CSS polish, no behavior change. Backfilled from [#30](https://github.com/famousdavis/spert-cfd/pull/30).
+
 ## v0.8.1 — Branded favicon + header icon (April 30, 2026)
 
 ### Added

@@ -15,4 +15,4 @@
  * Stays OFF until the Landing Page Cloud Functions deploy is
  * validated and the CFD origins pass CORS preflight.
  */
-export const INVITATIONS_ENABLED = false;
+export const INVITATIONS_ENABLED = true;
