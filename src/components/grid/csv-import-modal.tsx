@@ -138,11 +138,14 @@ export function CsvImportModal({
                 Select a CSV file to import snapshot data.
               </p>
               <input
+                id="csv-import-file"
+                name="csv-import-file"
                 ref={fileInputRef}
                 type="file"
                 accept=".csv,.tsv,.txt"
                 onChange={handleFileChange}
                 className="text-sm"
+                aria-label="CSV file to import"
               />
               {error && (
                 <p className="mt-2 text-xs text-red-600">{error}</p>
@@ -165,11 +168,14 @@ export function CsvImportModal({
                     </span>
                     <span className="text-gray-400 text-xs">→</span>
                     <select
+                      id={`csv-import-mapping-${i}`}
+                      name={`csv-import-mapping-${i}`}
                       value={mapping[i]}
                       onChange={(e) =>
                         handleMappingChange(i, e.target.value as ColumnTarget)
                       }
                       className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
+                      aria-label={`Mapping for column ${header}`}
                     >
                       <option value="skip">Skip this column</option>
                       <option value="date">Date</option>

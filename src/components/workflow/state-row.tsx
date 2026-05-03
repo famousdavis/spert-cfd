@@ -115,6 +115,8 @@ export function StateRow({
         {/* Name */}
         {isEditingName ? (
           <input
+            id={`state-name-${state.id}`}
+            name={`state-name-${state.id}`}
             ref={nameInputRef}
             type="text"
             value={draftName}
@@ -128,6 +130,8 @@ export function StateRow({
             }}
             onBlur={commitName}
             maxLength={MAX_NAME_LENGTH}
+            aria-label={`Rename ${state.name}`}
+            autoComplete="off"
             className="min-w-0 flex-1 rounded border border-gray-300 px-1.5 py-0.5 text-sm"
           />
         ) : (
@@ -158,6 +162,8 @@ export function StateRow({
       {/* Row 2: category, WIP limit, reorder */}
       <div className="flex items-center gap-1.5">
         <select
+          id={`state-category-${state.id}`}
+          name={`state-category-${state.id}`}
           value={state.category}
           onChange={(e) => onSetCategory(e.target.value as StateCategory)}
           className="rounded border border-gray-300 px-1 py-0.5 text-xs"
@@ -173,6 +179,7 @@ export function StateRow({
             <label htmlFor={`wip-${state.id}`}>WIP:</label>
             <input
               id={`wip-${state.id}`}
+              name={`wip-${state.id}`}
               type="number"
               min={0}
               value={state.wipLimit ?? ''}

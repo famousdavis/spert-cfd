@@ -70,6 +70,8 @@ export function ColorPicker({ value, onChange, onClose }: ColorPickerProps) {
 
       {/* Custom hex input */}
       <input
+        id="color-picker-hex"
+        name="color-picker-hex"
         type="text"
         value={hexInput}
         onChange={(e) => handleHexChange(e.target.value)}
@@ -78,6 +80,7 @@ export function ColorPicker({ value, onChange, onClose }: ColorPickerProps) {
         }}
         maxLength={7}
         placeholder="#000000"
+        autoComplete="off"
         className={`w-full rounded border px-1.5 py-0.5 text-xs font-mono ${
           isValid ? 'border-gray-300' : 'border-red-400'
         }`}

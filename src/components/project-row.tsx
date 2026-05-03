@@ -90,11 +90,15 @@ function ProjectCard({
           {isRenaming ? (
             <div className="flex items-center gap-1">
               <input
+                id={`project-rename-${id}`}
+                name={`project-rename-${id}`}
                 type="text"
                 value={renameName}
                 onChange={(e) => setRenameName(e.target.value)}
                 onKeyDown={handleRenameKeyDown}
                 maxLength={MAX_NAME_LENGTH}
+                aria-label="Rename project"
+                autoComplete="off"
                 className="rounded border border-gray-300 px-2 py-1 text-sm flex-1 min-w-0"
                 autoFocus
               />

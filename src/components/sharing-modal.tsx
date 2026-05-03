@@ -374,10 +374,13 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
                   ) : isOwner ? (
                     <>
                       <select
+                        id={`sharing-member-role-${m.uid}`}
+                        name={`sharing-member-role-${m.uid}`}
                         value={m.role}
                         onChange={(e) =>
                           handleChangeRole(m.uid, e.target.value as MemberRole)
                         }
+                        aria-label={`Role for ${m.uid === user?.uid ? 'you' : m.uid}`}
                         className="rounded border border-gray-300 px-1 py-0.5 text-xs"
                       >
                         <option value="editor">Editor</option>
@@ -408,6 +411,8 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
                 new emails receive a one-time invitation link (expires in 30 days).
               </p>
               <textarea
+                id="sharing-bulk-emails"
+                name="sharing-bulk-emails"
                 value={bulkEmails}
                 onChange={(e) => setBulkEmails(e.target.value)}
                 placeholder="alice@example.com, bob@example.com&#10;carol@example.com"
@@ -418,6 +423,8 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
               />
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <select
+                  id="sharing-invite-role"
+                  name="sharing-invite-role"
                   value={role}
                   onChange={(e) => setRole(e.target.value as 'editor' | 'viewer')}
                   disabled={isLoading}
@@ -441,6 +448,8 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
           ) : (
             <div className="flex gap-2">
               <input
+                id="sharing-legacy-email"
+                name="sharing-legacy-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -448,6 +457,8 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
                   if (e.key === 'Enter') handleAddMemberLegacy();
                 }}
                 placeholder="Email address"
+                aria-label="Collaborator email"
+                autoComplete="email"
                 className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
               <button

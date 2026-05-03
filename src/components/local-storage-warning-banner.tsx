@@ -39,6 +39,8 @@ export function LocalStorageWarningBanner() {
       <div className="flex items-center gap-3">
         <label className="flex items-center gap-2 text-xs text-amber-700">
           <input
+            id="ls-warning-suppress"
+            name="ls-warning-suppress"
             type="checkbox"
             checked={false}
             onChange={handleSuppress}

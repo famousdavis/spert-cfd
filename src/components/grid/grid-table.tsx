@@ -115,6 +115,7 @@ export function GridTable({
                   return (
                     <GridCell
                       key={state.id}
+                      fieldId={`grid-cell-${snap.date}-${state.id}`}
                       value={count}
                       onChange={(val) => onCellChange(snap.date, state.id, val)}
                       onKeyDown={(e) => handleKeyDown(rowIdx, colIdx, e)}

@@ -36,6 +36,8 @@ export function MetricsPanel() {
           Metrics
         </h2>
         <select
+          id="metrics-period"
+          name="metrics-period"
           value={
             settings.metricsPeriod.kind === 'all'
               ? 'all'
