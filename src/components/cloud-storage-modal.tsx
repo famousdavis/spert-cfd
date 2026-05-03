@@ -299,6 +299,8 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
                 </div>
               </div>
               <input
+                id="cloud-modal-notify-local-startup"
+                name="cloud-modal-notify-local-startup"
                 type="checkbox"
                 checked={notifyOnLocalStartup}
                 onChange={(e) => handleNotifyToggle(e.target.checked)}

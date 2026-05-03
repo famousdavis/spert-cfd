@@ -216,12 +216,16 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
         </h2>
         <div className="flex gap-2">
           <input
+            id="new-project-name"
+            name="new-project-name"
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={handleCreateKeyDown}
             maxLength={MAX_NAME_LENGTH}
             placeholder="Project name"
+            aria-label="New project name"
+            autoComplete="off"
             className="rounded border border-gray-300 px-3 py-1.5 text-sm flex-1 min-w-0 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           <button

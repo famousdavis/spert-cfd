@@ -156,6 +156,8 @@ export const CloudMigrationFlow = forwardRef<
           </p>
           <label className="flex items-center gap-2 mb-3 text-blue-700">
             <input
+              id="cloud-migration-clear-local"
+              name="cloud-migration-clear-local"
               type="checkbox"
               checked={clearLocal}
               onChange={(e) => setClearLocal(e.target.checked)}

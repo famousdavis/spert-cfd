@@ -5,6 +5,11 @@
 'use client';
 
 interface GridCellProps {
+  /** Stable unique identifier — used for both `id` and `name` so each
+   *  cell input satisfies the form-field-needs-id-or-name browser hint
+   *  and is autofill-distinguishable from its siblings. Caller should
+   *  supply something like `${snap.date}-${state.id}`. */
+  fieldId: string;
   value: number;
   onChange: (value: number) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
@@ -15,6 +20,7 @@ interface GridCellProps {
 }
 
 export function GridCell({
+  fieldId,
   value,
   onChange,
   onKeyDown,
@@ -26,6 +32,8 @@ export function GridCell({
   return (
     <td className="p-0">
       <input
+        id={fieldId}
+        name={fieldId}
         ref={inputRef}
         type="number"
         min={0}

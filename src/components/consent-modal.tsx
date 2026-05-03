@@ -77,6 +77,8 @@ export function ConsentModal({ onAccept, onCancel }: ConsentModalProps) {
 
           <label className="flex items-start gap-2 text-sm text-gray-700">
             <input
+              id="consent-modal-agree"
+              name="consent-modal-agree"
               type="checkbox"
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
