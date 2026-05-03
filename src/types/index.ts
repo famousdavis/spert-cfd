@@ -76,3 +76,38 @@ export interface UserConsentRecord {
   appId: string;
   authProvider: string;
 }
+
+// ─── Invitations (v0.9.0, suite-wide collection) ─────────────
+
+export type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+
+/**
+ * Mirrors a spertsuite_invitations/{tokenId} document.
+ * tokenId is the document id and is not redundantly stored on the doc itself.
+ *
+ * `modelId` is the suite-wide field name for "the thing being shared" — it
+ * holds CFD's projectId in CFD-originated invitations. The shared schema
+ * keeps the field name stable across SPERT apps. `isVoting` is also kept
+ * on the type for cross-suite compatibility but is always false from CFD
+ * and never rendered in the CFD UI (no voting concept).
+ */
+export interface PendingInvite {
+  tokenId: string;
+  appId: 'spertcfd' | string;
+  modelId: string;
+  modelName: string;
+  inviteeEmail: string;
+  role: 'owner' | 'editor' | 'viewer';
+  isVoting: boolean;
+  inviterUid: string;
+  inviterName: string;
+  inviterEmail: string;
+  status: InvitationStatus;
+  createdAt: number;
+  expiresAt: number;
+  lastEmailSentAt: number;
+  emailSendCount: number;
+  updatedAt: number;
+  acceptedAt?: number;
+  acceptedByUid?: string;
+}

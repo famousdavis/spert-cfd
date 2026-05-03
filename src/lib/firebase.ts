@@ -5,6 +5,12 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 import { initializeFirestore, memoryLocalCache } from 'firebase/firestore';
+import {
+  getFunctions,
+  httpsCallable,
+  type Functions,
+  type HttpsCallable,
+} from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -33,3 +39,111 @@ export const db = app
   : null;
 export const googleProvider = app ? new GoogleAuthProvider() : null;
 export const microsoftProvider = app ? new OAuthProvider('microsoft.com') : null;
+
+// ─── Cloud Functions (suite-wide, shared spert-suite project) ───
+// Schemas defined in spert-landing-page/functions/src. Region us-central1.
+// All factories return null when Firebase isn't configured so local-only
+// dev / SSR / tests don't crash on a missing app.
+
+const functionsInstance: Functions | null =
+  app ? getFunctions(app, 'us-central1') : null;
+
+export const functions = functionsInstance;
+
+// ─── Callable input/output schemas ─────────────────────────
+
+export interface SendInvitationEmailInput {
+  /** Must be 'spertcfd' for this app — distinct from APP_ID 'spert-cfd'
+   *  which is the consent-record discriminator. The callable's appId
+   *  matches the Firestore collection prefix (`spertcfd_projects`). */
+  appId: 'spertcfd';
+  modelId: string;
+  emails: string[];
+  role: 'editor' | 'viewer';
+  /** Always false for CFD — kept on the type for suite-shared schema
+   *  compatibility. CFD has no voting-collaborator concept. */
+  isVoting: boolean;
+}
+
+export interface SendInvitationEmailResult {
+  added: string[];
+  invited: string[];
+  failed: Array<{
+    email: string;
+    reason: 'invalid-email' | 'already-member' | 'already-invited' | 'send-failed';
+  }>;
+}
+
+export interface ClaimedInvitation {
+  appId: string;
+  modelId: string;
+  modelName: string;
+}
+
+export interface ClaimPendingInvitationsResult {
+  claimed: ClaimedInvitation[];
+}
+
+export interface RevokeInviteInput {
+  tokenId: string;
+}
+
+export interface RevokeInviteResult {
+  revoked: true;
+}
+
+export interface ResendInviteInput {
+  tokenId: string;
+}
+
+export interface ResendInviteResult {
+  resent: true;
+  emailSendCount: number;
+}
+
+// ─── Lazy callable factories ───────────────────────────────
+
+/**
+ * Lazily resolve a callable. Returns null when Firebase is not
+ * configured (local-only dev / SSR / tests) so callers can guard
+ * cleanly without crashing.
+ */
+export function getSendInvitationEmail():
+  | HttpsCallable<SendInvitationEmailInput, SendInvitationEmailResult>
+  | null {
+  if (!functionsInstance) return null;
+  return httpsCallable<SendInvitationEmailInput, SendInvitationEmailResult>(
+    functionsInstance,
+    'sendInvitationEmail',
+  );
+}
+
+export function getClaimPendingInvitations():
+  | HttpsCallable<Record<string, never>, ClaimPendingInvitationsResult>
+  | null {
+  if (!functionsInstance) return null;
+  return httpsCallable<Record<string, never>, ClaimPendingInvitationsResult>(
+    functionsInstance,
+    'claimPendingInvitations',
+  );
+}
+
+export function getRevokeInvite():
+  | HttpsCallable<RevokeInviteInput, RevokeInviteResult>
+  | null {
+  if (!functionsInstance) return null;
+  return httpsCallable<RevokeInviteInput, RevokeInviteResult>(
+    functionsInstance,
+    'revokeInvite',
+  );
+}
+
+export function getResendInvite():
+  | HttpsCallable<ResendInviteInput, ResendInviteResult>
+  | null {
+  if (!functionsInstance) return null;
+  return httpsCallable<ResendInviteInput, ResendInviteResult>(
+    functionsInstance,
+    'resendInvite',
+  );
+}

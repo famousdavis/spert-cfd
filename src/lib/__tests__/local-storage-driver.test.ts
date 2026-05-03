@@ -295,4 +295,24 @@ describe('LocalStorageDriver', () => {
       expect(() => driver.cancelPendingSaves()).not.toThrow();
     });
   });
+
+  describe('invitation stubs (cloud-only feature)', () => {
+    it('listPendingInvites resolves to an empty array', async () => {
+      await expect(driver.listPendingInvites('any-project-id'))
+        .resolves.toEqual([]);
+    });
+
+    it('revokeInvite is a silent no-op (resolves without throwing)', async () => {
+      await expect(driver.revokeInvite('any-token-id')).resolves.toBeUndefined();
+    });
+
+    it('resendInvite is a silent no-op (resolves without throwing)', async () => {
+      await expect(driver.resendInvite('any-token-id')).resolves.toBeUndefined();
+    });
+
+    it('removeCollaborator is a silent no-op (resolves without throwing)', async () => {
+      await expect(driver.removeCollaborator('any-project-id', 'any-uid'))
+        .resolves.toBeUndefined();
+    });
+  });
 });
