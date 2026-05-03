@@ -333,27 +333,45 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       id: string,
       callback: (project: Project | null) => void,
     ): () => void {
-      return onSnapshot(doc(db, PROJECTS_COL, id), (snap) => {
-        // Echo prevention: skip snapshots from our own pending writes
-        if (snap.metadata.hasPendingWrites) return;
-        callback(mapDocToProject(snap));
-      });
+      return onSnapshot(
+        doc(db, PROJECTS_COL, id),
+        (snap) => {
+          // Echo prevention: skip snapshots from our own pending writes
+          if (snap.metadata.hasPendingWrites) return;
+          callback(mapDocToProject(snap));
+        },
+        (err) => {
+          console.error(
+            'onProjectChange listener error:',
+            (err as { code?: string }).code ?? err,
+          );
+        },
+      );
     },
 
     onProjectListChange(
       callback: (projects: ProjectListItem[]) => void,
     ): () => void {
-      return onSnapshot(membershipQuery(), async (snap: QuerySnapshot) => {
-        // hasPendingWrites at query level is intentional (Issue 8)
-        if (snap.metadata.hasPendingWrites) return;
-        const projects: ProjectListItem[] = [];
-        snap.forEach((d) => {
-          const data = d.data();
-          projects.push({ id: d.id, name: data.name as string });
-        });
-        const order = await loadProjectOrder();
-        callback(sortByOrder(projects, order));
-      });
+      return onSnapshot(
+        membershipQuery(),
+        async (snap: QuerySnapshot) => {
+          // hasPendingWrites at query level is intentional (Issue 8)
+          if (snap.metadata.hasPendingWrites) return;
+          const projects: ProjectListItem[] = [];
+          snap.forEach((d) => {
+            const data = d.data();
+            projects.push({ id: d.id, name: data.name as string });
+          });
+          const order = await loadProjectOrder();
+          callback(sortByOrder(projects, order));
+        },
+        (err) => {
+          console.error(
+            'onProjectListChange listener error:',
+            (err as { code?: string }).code ?? err,
+          );
+        },
+      );
     },
 
     // ── Export / Import ───────────────────────────────────

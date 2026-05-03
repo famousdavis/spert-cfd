@@ -281,11 +281,15 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
         [targetUid]: newRole,
       };
 
-      await setDoc(
-        doc(db, PROJECTS_COL, project.id),
-        { members: updatedMembers },
-        { merge: true },
-      );
+      try {
+        await setDoc(
+          doc(db, PROJECTS_COL, project.id),
+          { members: updatedMembers },
+          { merge: true },
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to change role');
+      }
     },
     [project, user],
   );
@@ -458,7 +462,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
                 }}
                 placeholder="Email address"
                 aria-label="Collaborator email"
-                autoComplete="email"
+                autoComplete="off"
                 className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
               <button
