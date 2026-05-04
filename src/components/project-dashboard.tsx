@@ -40,40 +40,42 @@ export function ProjectDashboard({ onGoToProjects }: ProjectDashboardProps) {
   }
 
   return (
-    <div className="flex flex-1 overflow-hidden">
-      {/* Left sidebar */}
-      <aside className="w-64 border-r border-gray-200 bg-gray-50 p-4 overflow-y-auto">
-        <WorkflowEditor />
+    <div className="flex flex-1 overflow-hidden justify-center bg-gray-50">
+      <div className="flex w-full max-w-7xl bg-white border-x border-gray-200 overflow-hidden">
+        {/* Left sidebar */}
+        <aside className="w-64 border-r border-gray-200 bg-gray-50 p-4 overflow-y-auto">
+          <WorkflowEditor />
 
-        <MetricsPanel />
+          <MetricsPanel />
 
-        {/* Storage indicator (local mode only) */}
-        {driver.mode === 'local' && (
-          <div className="mt-auto pt-6">
-            <div className="flex items-center gap-2 text-xs text-gray-400">
-              <span>Storage:</span>
-              <span
-                className={
-                  usage.status === 'critical'
-                    ? 'text-red-600 font-medium'
-                    : usage.status === 'warning'
-                      ? 'text-amber-600 font-medium'
-                      : ''
-                }
-              >
-                {(usage.bytes / 1024).toFixed(1)} KB
-              </span>
+          {/* Storage indicator (local mode only) */}
+          {driver.mode === 'local' && (
+            <div className="mt-auto pt-6">
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <span>Storage:</span>
+                <span
+                  className={
+                    usage.status === 'critical'
+                      ? 'text-red-600 font-medium'
+                      : usage.status === 'warning'
+                        ? 'text-amber-600 font-medium'
+                        : ''
+                  }
+                >
+                  {(usage.bytes / 1024).toFixed(1)} KB
+                </span>
+              </div>
             </div>
-          </div>
-        )}
-      </aside>
+          )}
+        </aside>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto p-4">
-        <CFDChart />
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto p-4">
+          <CFDChart />
 
-        <DataGrid />
-      </main>
+          <DataGrid />
+        </main>
+      </div>
     </div>
   );
 }

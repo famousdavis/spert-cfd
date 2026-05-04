@@ -21,7 +21,7 @@ const TABS: { id: TabId; label: string }[] = [
 export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
   return (
     <nav className="border-b border-gray-200 bg-white px-4">
-      <div className="mx-auto flex max-w-4xl gap-1 py-2">
+      <div className="mx-auto flex max-w-7xl gap-1 py-2">
         {TABS.map((tab) => (
           <button
             key={tab.id}

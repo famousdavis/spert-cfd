@@ -17,7 +17,7 @@ function TrademarkedName({ name, bold = false }: { name: string; bold?: boolean 
 export function AboutTab() {
   return (
     <div className="flex-1 overflow-y-auto p-4">
-      <div className="mx-auto max-w-[800px]">
+      <div className="mx-auto max-w-4xl">
         <h2 className="text-2xl mb-2 text-gray-900">
           About <TrademarkedName name="SPERT" /> CFD
         </h2>

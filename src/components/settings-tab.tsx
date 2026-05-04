@@ -5,6 +5,7 @@
 'use client';
 
 import { StorageSection } from './storage-section';
+import { ProjectExportSection } from './project-export-section';
 
 export function SettingsTab() {
   return (
@@ -13,6 +14,7 @@ export function SettingsTab() {
         <h2 className="text-2xl mb-6 text-gray-900">Settings</h2>
 
         <StorageSection />
+        <ProjectExportSection />
       </div>
     </div>
   );
