@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Trash2 } from 'lucide-react';
 import { MAX_NAME_LENGTH } from '@/lib/constants';
 
 export interface ProjectStats {
@@ -173,10 +174,13 @@ function ProjectCard({
         </button>
         <div className="flex-1" />
         <button
+          type="button"
           onClick={() => onDelete(id)}
-          className="rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+          className="flex h-8 w-8 items-center justify-center rounded text-zinc-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+          title="Delete project"
+          aria-label={`Delete ${name}`}
         >
-          Delete
+          <Trash2 className="h-4 w-4" />
         </button>
       </div>
     </div>

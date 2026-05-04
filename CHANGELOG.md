@@ -2,6 +2,23 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.10.0 — Visual polish, trash icon, multi-select export (May 4, 2026)
+
+### Changed
+- **CFD dashboard width capped at `max-w-7xl`** — `src/components/project-dashboard.tsx` now wraps the sidebar+main row in a centered card against a `bg-gray-50` page background. On 24"+ monitors the dashboard no longer stretches edge-to-edge; on smaller laptops the layout is unchanged. Header (`app-header.tsx`), tab navigation (`tab-navigation.tsx`), and footer (`footer.tsx`) all gain `max-w-7xl` inner containers so their content edges align with the dashboard card on wide screens. The footer's `text-center` moved from the outer `<footer>` to the inner div so legal links remain centered within the constrained width.
+- **Page background → `bg-gray-50`** — `src/app/layout.tsx` `<body>` now carries `bg-gray-50` so the centered white dashboard card has visual contrast on wide displays. Projects/Settings/About tabs (already capped at `max-w-4xl`) now read as content sitting on a framed page rather than floating in white.
+- **About tab width unified to `max-w-4xl`** — `src/components/about-tab.tsx` switched from `max-w-[800px]` to `max-w-4xl` to match Projects and Settings. Pure consistency cleanup.
+- **Project tile delete affordance: text "Delete" → trash icon (MyScrumBudget pattern)** — `src/components/project-row.tsx` replaces the bordered red text button with an icon-only `<Trash2 />` button: gray (`text-zinc-400`) by default, light-pink background + red icon (`hover:bg-red-50 hover:text-red-600`) on hover, with `transition-colors` for smooth state. `aria-label="Delete {name}"` for screen reader clarity. Confirmation flow (`ConfirmDialog` in `projects-tab.tsx`) is unchanged.
+
+### Added
+- **Multi-select Export Projects section in Settings** — new `src/components/project-export-section.tsx` mirrors SPERT Scheduler's `ExportSection` UX: per-project checkboxes, "Select all / Deselect all" toggle, and a single Export button labeled `Export (N)`. Lives below `StorageSection` in `settings-tab.tsx`.
+  - **Cloud-safe serialization**: routes every selected project through `driver.exportProject()` (which strips Firebase `owner`, `members`, and internal `schemaVersion`) before combining into a JSON array. Single-project selection produces `spert-cfd-<projectname>-<timestamp>.json`; multi-project produces `spert-cfd-<timestamp>.json`. Both filenames use existing helpers from `src/lib/download.ts`.
+  - **Name-only project list**: deliberate architectural choice — `ProjectListItem` only exposes `{id, name}`, and replicating the Projects-tab stats-loading pattern would fire N Firestore reads just to render Settings on cloud mode. Users selecting which projects to export don't need snapshot/state counts to make that decision.
+  - The existing top-row "Export All" button on the Projects tab is kept as a one-click power-user shortcut. The per-card "Export" button on each project tile is also kept for fast single-project export without tab-switching.
+
+### Notes
+- Out-of-scope follow-up flagged: the Projects-tab "Export All" handler at `projects-tab.tsx:142-149` still uses raw `JSON.stringify(allProjects, null, 2)` and leaks `owner`/`members` UIDs in cloud mode. The new Settings export fixes this for its own path; aligning the Projects-tab path is a separate hygiene PR.
+
 ## v0.9.2 — Form-hygiene residual sweep (May 3, 2026)
 
 ### Fixed

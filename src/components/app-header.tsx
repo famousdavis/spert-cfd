@@ -46,7 +46,8 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
   const dividerStyle = { width: '0.5px', backgroundColor: '#D1D5DB' } as const;
 
   return (
-    <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
+    <header className="border-b border-gray-200 bg-white px-4 py-2">
+      <div className="mx-auto w-full max-w-7xl flex items-center justify-between">
       <div className="flex items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -150,6 +151,7 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
           </span>
         </button>
       )}
+      </div>
     </header>
   );
 }
