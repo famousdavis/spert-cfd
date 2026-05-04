@@ -31,28 +31,30 @@ export function LocalStorageWarningBanner() {
   };
 
   return (
-    <div className="flex items-center gap-4 border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-      <p className="flex-1">
-        <strong>Your data exists only in this browser</strong> and can be lost
-        without warning. Export at the end of every session to protect your work.
-      </p>
-      <div className="flex items-center gap-3">
-        <label className="flex items-center gap-2 text-xs text-amber-700">
-          <input
-            id="ls-warning-suppress"
-            name="ls-warning-suppress"
-            type="checkbox"
-            checked={false}
-            onChange={handleSuppress}
-          />
-          Don&apos;t show again
-        </label>
-        <button
-          onClick={handleDismiss}
-          className="shrink-0 rounded bg-amber-600 px-3 py-1 text-xs text-white hover:bg-amber-700"
-        >
-          Got it
-        </button>
+    <div className="border-b border-amber-200 bg-amber-50 py-3 text-sm text-amber-800">
+      <div className="mx-auto flex w-full max-w-7xl items-center gap-4 px-4">
+        <p className="flex-1">
+          <strong>Your data exists only in this browser</strong> and can be lost
+          without warning. Export at the end of every session to protect your work.
+        </p>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs text-amber-700">
+            <input
+              id="ls-warning-suppress"
+              name="ls-warning-suppress"
+              type="checkbox"
+              checked={false}
+              onChange={handleSuppress}
+            />
+            Don&apos;t show again
+          </label>
+          <button
+            onClick={handleDismiss}
+            className="shrink-0 rounded bg-amber-600 px-3 py-1 text-xs text-white hover:bg-amber-700"
+          >
+            Got it
+          </button>
+        </div>
       </div>
     </div>
   );

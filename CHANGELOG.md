@@ -2,6 +2,15 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.10.1 — Banner width-cap follow-up (May 4, 2026)
+
+### Fixed
+- **First-run ToS banner, local-storage warning banner, and invitation banner all stretched edge-to-edge on wide displays** — v0.10.0 capped the header, tab nav, dashboard card, and footer at `max-w-7xl` but missed the three notification banners mounted between tab nav and content in `app-shell.tsx`. On 24"+ monitors the banners visually broke the otherwise-centered card layout: "Got it" buttons pinned to the far right edge of the viewport while everything above and below them stopped at the 1280px boundary.
+  - `src/components/first-run-banner.tsx`: split outer (full-width `bg-blue-50 border-b py-3`) from inner (`mx-auto flex w-full max-w-7xl items-center gap-4 px-4`).
+  - `src/components/local-storage-warning-banner.tsx`: same split with amber palette.
+  - `src/components/invitation-banner.tsx`: replaced `mx-4 mt-3` with `mx-auto mt-3 w-[calc(100%-2rem)] max-w-7xl` so the rounded-card variant centers and caps at the same width.
+- Verified at simulated 1700px effective viewport (CSS zoom): banner backgrounds span the page, content (text + buttons) centers within `max-w-7xl` with proportional gutters matching the header/footer/dashboard.
+
 ## v0.10.0 — Visual polish, trash icon, multi-select export (May 4, 2026)
 
 ### Changed
