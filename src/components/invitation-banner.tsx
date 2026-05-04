@@ -49,7 +49,7 @@ export function InvitationBanner() {
     <div
       role="region"
       aria-label="Invitation banner"
-      className="mx-4 mt-3 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
+      className="mx-auto mt-3 w-[calc(100%-2rem)] max-w-7xl rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
