@@ -21,6 +21,7 @@ import {
 import { arrayMove } from '@dnd-kit/sortable';
 import { useProjectList } from '@/contexts/project-list-context';
 import { useStorage } from '@/contexts/storage-context';
+import { useAuth } from '@/contexts/auth-context';
 import { exportFilename, exportAllFilename, downloadFile } from '@/lib/download';
 import { MAX_IMPORT_FILE_SIZE, MAX_NAME_LENGTH } from '@/lib/constants';
 import { ConfirmDialog } from './confirm-dialog';
@@ -42,6 +43,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     reorderProjects,
   } = useProjectList();
   const { driver } = useStorage();
+  const { user } = useAuth();
 
   const [newName, setNewName] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
@@ -83,13 +85,14 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
             workflowStateCount: full.workflow.length,
             updatedAt: full.updatedAt,
             memberCount: full.members ? Object.keys(full.members).length : undefined,
+            isOwner: !!user && full.owner === user.uid,
           });
         }
       }
       if (!cancelled) setProjectStats(map);
     })();
     return () => { cancelled = true; };
-  }, [projects, driver]);
+  }, [projects, driver, user]);
 
   const handleCreate = useCallback(() => {
     const name = newName.trim();
@@ -266,7 +269,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
                     isActive={p.id === activeProjectId}
                     onOpen={onOpenInCfd}
                     onExport={handleExport}
-                    onShare={driver.mode === 'cloud' ? (id: string) => setSharingProjectId(id) : undefined}
+                    onShare={driver.mode === 'cloud' && projectStats.get(p.id)?.isOwner ? (id: string) => setSharingProjectId(id) : undefined}
                     onDelete={handleDeleteClick}
                     onRename={renameProject}
                   />
