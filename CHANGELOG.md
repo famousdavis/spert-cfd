@@ -2,6 +2,13 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.10.2 — Share button now gated on project ownership (May 7, 2026)
+
+### Fixed
+- **Share button on the Projects tab is no longer visible to non-owners** — `src/components/projects-tab.tsx` previously passed `onShare` to every project card whenever the app was in cloud mode, so editors and viewers (who can't actually share) saw the button anyway. Clicking it would surface `SharingModal`'s read-only "Shared with you" view, but the affordance itself was misleading and inconsistent with the rest of the SPERT Suite (GanttApp gates correctly on `project.owner === user.uid`). Fix: thread `isOwner` through `ProjectStats` (computed during the existing per-project stats load) and gate `onShare` on both `driver.mode === 'cloud'` and `projectStats.get(p.id)?.isOwner`. The modal-side `isOwner` check in `sharing-modal.tsx` is preserved as a second line of defense.
+- `src/components/project-row.tsx`: `ProjectStats` interface gains optional `isOwner?: boolean`.
+- `src/components/projects-tab.tsx`: imports `useAuth`, populates `isOwner` from `full.owner === user.uid` during stats hydration, and adds `user` to the stats useEffect's dependency array.
+
 ## v0.10.1 — Banner width-cap follow-up (May 4, 2026)
 
 ### Fixed

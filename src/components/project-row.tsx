@@ -16,6 +16,7 @@ export interface ProjectStats {
   workflowStateCount: number;
   updatedAt: string;
   memberCount?: number;
+  isOwner?: boolean;
 }
 
 interface ProjectCardProps {
