@@ -238,3 +238,19 @@ npm run test:watch     # Watch mode
 npm run test:coverage  # Coverage report
 npm run lint           # ESLint
 ```
+
+## Known Optimizations / Backlog
+
+### Drop per-project hydration in `projects-tab` (post-v0.11.0 follow-up)
+
+`src/components/projects-tab.tsx` currently calls `driver.loadProject(id)` for every project in a `useEffect` to compute `ProjectStats` (including `isOwner = full.owner === user.uid`). This is an N+1 read pattern: `driver.loadProjectList()` already fetches the full document set, and after v0.11.0 (PR [#41](https://github.com/famousdavis/spert-cfd/pull/41), F12) the list-level `ProjectListItem` shape carries `owner?: string` natively.
+
+The hydration loop predates the F12 fix and was the only available path to ownership metadata at the list level. It can now be removed:
+
+- Use `ProjectListItem.owner` directly when computing the Share-button gate (`onShare={driver.mode === 'cloud' && p.owner === user.uid ? ... : undefined}`).
+- Other `ProjectStats` fields (snapshot counts, last-updated dates, etc.) — audit which still need a full-project load. If any do, keep the loop only for those; if none do, delete it entirely.
+- Watch out: the v0.10.2 Share-button fix (commit `4c250e2`) is the regression target. The replacement must continue to gate on cloud mode AND ownership, and the modal-side `isOwner` check in `sharing-modal.tsx` stays as a second line of defense.
+
+Estimated impact: removes one Firestore read per project on the Projects tab mount and on every `spert:models-changed` event (currently up to 25× the project count for a freshly-claimed batch). Becomes meaningful for users with 20+ projects or on slow connections.
+
+Why deferred: out of scope for the bulk-sharing remediation PRs, and touching `projects-tab` while the v0.10.2 fix was a few commits old would have risked silent regression. Worth picking up as a focused follow-up once v0.11.0 has soaked in production.
