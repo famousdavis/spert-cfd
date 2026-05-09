@@ -9,9 +9,11 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useStorage } from '@/contexts/storage-context';
 import { INVITATIONS_ENABLED } from '@/lib/feature-flags';
-
-const SESSION_KEY = 'spert:pendingInviteToken';
-const QUERY_PARAM = 'invite';
+import {
+  captureInviteTokenFromUrl,
+  SESSION_KEY,
+  QUERY_PARAM,
+} from '@/lib/invite-capture';
 
 export type InvitationLandingState =
   | { kind: 'idle' }
@@ -72,21 +74,21 @@ export function useInvitationLanding({
   const [state, setState] = useState<InvitationLandingState>({ kind: 'idle' });
 
   // 1) Detect ?invite= on first mount (and on URL changes), regardless
-  //    of auth state. Strips the param via the App Router so reloads
-  //    don't replay the banner.
+  //    of auth state. captureInviteTokenFromUrl handles the
+  //    sessionStorage write + idempotent reload behavior; the URL strip
+  //    stays here because router.replace requires the App Router context.
   useEffect(() => {
     if (!INVITATIONS_ENABLED) return;
     if (typeof window === 'undefined') return;
 
-    const token = searchParams?.get(QUERY_PARAM);
-    if (token) {
-      try {
-        sessionStorage.setItem(SESSION_KEY, token);
-      } catch {
-        // sessionStorage may be unavailable in private mode — non-fatal.
-      }
-      // Build a fresh search string without `invite`.
-      const params = new URLSearchParams(searchParams?.toString() ?? '');
+    const token = captureInviteTokenFromUrl();
+
+    // Strip ?invite= from the URL if it's still there. captureInviteTokenFromUrl
+    // already wrote the token to sessionStorage, so it's safe to lose
+    // it from the address bar (and necessary so reloads don't replay
+    // the banner).
+    if (searchParams?.get(QUERY_PARAM)) {
+      const params = new URLSearchParams(searchParams.toString());
       params.delete(QUERY_PARAM);
       const qs = params.toString();
       router.replace(qs ? `${pathname}?${qs}` : (pathname ?? '/'), {
@@ -103,21 +105,14 @@ export function useInvitationLanding({
       if (isCloudAvailable && localProjectCount === 0) switchMode('cloud');
     }
 
-    const stored = (() => {
-      try {
-        return sessionStorage.getItem(SESSION_KEY);
-      } catch {
-        return null;
-      }
-    })();
-    if (stored && !user) {
+    if (token && !user) {
       // Synchronizing React state with an external system
       // (sessionStorage + URL param), exactly the use case the React
       // 19 docs describe as legitimate for setState-in-effect. The
       // lint rule fires on the synchronous call but the alternative
       // (lazy useState initializer) is SSR-unsafe in App Router.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setState({ kind: 'pre_auth', tokenId: stored });
+      setState({ kind: 'pre_auth', tokenId: token });
     }
   }, [user, switchMode, isCloudAvailable, router, pathname, searchParams, localProjectCount]);
 
