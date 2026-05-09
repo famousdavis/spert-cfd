@@ -31,6 +31,37 @@ interface ClaimedDetail {
   modelName: string;
 }
 
+export interface ModelsChangedHandlerDeps {
+  setState: (next: InvitationLandingState) => void;
+  sessionStorage: Pick<Storage, 'getItem' | 'removeItem'>;
+}
+
+// Pure handler for `spert:models-changed`. Extracted from the hook so the
+// SESSION_KEY gate (Lesson 27) can be unit-tested without renderHook.
+//
+// The SESSION_KEY presence check MUST be the first line. Without it, a
+// user signing in normally (no invite link in this session) but with
+// claimable pending invitations would have the banner flipped into a
+// stale 'claimed' state — pending invites were claimed in a prior session
+// or just now via the standard sign-in path, and there is no banner to
+// show. The pending projects still appear in the project list either way.
+export function handleModelsChanged(
+  evt: Event,
+  deps: ModelsChangedHandlerDeps,
+): void {
+  if (!deps.sessionStorage.getItem(SESSION_KEY)) return;
+  const detail = (evt as CustomEvent<{ claimed?: ClaimedDetail[] }>).detail;
+  const claimed = detail?.claimed ?? [];
+  if (claimed.length === 0) return;
+  const names = claimed.map((c) => c.modelName).filter((n) => n.length > 0);
+  try {
+    deps.sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    // sessionStorage unavailable — non-fatal.
+  }
+  deps.setState({ kind: 'claimed', modelNames: names });
+}
+
 /**
  * Manages the ?invite=tokenId landing flow on Next.js App Router.
  *
@@ -121,22 +152,16 @@ export function useInvitationLanding({
     }
   }, [user, switchMode, isCloudAvailable, router, pathname, searchParams, localProjectCount]);
 
-  // 2) Listen for claim events dispatched by AuthContext.
+  // 2) Listen for claim events dispatched by AuthContext. Delegates to
+  //    the pure handler above so the SESSION_KEY gate is unit-testable.
   useEffect(() => {
     if (!INVITATIONS_ENABLED) return;
     if (typeof window === 'undefined') return;
-    const onChanged = (evt: Event) => {
-      const detail = (evt as CustomEvent<{ claimed?: ClaimedDetail[] }>).detail;
-      const claimed = detail?.claimed ?? [];
-      if (claimed.length === 0) return;
-      const names = claimed.map((c) => c.modelName).filter((n) => n.length > 0);
-      try {
-        sessionStorage.removeItem(SESSION_KEY);
-      } catch {
-        // sessionStorage unavailable — non-fatal.
-      }
-      setState({ kind: 'claimed', modelNames: names });
-    };
+    const onChanged = (evt: Event) =>
+      handleModelsChanged(evt, {
+        setState,
+        sessionStorage: window.sessionStorage,
+      });
     window.addEventListener('spert:models-changed', onChanged);
     return () => window.removeEventListener('spert:models-changed', onChanged);
   }, []);
