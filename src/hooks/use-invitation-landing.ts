@@ -15,6 +15,11 @@ import {
   QUERY_PARAM,
 } from '@/lib/invite-capture';
 
+// Grace window for an unsigned-in invitee to complete sign-in before
+// we auto-dismiss the pre_auth banner. 30 seconds matches the suite
+// canonical (Lesson 59).
+const GRACE_MS = 30_000;
+
 export type InvitationLandingState =
   | { kind: 'idle' }
   | { kind: 'pre_auth'; tokenId: string }
@@ -152,6 +157,35 @@ export function useInvitationLanding({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState((prev) => (prev.kind === 'pre_auth' ? { kind: 'idle' } : prev));
   }, [user]);
+
+  // 4) Grace timer — auto-dismiss a stale pre_auth banner after
+  //    GRACE_MS so an invitee who lands on the page and walks away
+  //    without signing in doesn't see a stranded "you've been invited"
+  //    banner forever (Lesson 59). Effect 3 covers the signed-in path;
+  //    this effect covers the no-sign-in path.
+  //
+  //    SESSION_KEY MUST be consumed BEFORE setState so a reload
+  //    immediately after the timer fires doesn't replay pre_auth from
+  //    storage — without this, the user would see the banner reappear
+  //    with no way out short of clearing site data.
+  //
+  //    No 'failed' state in CFD's machine — transitions back to 'idle'
+  //    (matches the Forecaster design). The user's only recourse is to
+  //    re-click the original invite link.
+  useEffect(() => {
+    if (!INVITATIONS_ENABLED) return;
+    if (state.kind !== 'pre_auth') return;
+    const timer = setTimeout(() => {
+      try {
+        sessionStorage.removeItem(SESSION_KEY);
+      } catch {
+        // sessionStorage unavailable — non-fatal; the in-memory
+        // state transition still happens.
+      }
+      setState({ kind: 'idle' });
+    }, GRACE_MS);
+    return () => clearTimeout(timer);
+  }, [state.kind]);
 
   return {
     state,
