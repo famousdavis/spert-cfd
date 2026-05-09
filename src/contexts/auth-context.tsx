@@ -26,14 +26,13 @@ import {
   isFirebaseConfigured,
 } from '@/lib/firebase';
 import { callClaimPendingInvitations } from '@/lib/callables';
+import { writeUserProfile } from '@/lib/profile-writes';
 import {
   TOS_VERSION,
   APP_ID,
   LS_TOS_WRITE_PENDING,
 } from '@/lib/constants';
-import { PROFILES_COL } from '@/lib/firestore-helpers';
 import { INVITATIONS_ENABLED } from '@/lib/feature-flags';
-import { denormalizeLastFirst } from '@/lib/auth-name';
 import {
   hasAcceptedCurrentTos,
   recordLocalAcceptance,
@@ -133,50 +132,6 @@ async function checkReturningUserConsent(user: User): Promise<boolean> {
     console.error('Failed to check consent record:', (err as { code?: string }).code ?? 'unknown');
     return true;
   }
-}
-
-/**
- * Write or update user profile for sharing UI email lookups
- * (non-blocking).
- *
- * v0.9.0: also mirrors the same payload into the suite-wide
- * spertsuite_profiles/{uid} collection so cross-app invitations from
- * the other SPERT apps (AHP, Gantt, Scheduler, ...) can resolve
- * email→uid server-side. Both writes use { merge: true } and are
- * fire-and-forget.
- *
- * displayName is normalized via denormalizeLastFirst() so Microsoft
- * AD's "Last, First Middle" convention is converted to "First Middle
- * Last" before it lands in either profile collection. Doing this at
- * write time means the Cloud Function never has to defensively
- * re-normalize — and any downstream consumer (the auto-add
- * notification email's From-line) renders cleanly without RFC 5322
- * quoting. Mirrors the same fix the function applies to fresh tokens.
- */
-function writeUserProfile(user: User): void {
-  if (!db) return;
-  const payload = {
-    displayName: denormalizeLastFirst(user.displayName ?? ''),
-    email: (user.email ?? '').toLowerCase(),
-    photoURL: user.photoURL ?? null,
-    updatedAt: serverTimestamp(),
-  };
-  setDoc(doc(db, PROFILES_COL, user.uid), payload, { merge: true }).catch(
-    (err) => {
-      console.error(
-        'Failed to update profile:',
-        (err as { code?: string }).code ?? 'unknown',
-      );
-    },
-  );
-  setDoc(doc(db, 'spertsuite_profiles', user.uid), payload, {
-    merge: true,
-  }).catch((err) => {
-    console.error(
-      'Failed to update suite profile:',
-      (err as { code?: string }).code ?? 'unknown',
-    );
-  });
 }
 
 /**
