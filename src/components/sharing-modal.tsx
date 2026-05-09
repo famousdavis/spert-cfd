@@ -15,7 +15,8 @@ import {
 } from 'firebase/firestore';
 import type { FirebaseError } from 'firebase/app';
 import { X } from 'lucide-react';
-import { db, getSendInvitationEmail, type SendInvitationEmailResult } from '@/lib/firebase';
+import { db, type SendInvitationEmailResult } from '@/lib/firebase';
+import { callSendInvitationEmail } from '@/lib/callables';
 import { useAuth } from '@/contexts/auth-context';
 import { useStorage } from '@/contexts/storage-context';
 import { useEscapeKey } from '@/lib/use-dismiss';
@@ -184,32 +185,56 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
     setError(null);
     setSuccess(null);
     setLastResult(null);
-    const emails = parseBulkEmails(bulkEmails);
-    if (emails.length === 0) {
+    const { valid, invalid } = parseBulkEmails(bulkEmails);
+
+    // Empty input — neither valid nor invalid tokens parsed.
+    if (valid.length === 0 && invalid.length === 0) {
       setError('Enter at least one email address.');
       return;
     }
-    if (emails.length > 25) {
+
+    // All-invalid: skip the CF entirely (nothing for it to do) and
+    // surface the rejected tokens via the result chips. Retain
+    // textarea content so the user can correct typos in place
+    // without re-pasting the whole list (Lesson 43).
+    if (valid.length === 0) {
+      setLastResult({
+        added: [],
+        invited: [],
+        failed: invalid.map((email) => ({ email, reason: 'invalid-format' })),
+      });
+      return;
+    }
+
+    if (valid.length > 25) {
       setError('You can invite at most 25 people per submission.');
       return;
     }
-    const callable = getSendInvitationEmail();
-    if (!callable) {
-      setError('Cloud sharing is unavailable in this build.');
-      return;
-    }
+
     setIsLoading(true);
     try {
-      const res = await callable({
+      const data = await callSendInvitationEmail({
         appId: 'spertcfd',
         modelId: project.id,
-        emails,
+        emails: valid,
         role,
         // CFD has no voting concept — always false. Kept on the
         // suite-shared schema for cross-app compatibility.
         isVoting: false,
       });
-      setLastResult(res.data);
+      // Merge client-side invalid-format rejections into the CF result
+      // so all "skipped" reasons render in one chip surface.
+      setLastResult({
+        added: data.added,
+        invited: data.invited,
+        failed: [
+          ...invalid.map((email) => ({
+            email,
+            reason: 'invalid-format' as const,
+          })),
+          ...data.failed,
+        ],
+      });
       setBulkEmails('');
       // The auto-add path mutates the project document; the cloud
       // onProjectChange subscription updates `project` automatically,

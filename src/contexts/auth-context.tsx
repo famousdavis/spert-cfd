@@ -24,16 +24,15 @@ import {
   googleProvider,
   microsoftProvider,
   isFirebaseConfigured,
-  getClaimPendingInvitations,
 } from '@/lib/firebase';
+import { callClaimPendingInvitations } from '@/lib/callables';
+import { writeUserProfile } from '@/lib/profile-writes';
 import {
   TOS_VERSION,
   APP_ID,
   LS_TOS_WRITE_PENDING,
 } from '@/lib/constants';
-import { PROFILES_COL } from '@/lib/firestore-helpers';
 import { INVITATIONS_ENABLED } from '@/lib/feature-flags';
-import { denormalizeLastFirst } from '@/lib/auth-name';
 import {
   hasAcceptedCurrentTos,
   recordLocalAcceptance,
@@ -136,50 +135,6 @@ async function checkReturningUserConsent(user: User): Promise<boolean> {
 }
 
 /**
- * Write or update user profile for sharing UI email lookups
- * (non-blocking).
- *
- * v0.9.0: also mirrors the same payload into the suite-wide
- * spertsuite_profiles/{uid} collection so cross-app invitations from
- * the other SPERT apps (AHP, Gantt, Scheduler, ...) can resolve
- * email→uid server-side. Both writes use { merge: true } and are
- * fire-and-forget.
- *
- * displayName is normalized via denormalizeLastFirst() so Microsoft
- * AD's "Last, First Middle" convention is converted to "First Middle
- * Last" before it lands in either profile collection. Doing this at
- * write time means the Cloud Function never has to defensively
- * re-normalize — and any downstream consumer (the auto-add
- * notification email's From-line) renders cleanly without RFC 5322
- * quoting. Mirrors the same fix the function applies to fresh tokens.
- */
-function writeUserProfile(user: User): void {
-  if (!db) return;
-  const payload = {
-    displayName: denormalizeLastFirst(user.displayName ?? ''),
-    email: (user.email ?? '').toLowerCase(),
-    photoURL: user.photoURL ?? null,
-    updatedAt: serverTimestamp(),
-  };
-  setDoc(doc(db, PROFILES_COL, user.uid), payload, { merge: true }).catch(
-    (err) => {
-      console.error(
-        'Failed to update profile:',
-        (err as { code?: string }).code ?? 'unknown',
-      );
-    },
-  );
-  setDoc(doc(db, 'spertsuite_profiles', user.uid), payload, {
-    merge: true,
-  }).catch((err) => {
-    console.error(
-      'Failed to update suite profile:',
-      (err as { code?: string }).code ?? 'unknown',
-    );
-  });
-}
-
-/**
  * Fire-and-forget call to the claimPendingInvitations Cloud Function.
  * Idempotent — safe on every auth resolution (Branch A and Branch B).
  * On success, dispatches a window-level `spert:models-changed` event
@@ -206,11 +161,9 @@ function writeUserProfile(user: User): void {
 function claimPendingInvitationsAndNotify(firebaseUser: User): void {
   if (!INVITATIONS_ENABLED) return;
   if (!firebaseUser.emailVerified) return;
-  const callable = getClaimPendingInvitations();
-  if (!callable) return;
-  void callable({})
-    .then((res) => {
-      const claimed = res.data?.claimed ?? [];
+  void callClaimPendingInvitations()
+    .then((data) => {
+      const claimed = data?.claimed ?? [];
       if (claimed.length > 0 && typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('spert:models-changed', { detail: { claimed } }),
@@ -220,7 +173,7 @@ function claimPendingInvitationsAndNotify(firebaseUser: User): void {
     .catch((err) => {
       console.error(
         'claimPendingInvitations failed:',
-        (err as { code?: string }).code ?? 'unknown',
+        (err as { code?: string }).code ?? (err as Error).message ?? 'unknown',
       );
     });
 }

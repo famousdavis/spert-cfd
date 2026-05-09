@@ -58,74 +58,76 @@ export function InvitationBanner() {
     <div
       role="region"
       aria-label="Invitation banner"
-      className="mx-auto mt-3 w-[calc(100%-2rem)] max-w-7xl rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
+      // Centered card per Lesson 56 (was full-width strip max-w-7xl).
+      // `relative` anchors the absolute-positioned dismiss button.
+      // `pr-6` on the inner content reserves room so longer copy
+      // (e.g., several claimed model names) doesn't run under the ×.
+      className="relative mx-auto mt-3 max-w-lg rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1">
-          {state.kind === 'pre_auth' && (
-            <>
-              <div className="font-medium">
-                You&rsquo;ve been invited to a SPERT CFD project.
-              </div>
-              {firebaseAvailable ? (
-                <>
-                  <div className="mt-0.5 text-xs text-blue-800">
-                    Sign in with the email address that received this
-                    invitation to accept.
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void handleSignIn('google');
-                      }}
-                      disabled={busy !== null}
-                      className="flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <GoogleLogo />
-                      {busy === 'google' ? 'Signing in…' : 'Sign in with Google'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void handleSignIn('microsoft');
-                      }}
-                      disabled={busy !== null}
-                      className="flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <MicrosoftLogo />
-                      {busy === 'microsoft' ? 'Signing in…' : 'Sign in with Microsoft'}
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="mt-0.5 text-xs text-blue-800">
-                  Cloud sign-in is unavailable in this build.
-                </div>
-              )}
-            </>
-          )}
-          {state.kind === 'claimed' && (
-            <div>
-              You&rsquo;ve been added to{' '}
-              <span className="font-medium">
-                {state.modelNames.length > 0
-                  ? state.modelNames.join(', ')
-                  : 'a shared project'}
-              </span>
-              .
+      <div className="pr-6">
+        {state.kind === 'pre_auth' && (
+          <>
+            <div className="font-medium">
+              You&rsquo;ve been invited to a SPERT CFD project.
             </div>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={dismiss}
-          aria-label="Dismiss invitation banner"
-          className="-mt-0.5 ml-2 rounded px-2 py-0.5 text-blue-600 hover:bg-blue-100 hover:text-blue-800"
-        >
-          ×
-        </button>
+            {firebaseAvailable ? (
+              <>
+                <div className="mt-0.5 text-xs text-blue-800">
+                  Sign in with the email address that received this
+                  invitation to accept.
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleSignIn('google');
+                    }}
+                    disabled={busy !== null}
+                    className="flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <GoogleLogo />
+                    {busy === 'google' ? 'Signing in…' : 'Sign in with Google'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleSignIn('microsoft');
+                    }}
+                    disabled={busy !== null}
+                    className="flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <MicrosoftLogo />
+                    {busy === 'microsoft' ? 'Signing in…' : 'Sign in with Microsoft'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="mt-0.5 text-xs text-blue-800">
+                Cloud sign-in is unavailable in this build.
+              </div>
+            )}
+          </>
+        )}
+        {state.kind === 'claimed' && (
+          <div>
+            You&rsquo;ve been added to{' '}
+            <span className="font-medium">
+              {state.modelNames.length > 0
+                ? state.modelNames.join(', ')
+                : 'a shared project'}
+            </span>
+            .
+          </div>
+        )}
       </div>
+      <button
+        type="button"
+        onClick={dismiss}
+        aria-label="Dismiss invitation banner"
+        className="absolute right-2 top-2 rounded px-2 py-0.5 text-blue-600 hover:bg-blue-100 hover:text-blue-800"
+      >
+        ×
+      </button>
     </div>
   );
 }

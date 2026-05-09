@@ -9,9 +9,16 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useStorage } from '@/contexts/storage-context';
 import { INVITATIONS_ENABLED } from '@/lib/feature-flags';
+import {
+  captureInviteTokenFromUrl,
+  SESSION_KEY,
+  QUERY_PARAM,
+} from '@/lib/invite-capture';
 
-const SESSION_KEY = 'spert:pendingInviteToken';
-const QUERY_PARAM = 'invite';
+// Grace window for an unsigned-in invitee to complete sign-in before
+// we auto-dismiss the pre_auth banner. 30 seconds matches the suite
+// canonical (Lesson 59).
+const GRACE_MS = 30_000;
 
 export type InvitationLandingState =
   | { kind: 'idle' }
@@ -72,21 +79,21 @@ export function useInvitationLanding({
   const [state, setState] = useState<InvitationLandingState>({ kind: 'idle' });
 
   // 1) Detect ?invite= on first mount (and on URL changes), regardless
-  //    of auth state. Strips the param via the App Router so reloads
-  //    don't replay the banner.
+  //    of auth state. captureInviteTokenFromUrl handles the
+  //    sessionStorage write + idempotent reload behavior; the URL strip
+  //    stays here because router.replace requires the App Router context.
   useEffect(() => {
     if (!INVITATIONS_ENABLED) return;
     if (typeof window === 'undefined') return;
 
-    const token = searchParams?.get(QUERY_PARAM);
-    if (token) {
-      try {
-        sessionStorage.setItem(SESSION_KEY, token);
-      } catch {
-        // sessionStorage may be unavailable in private mode — non-fatal.
-      }
-      // Build a fresh search string without `invite`.
-      const params = new URLSearchParams(searchParams?.toString() ?? '');
+    const token = captureInviteTokenFromUrl();
+
+    // Strip ?invite= from the URL if it's still there. captureInviteTokenFromUrl
+    // already wrote the token to sessionStorage, so it's safe to lose
+    // it from the address bar (and necessary so reloads don't replay
+    // the banner).
+    if (searchParams?.get(QUERY_PARAM)) {
+      const params = new URLSearchParams(searchParams.toString());
       params.delete(QUERY_PARAM);
       const qs = params.toString();
       router.replace(qs ? `${pathname}?${qs}` : (pathname ?? '/'), {
@@ -103,21 +110,14 @@ export function useInvitationLanding({
       if (isCloudAvailable && localProjectCount === 0) switchMode('cloud');
     }
 
-    const stored = (() => {
-      try {
-        return sessionStorage.getItem(SESSION_KEY);
-      } catch {
-        return null;
-      }
-    })();
-    if (stored && !user) {
+    if (token && !user) {
       // Synchronizing React state with an external system
       // (sessionStorage + URL param), exactly the use case the React
       // 19 docs describe as legitimate for setState-in-effect. The
       // lint rule fires on the synchronous call but the alternative
       // (lazy useState initializer) is SSR-unsafe in App Router.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setState({ kind: 'pre_auth', tokenId: stored });
+      setState({ kind: 'pre_auth', tokenId: token });
     }
   }, [user, switchMode, isCloudAvailable, router, pathname, searchParams, localProjectCount]);
 
@@ -157,6 +157,35 @@ export function useInvitationLanding({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState((prev) => (prev.kind === 'pre_auth' ? { kind: 'idle' } : prev));
   }, [user]);
+
+  // 4) Grace timer — auto-dismiss a stale pre_auth banner after
+  //    GRACE_MS so an invitee who lands on the page and walks away
+  //    without signing in doesn't see a stranded "you've been invited"
+  //    banner forever (Lesson 59). Effect 3 covers the signed-in path;
+  //    this effect covers the no-sign-in path.
+  //
+  //    SESSION_KEY MUST be consumed BEFORE setState so a reload
+  //    immediately after the timer fires doesn't replay pre_auth from
+  //    storage — without this, the user would see the banner reappear
+  //    with no way out short of clearing site data.
+  //
+  //    No 'failed' state in CFD's machine — transitions back to 'idle'
+  //    (matches the Forecaster design). The user's only recourse is to
+  //    re-click the original invite link.
+  useEffect(() => {
+    if (!INVITATIONS_ENABLED) return;
+    if (state.kind !== 'pre_auth') return;
+    const timer = setTimeout(() => {
+      try {
+        sessionStorage.removeItem(SESSION_KEY);
+      } catch {
+        // sessionStorage unavailable — non-fatal; the in-memory
+        // state transition still happens.
+      }
+      setState({ kind: 'idle' });
+    }, GRACE_MS);
+    return () => clearTimeout(timer);
+  }, [state.kind]);
 
   return {
     state,

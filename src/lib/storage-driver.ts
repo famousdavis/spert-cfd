@@ -9,6 +9,15 @@ export type StorageMode = 'local' | 'cloud';
 export interface ProjectListItem {
   id: string;
   name: string;
+  /**
+   * Owner UID. Cloud mode populates this from the Firestore document's
+   * top-level `owner` field at every list-level read site
+   * (loadProjectList, onProjectListChange) so consumers can compute
+   * `isOwner` without having to load the full project (Lessons 38, 49).
+   * Local mode omits — there is no ownership concept (everything is
+   * "yours" by definition).
+   */
+  owner?: string;
 }
 
 export type ProjectMemberRole = 'owner' | 'editor' | 'viewer';

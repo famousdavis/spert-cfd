@@ -5,12 +5,7 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 import { initializeFirestore, memoryLocalCache } from 'firebase/firestore';
-import {
-  getFunctions,
-  httpsCallable,
-  type Functions,
-  type HttpsCallable,
-} from 'firebase/functions';
+import { getFunctions, type Functions } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -70,7 +65,18 @@ export interface SendInvitationEmailResult {
   invited: string[];
   failed: Array<{
     email: string;
-    reason: 'invalid-email' | 'already-member' | 'already-invited' | 'send-failed';
+    /**
+     * `invalid-format` is a CLIENT-SIDE rejection (parseBulkEmails
+     * EMAIL_RE filter). It is never produced by the Cloud Function;
+     * the modal merges it into the result so all rejection reasons
+     * render in a single chip surface (Lesson 42).
+     */
+    reason:
+      | 'invalid-format'
+      | 'invalid-email'
+      | 'already-member'
+      | 'already-invited'
+      | 'send-failed';
   }>;
 }
 
@@ -84,16 +90,8 @@ export interface ClaimPendingInvitationsResult {
   claimed: ClaimedInvitation[];
 }
 
-export interface RevokeInviteInput {
-  tokenId: string;
-}
-
 export interface RevokeInviteResult {
   revoked: true;
-}
-
-export interface ResendInviteInput {
-  tokenId: string;
 }
 
 export interface ResendInviteResult {
@@ -101,49 +99,7 @@ export interface ResendInviteResult {
   emailSendCount: number;
 }
 
-// ─── Lazy callable factories ───────────────────────────────
-
-/**
- * Lazily resolve a callable. Returns null when Firebase is not
- * configured (local-only dev / SSR / tests) so callers can guard
- * cleanly without crashing.
- */
-export function getSendInvitationEmail():
-  | HttpsCallable<SendInvitationEmailInput, SendInvitationEmailResult>
-  | null {
-  if (!functionsInstance) return null;
-  return httpsCallable<SendInvitationEmailInput, SendInvitationEmailResult>(
-    functionsInstance,
-    'sendInvitationEmail',
-  );
-}
-
-export function getClaimPendingInvitations():
-  | HttpsCallable<Record<string, never>, ClaimPendingInvitationsResult>
-  | null {
-  if (!functionsInstance) return null;
-  return httpsCallable<Record<string, never>, ClaimPendingInvitationsResult>(
-    functionsInstance,
-    'claimPendingInvitations',
-  );
-}
-
-export function getRevokeInvite():
-  | HttpsCallable<RevokeInviteInput, RevokeInviteResult>
-  | null {
-  if (!functionsInstance) return null;
-  return httpsCallable<RevokeInviteInput, RevokeInviteResult>(
-    functionsInstance,
-    'revokeInvite',
-  );
-}
-
-export function getResendInvite():
-  | HttpsCallable<ResendInviteInput, ResendInviteResult>
-  | null {
-  if (!functionsInstance) return null;
-  return httpsCallable<ResendInviteInput, ResendInviteResult>(
-    functionsInstance,
-    'resendInvite',
-  );
-}
+// Callable invocations live in `./callables.ts` — see Lesson 61.
+// `functions` is exported above for that module's `requireFunctions()`
+// guard; nothing else in the app should import the Functions instance
+// directly.
