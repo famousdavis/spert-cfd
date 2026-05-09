@@ -193,9 +193,19 @@ function writeUserProfile(user: User): void {
  * Gated behind INVITATIONS_ENABLED so flag-off builds skip the
  * callable entirely (also avoids a crash if the function is
  * unavailable for any reason).
+ *
+ * Also gated on `firebaseUser.emailVerified`: Microsoft personal-
+ * account users (@outlook.com, @hotmail.com, @live.com) reach this
+ * code with `emailVerified === false` until they verify out-of-band.
+ * Calling the CF in that state throws `failed-precondition` on every
+ * auth resolution. The error is logged silently, but firing thousands
+ * of doomed CF invocations is wasteful and noisy. Skipping is safe —
+ * the user re-enters this flow on the next sign-in (when their email
+ * eventually verifies). See Lesson 26.
  */
-function claimPendingInvitationsAndNotify(): void {
+function claimPendingInvitationsAndNotify(firebaseUser: User): void {
   if (!INVITATIONS_ENABLED) return;
+  if (!firebaseUser.emailVerified) return;
   const callable = getClaimPendingInvitations();
   if (!callable) return;
   void callable({})
@@ -242,7 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Branch A: User just accepted consent and signed in
         const success = await writeConsentRecord(firebaseUser);
         writeUserProfile(firebaseUser);
-        claimPendingInvitationsAndNotify();
+        claimPendingInvitationsAndNotify(firebaseUser);
         if (success) {
           // Firestore record exists (or was unnecessary) — finalize local state.
           localStorage.removeItem(LS_TOS_WRITE_PENDING);
@@ -258,7 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (hasAcceptedCurrentTos()) {
           // Fast path: local cache matches current version
           writeUserProfile(firebaseUser);
-          claimPendingInvitationsAndNotify();
+          claimPendingInvitationsAndNotify(firebaseUser);
           setUser(firebaseUser);
           setIsAuthLoading(false);
         } else {
@@ -266,7 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const isValid = await checkReturningUserConsent(firebaseUser);
           if (isValid) {
             writeUserProfile(firebaseUser);
-            claimPendingInvitationsAndNotify();
+            claimPendingInvitationsAndNotify(firebaseUser);
             setUser(firebaseUser);
           } else {
             // Version mismatch or no record — sign out via centralized cleanup.

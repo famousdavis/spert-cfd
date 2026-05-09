@@ -260,10 +260,13 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
     setIsLoading(true);
     setError(null);
     try {
-      // Routed through the driver adapter — replaces the prior inline
-      // setDoc bypass. FirestoreDriver.removeCollaborator uses
-      // deleteField() on members.{uid}, race-safe vs. read-modify-write
-      // of the entire members map.
+      // Routed through the driver adapter. The driver wraps the
+      // member removal in a runTransaction with three semantic guards
+      // (self-removal, owner-only, owner-not-target — see Lesson 50).
+      // Guard failures throw plain Error so `e.message` is a
+      // user-meaningful string; intentionally NOT routed through
+      // mapInvitationError, which is reserved for Cloud Function
+      // FirebaseError codes.
       await driver.removeCollaborator(project.id, targetUid);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to remove member');

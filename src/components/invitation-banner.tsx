@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
+import { useProjectList } from '@/contexts/project-list-context';
 import { useInvitationLanding } from '@/hooks/use-invitation-landing';
 import { GoogleLogo } from '@/components/icons/google-logo';
 import { MicrosoftLogo } from '@/components/icons/microsoft-logo';
@@ -23,7 +24,15 @@ import { MicrosoftLogo } from '@/components/icons/microsoft-logo';
  * trigger sign-in from.
  */
 export function InvitationBanner() {
-  const { state, dismiss } = useInvitationLanding();
+  // Read the local project count here (not inside the hook) so
+  // useInvitationLanding stays decoupled from project-list context.
+  // The hook gates its cloud-mode auto-flip on this value to prevent
+  // local-data-disappears UX when an invite-link click flips storage
+  // mode (Lessons 7, 28, 53).
+  const { projects } = useProjectList();
+  const { state, dismiss } = useInvitationLanding({
+    localProjectCount: projects.length,
+  });
   const { signInWithGoogle, signInWithMicrosoft, firebaseAvailable } = useAuth();
   const [busy, setBusy] = useState<'google' | 'microsoft' | null>(null);
 

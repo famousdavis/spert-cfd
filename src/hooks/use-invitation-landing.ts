@@ -30,9 +30,9 @@ interface ClaimedDetail {
  *  1. On mount, if the URL carries ?invite=, persist the token to
  *     sessionStorage (so it survives the OAuth popup round-trip and
  *     the consent-modal dance), strip the param via the App Router so
- *     reloads don't replay the banner, force the storage mode
- *     preference to 'cloud' (the invitee can't see the shared project
- *     in local mode), and surface a 'pre_auth' state so the shell can
+ *     reloads don't replay the banner, optionally pre-flip the storage
+ *     mode preference to 'cloud' (only when no local projects exist
+ *     — see below), and surface a 'pre_auth' state so the shell can
  *     render a banner with sign-in CTAs.
  *  2. Once the user signs in, AuthContext fires `spert:models-changed`
  *     (which we listen for here too). We transition to 'claimed' with
@@ -43,15 +43,24 @@ interface ClaimedDetail {
  * Behind INVITATIONS_ENABLED — short-circuits to 'idle' when the
  * flag is off, so production is unchanged.
  *
- * The auto-cloud-mode switch is intentional: an invitee landing from
- * email has unambiguously opted into the shared-cloud workflow.
+ * Storage-mode auto-flip is gated on `localProjectCount === 0` (Lessons
+ * 7, 28, 53). A user with local projects who clicks an invite link
+ * MUST be given a chance to migrate before the cloud-mode preference
+ * flips, otherwise their next sign-in renders an apparently-empty
+ * project list and the local data appears lost. Project count is
+ * passed in by the consumer rather than read inside the hook so the
+ * hook stays decoupled from project-list context.
  *
  * App Router note: usePathname() / useSearchParams() require the
  * consuming component tree to be wrapped in <Suspense> at build
  * time, otherwise `next build` fails. AppShell mounts the Suspense
  * boundary around the InvitationBannerHost.
  */
-export function useInvitationLanding(): {
+export function useInvitationLanding({
+  localProjectCount,
+}: {
+  localProjectCount: number;
+}): {
   state: InvitationLandingState;
   dismiss: () => void;
 } {
@@ -86,9 +95,12 @@ export function useInvitationLanding(): {
       // Pre-flip the storage preference so that whatever path the
       // user takes to sign in (banner CTA or header AuthChip), they
       // end up in cloud mode and can see the freshly-claimed shared
-      // project. No observable effect until they sign in
-      // (effectiveMode falls back to 'local' while user is null).
-      if (isCloudAvailable) switchMode('cloud');
+      // project. Only safe when the user has no local projects —
+      // otherwise the post-sign-in cloud view replaces a populated
+      // local list and the data appears to vanish (Lessons 7, 28).
+      // The migration prompt path stays available either way: the
+      // user can flip modes manually after sign-in.
+      if (isCloudAvailable && localProjectCount === 0) switchMode('cloud');
     }
 
     const stored = (() => {
@@ -107,7 +119,7 @@ export function useInvitationLanding(): {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setState({ kind: 'pre_auth', tokenId: stored });
     }
-  }, [user, switchMode, isCloudAvailable, router, pathname, searchParams]);
+  }, [user, switchMode, isCloudAvailable, router, pathname, searchParams, localProjectCount]);
 
   // 2) Listen for claim events dispatched by AuthContext.
   useEffect(() => {
