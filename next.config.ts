@@ -16,7 +16,13 @@ const securityHeaders = [
   // Restrict browser features the app does not use
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
   // CSP: restrict object/base/form/frame-ancestors (safe subset that won't break
-  // Next.js inline hydration scripts or Tailwind inline styles)
+  // Next.js inline hydration scripts or Tailwind inline styles).
+  // connect-src whitelists Firebase callable endpoints. Both *.cloudfunctions.net
+  // and *.run.app must be present — Cloud Functions Gen 2 transparently routes
+  // through Cloud Run and either domain may be used for any given call. Without
+  // *.run.app, invitation CFs fail silently in production only (see Lesson 24).
+  // *.vercel.app deliberately omitted — preview-URL CF calls fail CORS by suite
+  // convention; only prod + localhost are first-class targets (Lesson 68).
   {
     key: 'Content-Security-Policy',
     value: [
@@ -24,6 +30,7 @@ const securityHeaders = [
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
+      "connect-src 'self' https://*.cloudfunctions.net https://*.run.app https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com",
     ].join('; '),
   },
 ];
