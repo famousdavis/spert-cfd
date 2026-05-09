@@ -206,7 +206,14 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       const projects: ProjectListItem[] = [];
       snap.forEach((d) => {
         const data = d.data();
-        projects.push({ id: d.id, name: data.name as string });
+        // Re-attach owner from the raw doc so list consumers can
+        // compute isOwner without an N+1 round-trip per project
+        // (Lessons 38, 49).
+        projects.push({
+          id: d.id,
+          name: data.name as string,
+          owner: data.owner as string | undefined,
+        });
       });
       const order = await loadProjectOrder();
       return sortByOrder(projects, order);
@@ -360,7 +367,14 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
           const projects: ProjectListItem[] = [];
           snap.forEach((d) => {
             const data = d.data();
-            projects.push({ id: d.id, name: data.name as string });
+            // Re-attach owner so the spert:models-changed downstream
+            // listeners (and any other list-snapshot consumer) get
+            // ownership metadata without a follow-up read (Lesson 49).
+            projects.push({
+              id: d.id,
+              name: data.name as string,
+              owner: data.owner as string | undefined,
+            });
           });
           const order = await loadProjectOrder();
           callback(sortByOrder(projects, order));
