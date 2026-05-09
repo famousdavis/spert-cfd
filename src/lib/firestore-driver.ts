@@ -15,6 +15,7 @@ import {
   where,
   getDocs,
   onSnapshot,
+  runTransaction,
   type Firestore,
   type DocumentSnapshot,
   type QuerySnapshot,
@@ -436,15 +437,55 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     // ── Invitations (suite-wide) ─────────────────────────
 
     /**
-     * Remove a member from a project. Targeted merge update on
-     * `members.${userId}` via deleteField() — race-safe vs. a
-     * read-modify-write of the whole members map. Replaces the
-     * inline updateDoc bypass that previously lived in SharingModal.
+     * Remove a member from a project. Wrapped in `runTransaction` with
+     * three semantic guards (Lesson 50, ARCHITECTURE.md):
+     *
+     *   1. Pre-tx fast-fail — caller cannot remove themselves. Owners
+     *      who self-remove orphan the project; non-owners hit guard 3
+     *      anyway, but failing fast saves a Firestore round-trip.
+     *   2. In-tx — caller must be the project owner. Firestore rules
+     *      enforce this server-side, but the client-side guard surfaces
+     *      a meaningful error string instead of an opaque
+     *      `permission-denied`.
+     *   3. In-tx — owner cannot be removed via this API. The owner
+     *      field is the source of truth for ownership; removing the
+     *      owner row from `members` while leaving `owner` intact would
+     *      corrupt schema invariants (Shape B: owner duplicated in
+     *      members with role 'owner').
+     *
+     * The previous implementation used a bare `updateDoc` with
+     * `deleteField()`. That call is field-write atomic, but atomicity
+     * does not protect the *semantic* invariants above — a non-owner
+     * could submit a request that Firestore rules would block at the
+     * server, but the UI saw a generic SDK error rather than a
+     * domain-meaningful message.
+     *
+     * Errors are plain `Error` objects so the UI can surface
+     * `err.message` directly without routing through
+     * `mapInvitationError` (which is reserved for Firebase Functions
+     * error mapping).
      */
     async removeCollaborator(projectId: string, userId: string): Promise<void> {
-      await updateDoc(doc(db, PROJECTS_COL, projectId), {
-        [`members.${userId}`]: deleteField(),
-        updatedAt: new Date().toISOString(),
+      if (userId === uid) {
+        throw new Error('Cannot remove yourself from a project.');
+      }
+      const ref = doc(db, PROJECTS_COL, projectId);
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists()) {
+          throw new Error('Project not found.');
+        }
+        const data = snap.data() as { owner?: string };
+        if (data.owner !== uid) {
+          throw new Error('Only the project owner can remove members.');
+        }
+        if (data.owner === userId) {
+          throw new Error('Cannot remove the project owner.');
+        }
+        tx.update(ref, {
+          [`members.${userId}`]: deleteField(),
+          updatedAt: new Date().toISOString(),
+        });
       });
     },
 
