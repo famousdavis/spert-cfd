@@ -2,6 +2,20 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.12.0 — Bulk-sharing residual gaps (May 9, 2026)
+
+Post-v0.11.0 verification audit found three residual gaps. PR-A ([#42](https://github.com/famousdavis/spert-cfd/pull/42)) closed P3; PR-B (this release) closes P8 and P9. Bundled because P8's `'error'` arm is the natural surface for P9's `Promise.allSettled` rejections.
+
+### Fixed (Lesson 27 — PR-A [#42](https://github.com/famousdavis/spert-cfd/pull/42))
+- **`spert:models-changed` handler now requires `SESSION_KEY` before flipping the banner to `claimed`** — `src/hooks/use-invitation-landing.ts` previously dispatched the claimed-banner UI on every `models-changed` event with a non-empty payload. A user signing in normally (no `?invite=` in this browser session) but with claimable pending invitations would see the banner appear unexpectedly. The handler is now extracted to a pure exported `handleModelsChanged(evt, deps)` whose first check is `sessionStorage.getItem(SESSION_KEY)` — no token in this session, no banner. Pending projects still appear in the list either way (via the `ProductList` listener path); the banner UX is reserved for users who arrived through an invite link. Five new tests in `src/hooks/__tests__/use-invitation-landing.test.ts` cover the gate, the success path, empty-payload short-circuit, empty-modelName filtering, and the `removeItem` throw being non-fatal. Establishes `src/hooks/__tests__/` as the hook-test directory paralleling `src/lib/__tests__/`. (Lesson 27)
+
+### Fixed (Lesson 60 + 64 — PR-B)
+- **`SharingModal` ownership state replaced with four-state `OwnerStatus` enum** — `src/components/sharing-modal.tsx` previously derived `isOwner = !!user && project?.owner === user.uid` synchronously from the loaded project, and the `loadProject` `.catch` swallowed errors silently. An offline / transient-network state stranded the modal on "Loading…" forever with only a console message. New `OwnerStatus = 'loading' | 'owner' | 'not-owner' | 'error'` derives from `project` + a new `loadError` boolean; the `.catch` now sets `loadError`, and the `'error'` arm renders a visible "Couldn't load sharing details. Refresh the page to try again." Four `isOwner` read sites (non-owner notice, member-row editor controls, add-UI gate, pending-invites gate) converted to `ownerStatus === 'owner'` / `'not-owner'`. The existing per-operation `error` string state is preserved as a separate surface for send/resend/revoke/remove failures — load-time vs operation-time errors do not share a state slot. (Lesson 60)
+- **Post-send refresh uses `Promise.allSettled` and authoritatively re-fetches the project** — `src/components/sharing-modal.tsx` `handleAddInvitations` previously awaited `refreshPending()` only and relied on the cloud `onProjectChange` subscription to push the updated member list. Subscription latency could leave the result chips ahead of the member list, and a partial subscription failure would leave both stale. Now: `Promise.allSettled([driver.loadProject(project.id), refreshPending()])` runs both in parallel, applies the project result if fulfilled, and logs warnings on individual rejections so a pending-list failure does not discard a fulfilled member fetch. The subscription continues running for subsequent remote changes. (Lesson 64)
+
+### Tests
+- 295 passing across 22 test files (was 290 across 21 at v0.11.0). New: `handleModelsChanged` (5 cases — see above).
+
 ## v0.11.0 — Bulk-sharing retrograde audit remediation (May 8, 2026)
 
 May 2026 retrograde audit against the suite-wide bulk-sharing guide closed
