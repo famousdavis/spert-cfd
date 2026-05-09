@@ -70,7 +70,18 @@ export interface SendInvitationEmailResult {
   invited: string[];
   failed: Array<{
     email: string;
-    reason: 'invalid-email' | 'already-member' | 'already-invited' | 'send-failed';
+    /**
+     * `invalid-format` is a CLIENT-SIDE rejection (parseBulkEmails
+     * EMAIL_RE filter). It is never produced by the Cloud Function;
+     * the modal merges it into the result so all rejection reasons
+     * render in a single chip surface (Lesson 42).
+     */
+    reason:
+      | 'invalid-format'
+      | 'invalid-email'
+      | 'already-member'
+      | 'already-invited'
+      | 'send-failed';
   }>;
 }
 

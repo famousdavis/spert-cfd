@@ -184,15 +184,32 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
     setError(null);
     setSuccess(null);
     setLastResult(null);
-    const emails = parseBulkEmails(bulkEmails);
-    if (emails.length === 0) {
+    const { valid, invalid } = parseBulkEmails(bulkEmails);
+
+    // Empty input — neither valid nor invalid tokens parsed.
+    if (valid.length === 0 && invalid.length === 0) {
       setError('Enter at least one email address.');
       return;
     }
-    if (emails.length > 25) {
+
+    // All-invalid: skip the CF entirely (nothing for it to do) and
+    // surface the rejected tokens via the result chips. Retain
+    // textarea content so the user can correct typos in place
+    // without re-pasting the whole list (Lesson 43).
+    if (valid.length === 0) {
+      setLastResult({
+        added: [],
+        invited: [],
+        failed: invalid.map((email) => ({ email, reason: 'invalid-format' })),
+      });
+      return;
+    }
+
+    if (valid.length > 25) {
       setError('You can invite at most 25 people per submission.');
       return;
     }
+
     const callable = getSendInvitationEmail();
     if (!callable) {
       setError('Cloud sharing is unavailable in this build.');
@@ -203,13 +220,25 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
       const res = await callable({
         appId: 'spertcfd',
         modelId: project.id,
-        emails,
+        emails: valid,
         role,
         // CFD has no voting concept — always false. Kept on the
         // suite-shared schema for cross-app compatibility.
         isVoting: false,
       });
-      setLastResult(res.data);
+      // Merge client-side invalid-format rejections into the CF result
+      // so all "skipped" reasons render in one chip surface.
+      setLastResult({
+        added: res.data.added,
+        invited: res.data.invited,
+        failed: [
+          ...invalid.map((email) => ({
+            email,
+            reason: 'invalid-format' as const,
+          })),
+          ...res.data.failed,
+        ],
+      });
       setBulkEmails('');
       // The auto-add path mutates the project document; the cloud
       // onProjectChange subscription updates `project` automatically,
