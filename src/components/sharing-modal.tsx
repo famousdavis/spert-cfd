@@ -30,6 +30,12 @@ import type { Project, ChangeLogEntry, PendingInvite } from '@/types';
 
 type MemberRole = 'owner' | 'editor' | 'viewer';
 
+// Lesson 60: four-state ownership replaces a boolean isOwner so a
+// failed loadProject (Firestore offline, transient network) surfaces
+// as a visible error instead of silently rendering the modal in
+// not-owner mode.
+type OwnerStatus = 'loading' | 'owner' | 'not-owner' | 'error';
+
 interface MemberDisplay {
   uid: string;
   role: MemberRole;
@@ -45,6 +51,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
   const { driver } = useStorage();
   const modalRef = useRef<HTMLDivElement>(null);
   const [project, setProject] = useState<Project | null>(null);
+  const [loadError, setLoadError] = useState(false);
   // Legacy (flag off) — single email input.
   const [email, setEmail] = useState('');
   // New (flag on) — bulk-paste textarea + per-batch role.
@@ -69,13 +76,16 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
     modalRef.current?.focus();
   }, []);
 
-  // Load project data
+  // Load project data. Lesson 60: surface load failures via the
+  // OwnerStatus 'error' arm instead of swallowing them — without this,
+  // an offline / transient-network state strands the modal on "Loading…".
   useEffect(() => {
     let cancelled = false;
     driver.loadProject(projectId).then((p) => {
       if (!cancelled) setProject(p);
     }).catch((err) => {
       console.error('Failed to load project for sharing:', (err as { code?: string }).code ?? 'unknown');
+      if (!cancelled) setLoadError(true);
     });
     return () => { cancelled = true; };
   }, [projectId, driver]);
@@ -107,7 +117,13 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
   const members: MemberDisplay[] = Object.entries(project?.members ?? {}).map(
     ([uid, role]) => ({ uid, role }),
   );
-  const isOwner = !!user && project?.owner === user.uid;
+  const ownerStatus: OwnerStatus = (() => {
+    if (loadError) return 'error';
+    if (!project) return 'loading';
+    if (!user) return 'not-owner';
+    if (project.owner === user.uid) return 'owner';
+    return 'not-owner';
+  })();
 
   // ─── Legacy add path (flag off) ────────────────────────────
   const handleAddMemberLegacy = useCallback(async () => {
@@ -236,16 +252,36 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
         ],
       });
       setBulkEmails('');
-      // The auto-add path mutates the project document; the cloud
-      // onProjectChange subscription updates `project` automatically,
-      // and the pending-invite list needs an explicit refresh.
-      await refreshPending();
+      // The auto-add path mutates the project document. The cloud
+      // onProjectChange subscription will eventually push the new
+      // member state, but we don't wait — fetch authoritatively in
+      // parallel with the pending-invite refresh so result chips and
+      // member list update together. Lesson 64: allSettled, not all —
+      // a pending-list failure must not discard a fulfilled member fetch.
+      const [projectResult, pendingResult] = await Promise.allSettled([
+        driver.loadProject(project.id),
+        refreshPending(),
+      ]);
+      if (projectResult.status === 'fulfilled' && projectResult.value) {
+        setProject(projectResult.value);
+      } else if (projectResult.status === 'rejected') {
+        console.warn(
+          '[SharingModal] post-send project refresh failed:',
+          projectResult.reason,
+        );
+      }
+      if (pendingResult.status === 'rejected') {
+        console.warn(
+          '[SharingModal] post-send pending refresh failed:',
+          pendingResult.reason,
+        );
+      }
     } catch (e) {
       setError(mapInvitationError(e as FirebaseError, 'send'));
     } finally {
       setIsLoading(false);
     }
-  }, [project, user, bulkEmails, role, refreshPending]);
+  }, [project, user, bulkEmails, role, refreshPending, driver]);
 
   // ─── Pending-invite actions ────────────────────────────────
   const handleResendInvite = useCallback(async (tokenId: string) => {
@@ -322,7 +358,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
     [project, user],
   );
 
-  if (!project) {
+  if (ownerStatus === 'loading') {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl text-center text-gray-400">
@@ -331,6 +367,43 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
       </div>
     );
   }
+
+  if (ownerStatus === 'error') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div
+          ref={modalRef}
+          tabIndex={-1}
+          className="w-full max-w-md rounded-lg bg-white shadow-xl outline-none"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sharing-modal-title"
+        >
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <h2 id="sharing-modal-title" className="text-sm font-semibold">
+              Share
+            </h2>
+            <button
+              onClick={onClose}
+              className="rounded p-1 text-gray-400 hover:text-gray-700"
+              aria-label="Close"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="p-4">
+            <p className="text-sm text-red-600">
+              Couldn&apos;t load sharing details. Refresh the page to try again.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Beyond this point ownerStatus is 'owner' or 'not-owner' — `project`
+  // is non-null because both 'loading' and 'error' arms returned above.
+  if (!project) return null;
 
   // ─── Result chip rendering (flag on) ───────────────────────
   const renderResultSummary = () => {
@@ -382,7 +455,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
 
         {/* Body */}
         <div className="p-4">
-          {!isOwner && (
+          {ownerStatus === 'not-owner' && (
             <p className="mb-3 text-sm text-gray-500">
               Shared with you. Only the owner can manage members.
             </p>
@@ -403,7 +476,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
                     <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
                       Owner
                     </span>
-                  ) : isOwner ? (
+                  ) : ownerStatus === 'owner' ? (
                     <>
                       <select
                         id={`sharing-member-role-${m.uid}`}
@@ -436,7 +509,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
           </div>
 
           {/* Add UI — owner only */}
-          {isOwner && (INVITATIONS_ENABLED ? (
+          {ownerStatus === 'owner' && (INVITATIONS_ENABLED ? (
             <>
               <p className="mb-2 text-xs text-gray-500">
                 Invite collaborators by email. Existing SPERT users are added immediately;
@@ -512,7 +585,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
           )}
 
           {/* Pending invites list (flag-on, owner-only) */}
-          {INVITATIONS_ENABLED && isOwner && (
+          {INVITATIONS_ENABLED && ownerStatus === 'owner' && (
             <div className="mt-4">
               <PendingInvitesList
                 pendingInvites={pendingInvites}
