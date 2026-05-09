@@ -30,7 +30,7 @@ import {
 import { validateProjectData } from './storage';
 import { LS_ACTIVE_PROJECT, DEBOUNCE_CLOUD_MS } from './constants';
 import { DATA_VERSION } from './migrations';
-import { getRevokeInvite, getResendInvite } from './firebase';
+import { callRevokeInvite, callResendInvite } from './callables';
 
 // ── Invitation helpers ──────────────────────────────────
 
@@ -520,9 +520,7 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
      * mapInvitationError translates them to user-facing copy.
      */
     async revokeInvite(tokenId: string): Promise<void> {
-      const callable = getRevokeInvite();
-      if (!callable) throw new Error('Cloud invitations are not configured.');
-      await callable({ tokenId });
+      await callRevokeInvite(tokenId);
     },
 
     /**
@@ -531,9 +529,7 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
      * 'resource-exhausted' is mapped to cap copy by the UI.
      */
     async resendInvite(tokenId: string): Promise<void> {
-      const callable = getResendInvite();
-      if (!callable) throw new Error('Cloud invitations are not configured.');
-      await callable({ tokenId });
+      await callResendInvite(tokenId);
     },
   };
 }

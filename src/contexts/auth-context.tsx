@@ -24,8 +24,8 @@ import {
   googleProvider,
   microsoftProvider,
   isFirebaseConfigured,
-  getClaimPendingInvitations,
 } from '@/lib/firebase';
+import { callClaimPendingInvitations } from '@/lib/callables';
 import {
   TOS_VERSION,
   APP_ID,
@@ -206,11 +206,9 @@ function writeUserProfile(user: User): void {
 function claimPendingInvitationsAndNotify(firebaseUser: User): void {
   if (!INVITATIONS_ENABLED) return;
   if (!firebaseUser.emailVerified) return;
-  const callable = getClaimPendingInvitations();
-  if (!callable) return;
-  void callable({})
-    .then((res) => {
-      const claimed = res.data?.claimed ?? [];
+  void callClaimPendingInvitations()
+    .then((data) => {
+      const claimed = data?.claimed ?? [];
       if (claimed.length > 0 && typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('spert:models-changed', { detail: { claimed } }),
@@ -220,7 +218,7 @@ function claimPendingInvitationsAndNotify(firebaseUser: User): void {
     .catch((err) => {
       console.error(
         'claimPendingInvitations failed:',
-        (err as { code?: string }).code ?? 'unknown',
+        (err as { code?: string }).code ?? (err as Error).message ?? 'unknown',
       );
     });
 }

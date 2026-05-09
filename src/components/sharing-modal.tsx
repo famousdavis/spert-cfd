@@ -15,7 +15,8 @@ import {
 } from 'firebase/firestore';
 import type { FirebaseError } from 'firebase/app';
 import { X } from 'lucide-react';
-import { db, getSendInvitationEmail, type SendInvitationEmailResult } from '@/lib/firebase';
+import { db, type SendInvitationEmailResult } from '@/lib/firebase';
+import { callSendInvitationEmail } from '@/lib/callables';
 import { useAuth } from '@/contexts/auth-context';
 import { useStorage } from '@/contexts/storage-context';
 import { useEscapeKey } from '@/lib/use-dismiss';
@@ -210,14 +211,9 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
       return;
     }
 
-    const callable = getSendInvitationEmail();
-    if (!callable) {
-      setError('Cloud sharing is unavailable in this build.');
-      return;
-    }
     setIsLoading(true);
     try {
-      const res = await callable({
+      const data = await callSendInvitationEmail({
         appId: 'spertcfd',
         modelId: project.id,
         emails: valid,
@@ -229,14 +225,14 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
       // Merge client-side invalid-format rejections into the CF result
       // so all "skipped" reasons render in one chip surface.
       setLastResult({
-        added: res.data.added,
-        invited: res.data.invited,
+        added: data.added,
+        invited: data.invited,
         failed: [
           ...invalid.map((email) => ({
             email,
             reason: 'invalid-format' as const,
           })),
-          ...res.data.failed,
+          ...data.failed,
         ],
       });
       setBulkEmails('');
