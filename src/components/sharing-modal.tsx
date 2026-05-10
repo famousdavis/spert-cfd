@@ -5,14 +5,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  doc,
-  setDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-} from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import type { FirebaseError } from 'firebase/app';
 import { X } from 'lucide-react';
 import { db, type SendInvitationEmailResult } from '@/lib/firebase';
@@ -20,13 +13,14 @@ import { callSendInvitationEmail } from '@/lib/callables';
 import { useAuth } from '@/contexts/auth-context';
 import { useStorage } from '@/contexts/storage-context';
 import { useEscapeKey } from '@/lib/use-dismiss';
-import { PROJECTS_COL, PROFILES_COL, appendChangeLogEntry } from '@/lib/firestore-helpers';
+import { PROJECTS_COL } from '@/lib/firestore-helpers';
 import { INVITATIONS_ENABLED } from '@/lib/feature-flags';
 import { parseBulkEmails } from '@/lib/parse-bulk-emails';
 import { mapInvitationError } from '@/lib/invitation-errors';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PendingInvitesList } from '@/components/pending-invites-list';
-import type { Project, ChangeLogEntry, PendingInvite } from '@/types';
+import type { Project, PendingInvite } from '@/types';
+import type { StorageDriver } from '@/lib/storage-driver';
 
 type MemberRole = 'owner' | 'editor' | 'viewer';
 
@@ -52,21 +46,10 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [loadError, setLoadError] = useState(false);
-  // Legacy (flag off) — single email input.
-  const [email, setEmail] = useState('');
-  // New (flag on) — bulk-paste textarea + per-batch role.
-  const [bulkEmails, setBulkEmails] = useState('');
-  const [role, setRole] = useState<'editor' | 'viewer'>('editor');
+  // Surfaces member-removal and role-change errors. Invitation-flow
+  // errors live inside InvitationSection's own error state.
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [lastResult, setLastResult] = useState<SendInvitationEmailResult | null>(null);
-  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
-  // tokenId of the pending-invite row whose action is in flight; null
-  // otherwise. Disables every row's buttons while one runs.
-  const [actionBusy, setActionBusy] = useState<string | null>(null);
-  // Confirmation dialogs (replace window.confirm).
-  const [revokeTokenId, setRevokeTokenId] = useState<string | null>(null);
+  // Confirmation dialog for member removal (replaces window.confirm).
   const [removeUid, setRemoveUid] = useState<string | null>(null);
 
   useEscapeKey(onClose);
@@ -99,21 +82,6 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
     return unsub;
   }, [projectId, driver]);
 
-  const refreshPending = useCallback(async () => {
-    if (!INVITATIONS_ENABLED) return;
-    if (driver.mode !== 'cloud') return;
-    try {
-      const list = await driver.listPendingInvites(projectId);
-      setPendingInvites(list);
-    } catch (e) {
-      console.error('listPendingInvites failed:', (e as Error).message);
-    }
-  }, [driver, projectId]);
-
-  useEffect(() => {
-    void refreshPending();
-  }, [refreshPending]);
-
   const members: MemberDisplay[] = Object.entries(project?.members ?? {}).map(
     ([uid, role]) => ({ uid, role }),
   );
@@ -125,200 +93,30 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
     return 'not-owner';
   })();
 
-  // ─── Legacy add path (flag off) ────────────────────────────
-  const handleAddMemberLegacy = useCallback(async () => {
-    if (!db || !project || !user || project.owner !== user.uid) return;
-    const trimmedEmail = email.trim().toLowerCase();
-    // Validate email format and length (RFC 5321: max 254 chars)
-    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail) || trimmedEmail.length > 254) {
-      setError('Please enter a valid email address.');
-      return;
-    }
-    setError(null);
-    setSuccess(null);
-    setIsLoading(true);
-
+  // Authoritative project refresh after the InvitationSection mutates
+  // members. Lesson 64-aware: failures are warned, not surfaced — the
+  // cloud onProjectChange subscription will eventually reconcile.
+  const handleMembersUpdate = useCallback(async () => {
     try {
-      const q = query(
-        collection(db, PROFILES_COL),
-        where('email', '==', trimmedEmail),
-      );
-      const snap = await getDocs(q);
-
-      if (snap.empty) {
-        setError('User not found. They must sign in at least once before being added.');
-        setIsLoading(false);
-        return;
-      }
-
-      const targetUid = snap.docs[0].id;
-
-      if (project.members?.[targetUid]) {
-        setError('This user is already a member of this project.');
-        setIsLoading(false);
-        return;
-      }
-
-      if (targetUid === user.uid) {
-        setError('You are already the owner of this project.');
-        setIsLoading(false);
-        return;
-      }
-
-      const updatedMembers = {
-        ...project.members,
-        [targetUid]: 'editor' as const,
-      };
-
-      const changeLogEntry: ChangeLogEntry = {
-        action: 'shared',
-        timestamp: new Date().toISOString(),
-        actor: user.uid,
-        detail: `Added ${trimmedEmail} as editor`,
-      };
-
-      await setDoc(
-        doc(db, PROJECTS_COL, project.id),
-        {
-          members: updatedMembers,
-          _changeLog: appendChangeLogEntry(project._changeLog, changeLogEntry),
-        },
-        { merge: true },
-      );
-
-      setEmail('');
-      setSuccess(`Added ${trimmedEmail} as editor.`);
+      const fresh = await driver.loadProject(projectId);
+      if (fresh) setProject(fresh);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add member');
-    } finally {
-      setIsLoading(false);
+      console.warn(
+        '[SharingModal] post-send project refresh failed:',
+        (err as { code?: string }).code ?? err,
+      );
     }
-  }, [project, email, user]);
+  }, [driver, projectId]);
 
-  // ─── Invitation add path (flag on) ─────────────────────────
-  const handleAddInvitations = useCallback(async () => {
-    if (!project || !user || project.owner !== user.uid) return;
-    setError(null);
-    setSuccess(null);
-    setLastResult(null);
-    const { valid, invalid } = parseBulkEmails(bulkEmails);
+  const handleOwnerStatusError = useCallback(() => {
+    setLoadError(true);
+  }, []);
 
-    // Empty input — neither valid nor invalid tokens parsed.
-    if (valid.length === 0 && invalid.length === 0) {
-      setError('Enter at least one email address.');
-      return;
-    }
-
-    // All-invalid: skip the CF entirely (nothing for it to do) and
-    // surface the rejected tokens via the result chips. Retain
-    // textarea content so the user can correct typos in place
-    // without re-pasting the whole list (Lesson 43).
-    if (valid.length === 0) {
-      setLastResult({
-        added: [],
-        invited: [],
-        failed: invalid.map((email) => ({ email, reason: 'invalid-format' })),
-      });
-      return;
-    }
-
-    if (valid.length > 25) {
-      setError('You can invite at most 25 people per submission.');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const data = await callSendInvitationEmail({
-        appId: 'spertcfd',
-        modelId: project.id,
-        emails: valid,
-        role,
-        // CFD has no voting concept — always false. Kept on the
-        // suite-shared schema for cross-app compatibility.
-        isVoting: false,
-      });
-      // Merge client-side invalid-format rejections into the CF result
-      // so all "skipped" reasons render in one chip surface.
-      setLastResult({
-        added: data.added,
-        invited: data.invited,
-        failed: [
-          ...invalid.map((email) => ({
-            email,
-            reason: 'invalid-format' as const,
-          })),
-          ...data.failed,
-        ],
-      });
-      setBulkEmails('');
-      // The auto-add path mutates the project document. The cloud
-      // onProjectChange subscription will eventually push the new
-      // member state, but we don't wait — fetch authoritatively in
-      // parallel with the pending-invite refresh so result chips and
-      // member list update together. Lesson 64: allSettled, not all —
-      // a pending-list failure must not discard a fulfilled member fetch.
-      const [projectResult, pendingResult] = await Promise.allSettled([
-        driver.loadProject(project.id),
-        refreshPending(),
-      ]);
-      if (projectResult.status === 'fulfilled' && projectResult.value) {
-        setProject(projectResult.value);
-      } else if (projectResult.status === 'rejected') {
-        console.warn(
-          '[SharingModal] post-send project refresh failed:',
-          projectResult.reason,
-        );
-      }
-      if (pendingResult.status === 'rejected') {
-        console.warn(
-          '[SharingModal] post-send pending refresh failed:',
-          pendingResult.reason,
-        );
-      }
-    } catch (e) {
-      setError(mapInvitationError(e as FirebaseError, 'send'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [project, user, bulkEmails, role, refreshPending, driver]);
-
-  // ─── Pending-invite actions ────────────────────────────────
-  const handleResendInvite = useCallback(async (tokenId: string) => {
-    setActionBusy(tokenId);
-    setError(null);
-    try {
-      await driver.resendInvite(tokenId);
-      await refreshPending();
-    } catch (e) {
-      setError(mapInvitationError(e as FirebaseError, 'resend'));
-    } finally {
-      setActionBusy(null);
-    }
-  }, [driver, refreshPending]);
-
-  const handleRevokeConfirm = useCallback(async () => {
-    if (!revokeTokenId) return;
-    const tokenId = revokeTokenId;
-    setRevokeTokenId(null);
-    setActionBusy(tokenId);
-    setError(null);
-    try {
-      await driver.revokeInvite(tokenId);
-      await refreshPending();
-    } catch (e) {
-      setError(mapInvitationError(e as FirebaseError, 'revoke'));
-    } finally {
-      setActionBusy(null);
-    }
-  }, [revokeTokenId, driver, refreshPending]);
-
-  // ─── Member-row actions (apply in BOTH flag states) ────────
+  // ─── Member-row actions ────────────────────────────────────
   const handleRemoveConfirm = useCallback(async () => {
     if (!removeUid || !project) return;
     const targetUid = removeUid;
     setRemoveUid(null);
-    setIsLoading(true);
     setError(null);
     try {
       // Routed through the driver adapter. The driver wraps the
@@ -331,8 +129,6 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
       await driver.removeCollaborator(project.id, targetUid);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to remove member');
-    } finally {
-      setIsLoading(false);
     }
   }, [removeUid, project, driver]);
 
@@ -404,30 +200,6 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
   // Beyond this point ownerStatus is 'owner' or 'not-owner' — `project`
   // is non-null because both 'loading' and 'error' arms returned above.
   if (!project) return null;
-
-  // ─── Result chip rendering (flag on) ───────────────────────
-  const renderResultSummary = () => {
-    if (!lastResult) return null;
-    const lines: string[] = [];
-    if (lastResult.added.length > 0) {
-      lines.push(`Added ${lastResult.added.length}: ${lastResult.added.join(', ')}`);
-    }
-    if (lastResult.invited.length > 0) {
-      lines.push(`Invited ${lastResult.invited.length}: ${lastResult.invited.join(', ')}`);
-    }
-    if (lastResult.failed.length > 0) {
-      const grouped = lastResult.failed.map((f) => `${f.email} (${f.reason})`).join(', ');
-      lines.push(`Skipped ${lastResult.failed.length}: ${grouped}`);
-    }
-    if (lines.length === 0) return null;
-    return (
-      <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-        {lines.map((l, i) => (
-          <div key={i}>{l}</div>
-        ))}
-      </div>
-    );
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -508,107 +280,31 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
             ))}
           </div>
 
-          {/* Add UI — owner only */}
-          {ownerStatus === 'owner' && (INVITATIONS_ENABLED ? (
-            <>
-              <p className="mb-2 text-xs text-gray-500">
-                Invite collaborators by email. Existing SPERT users are added immediately;
-                new emails receive a one-time invitation link (expires in 30 days).
-              </p>
-              <textarea
-                id="sharing-bulk-emails"
-                name="sharing-bulk-emails"
-                value={bulkEmails}
-                onChange={(e) => setBulkEmails(e.target.value)}
-                placeholder="alice@example.com, bob@example.com&#10;carol@example.com"
-                disabled={isLoading}
-                rows={3}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                aria-label="Email addresses to invite"
-              />
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <select
-                  id="sharing-invite-role"
-                  name="sharing-invite-role"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as 'editor' | 'viewer')}
-                  disabled={isLoading}
-                  className="rounded border border-gray-300 px-2 py-1.5 text-sm"
-                  aria-label="Role for invitees"
-                >
-                  <option value="editor">Editor</option>
-                  <option value="viewer">Viewer</option>
-                </select>
-                <button
-                  onClick={handleAddInvitations}
-                  disabled={isLoading || !bulkEmails.trim()}
-                  className="rounded bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isLoading ? 'Sending…' : 'Add'}
-                </button>
-                <span className="text-xs text-gray-400">Max 25 per day.</span>
-              </div>
-              {renderResultSummary()}
-            </>
-          ) : (
-            <div className="flex gap-2">
-              <input
-                id="sharing-legacy-email"
-                name="sharing-legacy-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAddMemberLegacy();
-                }}
-                placeholder="Email address"
-                aria-label="Collaborator email"
-                autoComplete="off"
-                className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-              <button
-                onClick={handleAddMemberLegacy}
-                disabled={!email.trim() || isLoading}
-                className="rounded bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isLoading ? 'Adding...' : 'Add'}
-              </button>
-            </div>
-          ))}
+          {/* Add UI — owner only. v0.12.2 (L-6): the legacy single-
+              email form has been removed; bulk-invite via Cloud
+              Function is the only add path. INVITATIONS_ENABLED is
+              still consulted so a flag-off build hides the add UI
+              entirely (rather than showing a broken section). */}
+          {ownerStatus === 'owner' && INVITATIONS_ENABLED && (
+            <InvitationSection
+              projectId={projectId}
+              driver={driver}
+              ownerStatus={ownerStatus}
+              members={members}
+              onMembersUpdate={handleMembersUpdate}
+              onOwnerStatusError={handleOwnerStatusError}
+            />
+          )}
 
-          {/* Feedback messages */}
+          {/* Member-removal and role-change errors. Invitation-flow
+              errors live inside InvitationSection. */}
           {error && (
             <p className="mt-2 text-xs text-red-600">{error}</p>
-          )}
-          {success && (
-            <p className="mt-2 text-xs text-green-600">{success}</p>
-          )}
-
-          {/* Pending invites list (flag-on, owner-only) */}
-          {INVITATIONS_ENABLED && ownerStatus === 'owner' && (
-            <div className="mt-4">
-              <PendingInvitesList
-                pendingInvites={pendingInvites}
-                actionBusy={actionBusy}
-                onResend={handleResendInvite}
-                onRevoke={(tokenId) => setRevokeTokenId(tokenId)}
-              />
-            </div>
           )}
         </div>
       </div>
 
-      {/* Confirmation dialogs (replace window.confirm) */}
-      {revokeTokenId && (
-        <ConfirmDialog
-          title="Revoke invitation"
-          message="The invitee won't be able to claim it after revoke."
-          confirmLabel="Revoke"
-          variant="danger"
-          onConfirm={handleRevokeConfirm}
-          onCancel={() => setRevokeTokenId(null)}
-        />
-      )}
+      {/* Member-removal confirmation (replaces window.confirm) */}
       {removeUid && (
         <ConfirmDialog
           title="Remove collaborator"
@@ -620,5 +316,284 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
         />
       )}
     </div>
+  );
+}
+
+// ─── InvitationSection ─────────────────────────────────────
+// Sibling sub-component owning the bulk-invite flow, the pending-invite
+// list, and the revoke confirm dialog. Pattern parallels Story Map
+// v0.29.1 / GanttApp v0.22.1: declared in the same file as its parent
+// to keep the file's concept surface contiguous while isolating the
+// sub-feature's state and effects.
+
+interface InvitationSectionProps {
+  projectId: string;
+  driver: StorageDriver;
+  ownerStatus: OwnerStatus;
+  members: MemberDisplay[];
+  /** Notify parent that project members have changed and the parent
+   *  should re-fetch authoritative project data. */
+  onMembersUpdate: () => void;
+  /** Escalate to parent's owner-status error arm. Reserved for cases
+   *  where a permission failure suggests ownership has been revoked
+   *  mid-session. Currently unused by the basic flows; retained on the
+   *  contract for future invariant enforcement. */
+  onOwnerStatusError: () => void;
+}
+
+// SECURITY MODEL — resend cap (5×/invitation) is enforced SERVER-SIDE.
+// The architectural backstop is `allow write: if false` on
+// spertsuite_invitations (firestore.rules), which makes client-side
+// emailSendCount tampering impossible: only the resendInvite Cloud
+// Function (Admin SDK) can mutate the counter, and the CF rejects
+// further sends when emailSendCount >= 5 with HttpsError
+// 'resource-exhausted'. The per-row "Working…" disable below
+// (handleResend → setActionBusy) and the "(N/5)" display in
+// PendingInvitesList are UX surfaces, not security controls.
+// Removing the disable would NOT unlock more sends — the CF would
+// still reject. See v0.12.2 audit finding L-3 and the block comment
+// on `match /spertsuite_invitations/{tokenId}` in firestore.rules.
+function InvitationSection({
+  projectId,
+  driver,
+  ownerStatus,
+  members: _members,
+  onMembersUpdate,
+  onOwnerStatusError: _onOwnerStatusError,
+}: InvitationSectionProps) {
+  const [bulkEmails, setBulkEmails] = useState('');
+  const [role, setRole] = useState<'editor' | 'viewer'>('editor');
+  const [sending, setSending] = useState(false);
+  const [lastResult, setLastResult] = useState<SendInvitationEmailResult | null>(null);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  // tokenId of the pending-invite row whose action is in flight; null
+  // otherwise. Disables every row's buttons while one runs.
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [revokeTokenId, setRevokeTokenId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshPending = useCallback(async () => {
+    if (!INVITATIONS_ENABLED) return;
+    if (driver.mode !== 'cloud') return;
+    try {
+      const list = await driver.listPendingInvites(projectId);
+      setPendingInvites(list);
+    } catch (e) {
+      console.error('listPendingInvites failed:', (e as Error).message);
+    }
+  }, [driver, projectId]);
+
+  useEffect(() => {
+    void refreshPending();
+  }, [refreshPending]);
+
+  const handleBulkSend = useCallback(async () => {
+    // Defensive guard: parent gates render on ownerStatus === 'owner',
+    // but a concurrent ownership change could land between renders.
+    if (ownerStatus !== 'owner') return;
+    setError(null);
+    setLastResult(null);
+    const { valid, invalid } = parseBulkEmails(bulkEmails);
+
+    // Empty input — neither valid nor invalid tokens parsed.
+    if (valid.length === 0 && invalid.length === 0) {
+      setError('Enter at least one email address.');
+      return;
+    }
+
+    // All-invalid: skip the CF entirely (nothing for it to do) and
+    // surface the rejected tokens via the result chips. Retain
+    // textarea content so the user can correct typos in place
+    // without re-pasting the whole list (Lesson 43).
+    if (valid.length === 0) {
+      setLastResult({
+        added: [],
+        invited: [],
+        failed: invalid.map((email) => ({ email, reason: 'invalid-format' })),
+      });
+      return;
+    }
+
+    if (valid.length > 25) {
+      setError('You can invite at most 25 people per submission.');
+      return;
+    }
+
+    setSending(true);
+    try {
+      const data = await callSendInvitationEmail({
+        appId: 'spertcfd',
+        modelId: projectId,
+        emails: valid,
+        role,
+        // CFD has no voting concept — always false. Kept on the
+        // suite-shared schema for cross-app compatibility.
+        isVoting: false,
+      });
+      // Merge client-side invalid-format rejections into the CF result
+      // so all "skipped" reasons render in one chip surface.
+      setLastResult({
+        added: data.added,
+        invited: data.invited,
+        failed: [
+          ...invalid.map((email) => ({
+            email,
+            reason: 'invalid-format' as const,
+          })),
+          ...data.failed,
+        ],
+      });
+      setBulkEmails('');
+      // The auto-add path mutates the project document. The cloud
+      // onProjectChange subscription will eventually push the new
+      // member state, but we don't wait — fetch authoritatively in
+      // parallel with the pending-invite refresh so result chips and
+      // member list update together. Lesson 64: allSettled, not all —
+      // a pending-list failure must not discard a fulfilled member fetch.
+      const [projectResult, pendingResult] = await Promise.allSettled([
+        Promise.resolve(onMembersUpdate()),
+        refreshPending(),
+      ]);
+      if (projectResult.status === 'rejected') {
+        console.warn(
+          '[SharingModal] post-send project refresh failed:',
+          projectResult.reason,
+        );
+      }
+      if (pendingResult.status === 'rejected') {
+        console.warn(
+          '[SharingModal] post-send pending refresh failed:',
+          pendingResult.reason,
+        );
+      }
+    } catch (e) {
+      setError(mapInvitationError(e as FirebaseError, 'send'));
+    } finally {
+      setSending(false);
+    }
+  }, [ownerStatus, bulkEmails, role, projectId, refreshPending, onMembersUpdate]);
+
+  // ─── Pending-invite actions ────────────────────────────────
+  const handleResend = useCallback(async (tokenId: string) => {
+    setActionBusy(tokenId);
+    setError(null);
+    try {
+      await driver.resendInvite(tokenId);
+      await refreshPending();
+    } catch (e) {
+      setError(mapInvitationError(e as FirebaseError, 'resend'));
+    } finally {
+      setActionBusy(null);
+    }
+  }, [driver, refreshPending]);
+
+  const handleRevoke = useCallback(async () => {
+    if (!revokeTokenId) return;
+    const tokenId = revokeTokenId;
+    setRevokeTokenId(null);
+    setActionBusy(tokenId);
+    setError(null);
+    try {
+      await driver.revokeInvite(tokenId);
+      await refreshPending();
+    } catch (e) {
+      setError(mapInvitationError(e as FirebaseError, 'revoke'));
+    } finally {
+      setActionBusy(null);
+    }
+  }, [revokeTokenId, driver, refreshPending]);
+
+  // ─── Result chip rendering ─────────────────────────────────
+  const renderResultSummary = () => {
+    if (!lastResult) return null;
+    const lines: string[] = [];
+    if (lastResult.added.length > 0) {
+      lines.push(`Added ${lastResult.added.length}: ${lastResult.added.join(', ')}`);
+    }
+    if (lastResult.invited.length > 0) {
+      lines.push(`Invited ${lastResult.invited.length}: ${lastResult.invited.join(', ')}`);
+    }
+    if (lastResult.failed.length > 0) {
+      const grouped = lastResult.failed.map((f) => `${f.email} (${f.reason})`).join(', ');
+      lines.push(`Skipped ${lastResult.failed.length}: ${grouped}`);
+    }
+    if (lines.length === 0) return null;
+    return (
+      <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+        {lines.map((l, i) => (
+          <div key={i}>{l}</div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <p className="mb-2 text-xs text-gray-500">
+        Invite collaborators by email. Existing SPERT users are added immediately;
+        new emails receive a one-time invitation link (expires in 30 days).
+      </p>
+      <textarea
+        id="sharing-bulk-emails"
+        name="sharing-bulk-emails"
+        value={bulkEmails}
+        onChange={(e) => setBulkEmails(e.target.value)}
+        placeholder="alice@example.com, bob@example.com&#10;carol@example.com"
+        disabled={sending}
+        rows={3}
+        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        aria-label="Email addresses to invite"
+      />
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <select
+          id="sharing-invite-role"
+          name="sharing-invite-role"
+          value={role}
+          onChange={(e) => setRole(e.target.value as 'editor' | 'viewer')}
+          disabled={sending}
+          className="rounded border border-gray-300 px-2 py-1.5 text-sm"
+          aria-label="Role for invitees"
+        >
+          <option value="editor">Editor</option>
+          <option value="viewer">Viewer</option>
+        </select>
+        <button
+          onClick={handleBulkSend}
+          disabled={sending || !bulkEmails.trim()}
+          className="rounded bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {sending ? 'Sending…' : 'Add'}
+        </button>
+        <span className="text-xs text-gray-400">Max 25 per day.</span>
+      </div>
+      {renderResultSummary()}
+
+      {/* Invitation-flow error surface (local to this section). */}
+      {error && (
+        <p className="mt-2 text-xs text-red-600">{error}</p>
+      )}
+
+      {/* Pending invites list */}
+      <div className="mt-4">
+        <PendingInvitesList
+          pendingInvites={pendingInvites}
+          actionBusy={actionBusy}
+          onResend={handleResend}
+          onRevoke={(tokenId) => setRevokeTokenId(tokenId)}
+        />
+      </div>
+
+      {/* Revoke confirmation (replaces window.confirm) */}
+      {revokeTokenId && (
+        <ConfirmDialog
+          title="Revoke invitation"
+          message="The invitee won't be able to claim it after revoke."
+          confirmLabel="Revoke"
+          variant="danger"
+          onConfirm={handleRevoke}
+          onCancel={() => setRevokeTokenId(null)}
+        />
+      )}
+    </>
   );
 }

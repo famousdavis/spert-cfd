@@ -147,7 +147,14 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
       projects.map((p) => driver.loadProject(p.id))
     )).filter((p): p is NonNullable<typeof p> => p !== null);
     if (allProjects.length === 0) return;
-    const json = JSON.stringify(allProjects, null, 2);
+    // v0.12.2 (M-3): route each project through driver.exportProject()
+    // so cloud-only fields (owner, members, schemaVersion, _originRef,
+    // _changeLog) are stripped before the file is written. Round-trip
+    // through JSON.parse so the array element shape matches the
+    // single-project exporter at handleExport above; the per-project
+    // exportProject call is what does the actual stripping.
+    const exported = allProjects.map((p) => JSON.parse(driver.exportProject(p)));
+    const json = JSON.stringify(exported, null, 2);
     downloadFile(json, exportAllFilename('json'), 'application/json');
   }, [projects, driver]);
 

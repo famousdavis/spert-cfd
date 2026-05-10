@@ -10,6 +10,25 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+  {
+    rules: {
+      // Honour two intentional patterns the codebase already uses:
+      //   - `_`-prefixed params/vars marked deliberately unused
+      //     (cloud-only stub methods, reserved props on extracted
+      //     sub-component contracts)
+      //   - destructure-to-strip with a `...rest` sibling, used in
+      //     firestore-driver.ts to peel cloud-only fields off a
+      //     project before exporting the rest.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

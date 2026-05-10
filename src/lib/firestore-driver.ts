@@ -359,6 +359,15 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     onProjectListChange(
       callback: (projects: ProjectListItem[]) => void,
     ): () => void {
+      // TODO (v0.12.1 investigation flag): the async snapshot callback
+      // awaits loadProjectOrder() mid-flight. Rapid back-to-back
+      // snapshots — e.g. burst writes from accept-invite or bulk-share
+      // — can interleave such that a later snapshot completes before
+      // the earlier one's order resolves, applying stale ordering.
+      // Likely fixes: a sequence-token guard that drops late-arriving
+      // results, or caching `order` at listener-attach time and
+      // invalidating only on explicit reorderProjects(). Investigate
+      // before the next security audit.
       return onSnapshot(
         membershipQuery(),
         async (snap: QuerySnapshot) => {

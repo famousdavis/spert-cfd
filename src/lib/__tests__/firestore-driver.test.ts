@@ -17,16 +17,23 @@ const mockCollection = vi.fn((_db, col) => ({ id: col }));
 const mockQuery = vi.fn((...args) => ({ _query: true, args }));
 const mockWhere = vi.fn((...args) => ({ _where: true, args }));
 
+// vi.mock is hoisted above the `const mockX = vi.fn(...)` declarations,
+// so the factory body must defer access to the mock identifiers. The
+// arrow-wrapper pattern accomplishes that — direct-pass (`doc: mockDoc`)
+// throws ReferenceError at module init due to TDZ. The
+// `Parameters<typeof mockX>` tuple typing on the wrapper params is what
+// satisfies TS2556 against vitest 4.x's tightened signature inference.
+// Do not "simplify" to direct-pass.
 vi.mock('firebase/firestore', () => ({
-  doc: (...args: unknown[]) => mockDoc(...args),
-  collection: (...args: unknown[]) => mockCollection(...args),
-  query: (...args: unknown[]) => mockQuery(...args),
-  where: (...args: unknown[]) => mockWhere(...args),
-  setDoc: (...args: unknown[]) => mockSetDoc(...args),
-  deleteDoc: (...args: unknown[]) => mockDeleteDoc(...args),
-  getDoc: (...args: unknown[]) => mockGetDoc(...args),
-  getDocs: (...args: unknown[]) => mockGetDocs(...args),
-  onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
+  doc: (...args: Parameters<typeof mockDoc>) => mockDoc(...args),
+  collection: (...args: Parameters<typeof mockCollection>) => mockCollection(...args),
+  query: (...args: Parameters<typeof mockQuery>) => mockQuery(...args),
+  where: (...args: Parameters<typeof mockWhere>) => mockWhere(...args),
+  setDoc: (...args: Parameters<typeof mockSetDoc>) => mockSetDoc(...args),
+  deleteDoc: (...args: Parameters<typeof mockDeleteDoc>) => mockDeleteDoc(...args),
+  getDoc: (...args: Parameters<typeof mockGetDoc>) => mockGetDoc(...args),
+  getDocs: (...args: Parameters<typeof mockGetDocs>) => mockGetDocs(...args),
+  onSnapshot: (...args: Parameters<typeof mockOnSnapshot>) => mockOnSnapshot(...args),
 }));
 
 // ── localStorage mock ────────────────────────────────────
