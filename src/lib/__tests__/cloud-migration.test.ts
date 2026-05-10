@@ -11,9 +11,16 @@ import type { StorageDriver, ProjectListItem } from '../storage-driver';
 const mockGetDoc = vi.fn();
 const mockDoc = vi.fn((_db, _col, id) => ({ id, path: `${_col}/${id}` }));
 
+// vi.mock is hoisted above the `const mockX = vi.fn(...)` declarations,
+// so the factory body must defer access to the mock identifiers. The
+// arrow-wrapper pattern accomplishes that — direct-pass (`doc: mockDoc`)
+// throws ReferenceError at module init due to TDZ. The
+// `Parameters<typeof mockX>` tuple typing on the wrapper params is what
+// satisfies TS2556 against vitest 4.x's tightened signature inference.
+// Do not "simplify" to direct-pass.
 vi.mock('firebase/firestore', () => ({
-  doc: (...args: unknown[]) => mockDoc(...args),
-  getDoc: (...args: unknown[]) => mockGetDoc(...args),
+  doc: (...args: Parameters<typeof mockDoc>) => mockDoc(...args),
+  getDoc: (...args: Parameters<typeof mockGetDoc>) => mockGetDoc(...args),
 }));
 
 // ── Import after mocks ──────────────────────────────────
@@ -61,6 +68,10 @@ function createMockDriver(projects: Project[]): StorageDriver {
     importProject: () => null,
     flush: () => {},
     cancelPendingSaves: () => {},
+    removeCollaborator: async () => {},
+    listPendingInvites: async () => [],
+    revokeInvite: async () => {},
+    resendInvite: async () => {},
   };
 }
 

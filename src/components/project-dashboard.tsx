@@ -20,7 +20,11 @@ interface ProjectDashboardProps {
 export function ProjectDashboard({ onGoToProjects }: ProjectDashboardProps) {
   const { project } = useActiveProject();
   const { driver } = useStorage();
-  // Memoize storage usage calculation - only recalculate when project is updated
+  // Memoize storage usage calculation — recompute when the active
+  // project saves. updatedAt isn't used inside the memo body; it's an
+  // intentional invalidation trigger because a save is what mutates
+  // the underlying localStorage size that getStorageUsage() reads.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const usage = useMemo(() => getStorageUsage(), [project?.updatedAt]);
 
   if (!project) {

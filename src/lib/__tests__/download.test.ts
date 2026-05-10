@@ -38,12 +38,12 @@ describe('sanitizeFilename', () => {
 });
 
 describe('downloadFile', () => {
-  let clickSpy: ReturnType<typeof vi.fn>;
+  let clickSpy: ReturnType<typeof vi.fn<() => void>>;
   let revokeObjectURLSpy: ReturnType<typeof vi.fn>;
   let createdAnchor: { href: string; download: string; click: () => void };
 
   beforeEach(() => {
-    clickSpy = vi.fn();
+    clickSpy = vi.fn<() => void>();
     createdAnchor = { href: '', download: '', click: clickSpy };
 
     vi.spyOn(document, 'createElement').mockReturnValue(createdAnchor as unknown as HTMLElement);
