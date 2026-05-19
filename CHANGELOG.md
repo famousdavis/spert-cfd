@@ -2,6 +2,47 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.13.0 — Level 4 import capability (May 18, 2026)
+
+Replaces the single-project import primitive with a multi-project workflow that detects ID and name conflicts, presents a preview with per-conflict resolution (Skip / Add as Copy / Replace), gates any Replace decision behind a secondary confirmation, and rolls back failed creates from optimistic state. Pre-existing `importProjectFromJson` (which silently appended duplicate-named projects on re-import and could not handle multi-project workspace export files) is removed. Adds 86 new test cases (`src/lib/__tests__/import-utils.test.ts`) — 381 total across 23 files.
+
+### Added
+- **Robust multi-project import with conflict detection and preview** — Import accepts both single-project files (JSON object) and multi-project workspace files (the JSON array produced by Export All and the Settings multi-select export). The preview lists every incoming project, flags ID and name conflicts against the current workspace, and offers Skip / Add as Copy / Replace per conflict. Non-conflicting projects always add. All conflicts default to Skip — never Replace.
+- **Replace confirmation gate** — Any import with at least one Replace decision requires a secondary confirmation dialog. Cancelling returns to the preview with decisions intact (the pending-preview ref is not cleared on dismiss).
+- **Two-layer stale-data guard** — Layer 1 re-detects conflicts at confirm-time against the current project list and aborts with a "list changed" error banner if they drifted while the user was reviewing. Layer 2 runs inside the React functional updater so concurrent peer deletes between Layer 1 and the render are respected (the replace target vanishes silently from the UI; the driver write still fires).
+- **Add-write confirmation with rollback** — `createProject` writes are awaited via `Promise.allSettled`; failures are rolled back from React state via a functional `setProjects` and reported in the banner's `addFailedCount` suffix. Sync throws from `localStorage.setItem` (quota exceeded in local mode) are coerced into rejections via a `Promise.resolve().then(...)` wrap so they cannot bypass `allSettled` and escape with optimistic state still applied.
+- **Single-project auto-switch** — Importing a single project (including the "Add as Copy" case where a name conflict produced a renamed copy) switches the active project to the import. Multi-project imports and skip/replace-only outcomes do not change the active project. The switch happens AFTER `await Promise.allSettled` so a failed create never leaves an orphaned `activeProjectId`, and in cloud mode the Firestore document has committed before `ActiveProjectContext` reloads.
+- **Migration-aware import** — Files from older app versions are routed through `migrateProject` before validation. (Plumbing only — `PROJECT_MIGRATIONS` is empty in v0.13.0; activates automatically when a future migration is added.)
+- **New files** — `src/lib/import-utils.ts` (pure-function module: classification, conflict detection, decision application, rollback planning, banner formatting); `src/hooks/use-import-state.ts` (state machine hook: idle → preview → replace-confirm? → banner | error); `src/components/import-preview-section.tsx` (accessible preview UI with radiogroup-per-conflict and labelled badges).
+- **Increased import file size cap** — `MAX_IMPORT_FILE_SIZE` raised from 1 MB to 5 MB. Sizing: 30 projects × 365 snapshots × ~150 bytes/snapshot ≈ 1.6 MB; 5 MB provides 3× headroom for multi-project workspace exports.
+
+### Changed
+- **`ProjectListContextValue.applyImportMerge` replaces `importProjectFromJson`** — The new function takes `{incoming, decisions, originalConflicts}` and returns an `ImportMergeOutcome` discriminated on `ok`. The old single-project primitive is removed; no callers remained outside `project-list-context.tsx` itself after Phase 6.
+- **`ProjectListContextValue.projectUpdateKey`** — Bumped by `applyImportMerge` after a local-mode replace of the active project, signalling `ActiveProjectContext` to reload from storage. Cloud-mode replaces flow through the existing `onProjectChange` listener; incrementing the key there would race the 500 ms `saveProject` debounce.
+
+### Removed
+- **`importProjectFromJson` from `ProjectListContext`** — Replaced by `applyImportMerge`. Previously silently appended duplicate-named projects on re-import and could not handle multi-project workspace export files. Grep-verified no callers remained outside the context file before removal.
+
+### File-type validation (MIME nuance)
+- The file picker uses `.json` extension as the PRIMARY and REQUIRED guard. The MIME check (`file.type === 'application/json'`) is SECONDARY and intentionally permissive: Safari often reports `''`, some Linux Firefox installs report `'text/plain'`, and Windows Edge reports the canonical type. The MIME check only rejects obvious mismatches (e.g., a renamed binary tagged `'application/octet-stream'`). Inlined comment in `use-import-state.ts` documents this so it doesn't regress to MIME-required.
+
+### Known limitations (v0.13.0)
+- **Concurrent-add gap** — React's `setState` does not expose a compare-and-set primitive, so a peer adding a same-named project between preview-open and Confirm-click is handled by Layer 1 only (not Layer 2). The window is milliseconds; accepted for this release. Switching this slice from Context to Zustand would close the gap.
+- **`projectOrder` race** — Parallel `createProject` calls for multi-project imports race on `spertcfd_settings/{uid}.projectOrder` in cloud mode. Display order may reflect only the last-completing add; data is correct. Pre-existing driver bug newly exposed by multi-project import. Re-drag to reorder. Deferred to follow-up.
+- **Replace writes are best-effort** — `driver.saveProject` is debounced 500 ms in cloud mode and fire-and-forget here; the banner's `replaced` count is optimistic. Firestore's `onSnapshot` reconciles cloud truth on commit.
+- **Cloud-replace stale-data window** — Replacing the currently-active project in cloud mode briefly shows the pre-replace view (~500 ms + round-trip) until the Firestore snapshot listener delivers fresh data. The banner is accurate; the view catches up shortly after. `shouldIncrementProjectKey` deliberately returns false in cloud mode to avoid racing the debounce.
+- **`_changeLog` provenance** — Cloud adds appear as `'created'` (set by `driver.createProject`); cloud replaces preserve existing entries (`merge:true` + `buildSavePayload` exclusion); local adds have no `_changeLog` entry (storage.ts does not set one); local replaces silently wipe the existing `_changeLog` (`saveProject` writes the full object, overwriting localStorage with an undefined field that JSON.stringify omits). A dedicated `'imported'` action and local-replace preservation require driver changes; deferred to follow-up.
+- **Concurrent delete during preview review** — If a peer deletes the replace target while the user is reviewing, Layer 2 drops the replace from the UI silently. In cloud mode the upsert from `saveProject` would still fire and create a malformed document (no owner/members); the rules-layer field allowlist (v0.12.2 M-2) rejects this, so the write fails cleanly. Accepted edge case.
+
+### Tests
+- 381 passing across 23 test files (295 + 86 new in `import-utils.test.ts`). New describe blocks: `normalizeProjectName` (2), `classifyImportData` (12, including the HR6-1 missing-id generation case), `detectImportConflicts` (8), `conflictsEqual` (6), `applyImportDecisions` (14), `buildNewProjectList` (7), `computeImportMerge` (6 — case #5 deep-equality against an independent `applyImportDecisions` invocation, per the strengthened test), `computeWriteRollback` (5), `buildBannerText` (13 — including the HR6-3 partial-failure-with-replaces case), `processImportData` (5), `shouldAutoSwitch` (4), `shouldIncrementProjectKey` (4).
+
+### Verification
+- `npx tsc --noEmit` — 0 errors
+- `npm test` — 381/381 across 23 files
+- `npm run lint` — 0 errors / 0 warnings
+- `npm run build` — succeeds
+
 ## v0.12.2 — Security audit closure (May 9, 2026)
 
 Closes the v0.12.2 security audit's three actionable findings on the app side, ships alongside a coordinated `firestore.rules` deploy in spert-landing-page that closes M-1, M-2, and L-2 at the rule layer. v0.12.1's refactor work (extracted `InvitationSection`, test-infra hygiene, ESLint config tuning) is included in this ship — v0.12.1 was prepped on a feature branch but caught by the audit before deploy and rolled forward into v0.12.2 rather than shipped separately. See the v0.12.1 entry below for that work; the four sub-sections in this entry document only the v0.12.2 audit closure.

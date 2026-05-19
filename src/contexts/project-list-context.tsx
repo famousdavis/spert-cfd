@@ -14,20 +14,43 @@ import {
 } from 'react';
 import { nanoid } from 'nanoid';
 import { useStorage } from './storage-context';
+import type { Project } from '@/types';
 import type { ProjectListItem } from '@/lib/storage-driver';
 import { MAX_NAME_LENGTH } from '@/lib/constants';
 import { createSampleProject } from '@/lib/sample-data';
 import { registerDataReset } from '@/lib/app-data-reset-registry';
+import type {
+  ImportDecisions,
+  ImportConflict,
+  ImportMergeOutcome,
+} from '@/lib/import-utils';
+import {
+  computeImportMerge,
+  buildNewProjectList,
+  computeWriteRollback,
+  shouldAutoSwitch,
+  shouldIncrementProjectKey,
+} from '@/lib/import-utils';
 
 interface ProjectListContextValue {
   projects: ProjectListItem[];
   activeProjectId: string | null;
   isLoaded: boolean;
+  /**
+   * Bumped when the active project was replaced in local mode by an import.
+   * ActiveProjectContext watches this to trigger a reload from storage.
+   * Cloud mode uses onProjectChange instead (see import-utils HR4-2 note).
+   */
+  projectUpdateKey: number;
   createProject: (name: string) => string;
   deleteProject: (id: string) => void;
   switchProject: (id: string) => void;
   renameProject: (id: string, name: string) => void;
-  importProjectFromJson: (json: string) => string | null;
+  applyImportMerge: (args: {
+    incoming: Project[];
+    decisions: ImportDecisions;
+    originalConflicts: ImportConflict[];
+  }) => Promise<ImportMergeOutcome>;
   reorderProjects: (orderedIds: string[]) => void;
 }
 
@@ -46,6 +69,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [projectUpdateKey, setProjectUpdateKey] = useState(0);
 
   // Load project list from driver on mount
   useEffect(() => {
@@ -176,21 +200,123 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
     [driver]
   );
 
-  const importProjectFromJson = useCallback(
-    (json: string): string | null => {
-      const imported = driver.importProject(json);
-      if (!imported) return null;
+  const applyImportMerge = useCallback(
+    async ({
+      incoming,
+      decisions,
+      originalConflicts,
+    }: {
+      incoming: Project[];
+      decisions: ImportDecisions;
+      originalConflicts: ImportConflict[];
+    }): Promise<ImportMergeOutcome> => {
+      // ── Layer 1: re-detect conflicts & compute apply result ───────
+      const mergeResult = computeImportMerge({
+        incoming,
+        decisions,
+        originalConflicts,
+        currentProjects: projects,
+      });
+      if (!mergeResult.ok) {
+        return { ok: false, added: 0, replaced: 0, skipped: 0, errorKind: 'drift' };
+      }
+      const { result } = mergeResult;
 
-      // Use createProject (not saveProject) so index is updated in local mode
-      // and ownership fields are set in cloud mode (§8.9)
-      driver.createProject(imported);
-      driver.setActiveProjectId(imported.id);
+      // ── Optimistic state update (Layer 2 inside the functional updater) ─
+      setProjects((prev) => buildNewProjectList(prev, result));
 
-      setProjects((prev) => [...prev, { id: imported.id, name: imported.name }]);
-      setActiveProjectId(imported.id);
-      return imported.id;
+      // Local-mode active-project replace → bump the reload key.
+      // Cloud-mode replaces flow through onProjectChange; incrementing the
+      // key there would race the 500ms saveProject debounce.
+      if (shouldIncrementProjectKey(driver.mode, activeProjectId, result.replaced)) {
+        setProjectUpdateKey((k) => k + 1);
+      }
+
+      // ── Replace writes: fire-and-forget (debounced 500ms cloud) ────
+      // saveProject uses Firestore merge:true → owner/members preserved
+      // and existing _changeLog stays (buildSavePayload excludes it).
+      for (const p of result.replaced) {
+        driver.saveProject(p).catch((err) => {
+          console.error(
+            'applyImportMerge: saveProject failed',
+            p.id,
+            (err as { code?: string }).code ?? 'unknown',
+          );
+        });
+      }
+
+      // ── Add writes: awaited (createProject is non-debounced) ──────
+      // Promise.resolve().then(...) coerces sync throws (e.g., localStorage
+      // quota exceeded in local mode) into rejections caught by allSettled.
+      // Without this, a sync throw bypasses allSettled and escapes to the
+      // caller's catch with optimistic state still applied.
+      //
+      // Pre-existing driver race: parallel createProject calls in cloud race
+      // on spertcfd_settings/{uid}.projectOrder. Display order may be wrong;
+      // data correct. Documented as a known limitation for v0.13.0.
+      const addedResults = await Promise.allSettled(
+        result.added.map((p) =>
+          Promise.resolve().then(() => driver.createProject(p)),
+        ),
+      );
+
+      const { failedAddedIds, addedOk, writeFailedCount } = computeWriteRollback(
+        addedResults,
+        result.added,
+      );
+
+      // ── Roll back failed adds ────────────────────────────────────
+      if (failedAddedIds.size > 0) {
+        setProjects((prev) => prev.filter((p) => !failedAddedIds.has(p.id)));
+        addedResults.forEach((r, i) => {
+          if (r.status === 'rejected') {
+            console.error(
+              'applyImportMerge: createProject failed',
+              result.added[i].id,
+              (r.reason as { code?: string }).code ?? 'unknown',
+            );
+          }
+        });
+      }
+
+      // ── Single-project auto-switch (AFTER await) ─────────────────
+      // Deferred until after rollback so we only switch to a project that
+      // actually exists. Applies to single-file adds and copies; never to
+      // replaces, skips, or multi-project imports.
+      if (shouldAutoSwitch(incoming.length, result, failedAddedIds)) {
+        const newId = result.added[0].id;
+        driver.setActiveProjectId(newId);
+        setActiveProjectId(newId);
+      }
+
+      // ── All-adds-failed-with-no-replaces → error outcome ─────────
+      // Returns ok:false so the caller routes to the error phase (red
+      // banner), not the green success phase. Optimistic state has been
+      // fully rolled back at this point.
+      if (
+        result.added.length > 0 &&
+        addedOk === 0 &&
+        result.replaced.length === 0
+      ) {
+        return {
+          ok: false,
+          added: 0,
+          replaced: 0,
+          skipped: result.skipped.length,
+          addFailedCount: writeFailedCount,
+          errorKind: 'write-failed',
+        };
+      }
+
+      return {
+        ok: true,
+        added: addedOk,
+        replaced: result.replaced.length, // optimistic; fire-and-forget
+        skipped: result.skipped.length,
+        addFailedCount: writeFailedCount > 0 ? writeFailedCount : undefined,
+      };
     },
-    [driver]
+    [driver, projects, activeProjectId],
   );
 
   const reorderProjects = useCallback(
@@ -223,11 +349,12 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
         projects,
         activeProjectId,
         isLoaded,
+        projectUpdateKey,
         createProject,
         deleteProject,
         switchProject,
         renameProject,
-        importProjectFromJson,
+        applyImportMerge,
         reorderProjects,
       }}
     >

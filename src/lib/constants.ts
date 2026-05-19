@@ -2,10 +2,14 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-export const APP_VERSION = '0.12.2';
+export const APP_VERSION = '0.13.0';
 
-/** Maximum file size for CSV and JSON imports (1MB) */
-export const MAX_IMPORT_FILE_SIZE = 1 * 1024 * 1024;
+/**
+ * Maximum file size for CSV and JSON imports (5 MB).
+ * Sizing: 30 projects × 365 snapshots × ~150 bytes/snapshot ≈ 1.6 MB; 5 MB
+ * provides 3× headroom for multi-project workspace imports.
+ */
+export const MAX_IMPORT_FILE_SIZE = 5 * 1024 * 1024;
 
 /** Maximum length for project and workflow state names */
 export const MAX_NAME_LENGTH = 200;

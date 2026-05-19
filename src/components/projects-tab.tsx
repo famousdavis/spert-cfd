@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -23,8 +23,11 @@ import { useProjectList } from '@/contexts/project-list-context';
 import { useStorage } from '@/contexts/storage-context';
 import { useAuth } from '@/contexts/auth-context';
 import { exportFilename, exportAllFilename, downloadFile } from '@/lib/download';
-import { MAX_IMPORT_FILE_SIZE, MAX_NAME_LENGTH } from '@/lib/constants';
+import { MAX_NAME_LENGTH } from '@/lib/constants';
+import { buildBannerText } from '@/lib/import-utils';
+import { useImportState } from '@/hooks/use-import-state';
 import { ConfirmDialog } from './confirm-dialog';
+import { ImportPreviewSection } from './import-preview-section';
 import { SharingModal } from './sharing-modal';
 import { SortableProjectCard, type ProjectStats } from './project-row';
 
@@ -39,18 +42,30 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     createProject,
     deleteProject,
     renameProject,
-    importProjectFromJson,
     reorderProjects,
   } = useProjectList();
   const { driver } = useStorage();
   const { user } = useAuth();
 
   const [newName, setNewName] = useState('');
-  const [importError, setImportError] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [sharingProjectId, setSharingProjectId] = useState<string | null>(null);
   const [projectStats, setProjectStats] = useState<Map<string, ProjectStats>>(new Map());
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uiError, setUiError] = useState<string | null>(null);
+
+  const {
+    flowPhase: importFlowPhase,
+    applying: importApplying,
+    inputRef: importInputRef,
+    setDecision: setImportDecision,
+    handleImportClick: onImportClick,
+    handleFileChange: onImportFileChange,
+    handleConfirmImport: onConfirmImport,
+    handleCancel: onCancelImport,
+    handleReplaceConfirmed: onReplaceConfirmed,
+    dismissReplaceConfirm: onDismissReplaceConfirm,
+    handleDismissBanner: onDismissImportBanner,
+  } = useImportState();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -105,36 +120,6 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     if (e.key === 'Enter') handleCreate();
   };
 
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImportError(null);
-
-    if (file.size > MAX_IMPORT_FILE_SIZE) {
-      setImportError('File too large. Maximum size is 1MB.');
-      e.target.value = '';
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const json = reader.result as string;
-      const id = importProjectFromJson(json);
-      if (!id) {
-        setImportError('Invalid project file. Please check the format and try again.');
-      }
-    };
-    reader.onerror = () => {
-      setImportError('Failed to read file. Please try again.');
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
-
   const handleExport = useCallback(async (id: string) => {
     const project = await driver.loadProject(id);
     if (!project) return;
@@ -161,7 +146,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
   const handleDeleteClick = useCallback(
     (id: string) => {
       if (projects.length <= 1) {
-        setImportError('Cannot delete the last project.');
+        setUiError('Cannot delete the last project.');
         return;
       }
       setDeleteConfirmId(id);
@@ -191,7 +176,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
           Export All
         </button>
         <button
-          onClick={handleImportClick}
+          onClick={onImportClick}
           className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100"
         >
           Import
@@ -199,26 +184,71 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
         <input
           id="import-project-file"
           name="import-project-file"
-          ref={fileInputRef}
+          ref={importInputRef}
           type="file"
-          accept=".json"
-          onChange={handleFileChange}
+          accept=".json,application/json"
+          onChange={onImportFileChange}
           className="hidden"
           aria-label="Import project file"
         />
       </div>
 
-      {/* Error banner */}
-      {importError && (
+      {/* Non-import UI error (e.g. last-project delete) */}
+      {uiError && (
         <div role="alert" className="flex items-center justify-between rounded bg-red-50 px-4 py-2 text-sm text-red-700">
-          <span>{importError}</span>
+          <span>{uiError}</span>
           <button
-            onClick={() => setImportError(null)}
+            onClick={() => setUiError(null)}
             className="ml-4 text-red-500 hover:text-red-700"
           >
             Dismiss
           </button>
         </div>
+      )}
+
+      {/* Import error phase */}
+      {importFlowPhase.phase === 'error' && (
+        <div
+          role="alert"
+          className="flex items-center justify-between rounded bg-red-50 px-4 py-2 text-sm text-red-700"
+        >
+          <span>{importFlowPhase.message}</span>
+          <button
+            onClick={onDismissImportBanner}
+            className="ml-4 text-red-500 hover:text-red-700"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Import success banner */}
+      {importFlowPhase.phase === 'banner' && (
+        <div
+          role="status"
+          className="flex items-center justify-between rounded bg-green-50 px-4 py-2 text-sm text-green-700"
+        >
+          <span>{buildBannerText(importFlowPhase.outcome)}</span>
+          <button
+            onClick={onDismissImportBanner}
+            className="ml-4 text-green-600 hover:text-green-800"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Import preview */}
+      {importFlowPhase.phase === 'preview' && (
+        <ImportPreviewSection
+          incoming={importFlowPhase.incoming}
+          conflicts={importFlowPhase.conflicts}
+          decisions={importFlowPhase.decisions}
+          applying={importApplying}
+          onSetDecision={setImportDecision}
+          onConfirm={onConfirmImport}
+          onCancel={onCancelImport}
+        />
       )}
 
       {/* New project form */}
@@ -304,6 +334,18 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
           variant="danger"
           onConfirm={handleConfirmDelete}
           onCancel={() => setDeleteConfirmId(null)}
+        />
+      )}
+
+      {/* Replace-confirm gate for imports */}
+      {importFlowPhase.phase === 'replace-confirm' && (
+        <ConfirmDialog
+          title="Replace projects?"
+          message="One or more projects in your workspace will be overwritten by the import. This cannot be undone."
+          confirmLabel="Replace"
+          variant="danger"
+          onConfirm={onReplaceConfirmed}
+          onCancel={onDismissReplaceConfirm}
         />
       )}
     </div>
