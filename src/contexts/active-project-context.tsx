@@ -44,11 +44,14 @@ export function useActiveProject() {
 }
 
 export function ActiveProjectProvider({ children }: { children: ReactNode }) {
-  const { activeProjectId } = useProjectList();
+  const { activeProjectId, projectUpdateKey } = useProjectList();
   const { driver } = useStorage();
   const [project, setProject] = useState<Project | null>(null);
 
-  // Load project when activeProjectId changes — async with cancellation
+  // Load project when activeProjectId changes — async with cancellation.
+  // projectUpdateKey is bumped by applyImportMerge after a local-mode replace
+  // of the active project, forcing a fresh read from storage. Cloud mode uses
+  // onProjectChange and never increments the key.
   useEffect(() => {
     if (!activeProjectId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale project when ID is removed
@@ -64,7 +67,7 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
       console.error('Failed to load project:', (err as { code?: string }).code ?? 'unknown');
     });
     return () => { cancelled = true; };
-  }, [activeProjectId, driver]);
+  }, [activeProjectId, driver, projectUpdateKey]);
 
   // Subscribe to remote changes in cloud mode
   useEffect(() => {
