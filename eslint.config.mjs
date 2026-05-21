@@ -7,6 +7,7 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
 const eslintConfig = defineConfig([
+  { ignores: [".claude/**"] },
   ...nextVitals,
   ...nextTs,
   globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
