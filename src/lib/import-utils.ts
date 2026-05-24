@@ -335,6 +335,14 @@ export function applyImportDecisions(
     // decision === 'copy' — deferred to Pass 2
   }
 
+  // Pitfall #3 (nested timed-data ID regeneration on 'copy'): N/A for CFD.
+  // CFD's only per-project timed-data entity is `snapshots`, keyed by ISO
+  // date string (not UUID — see `Snapshot.date` in src/types/index.ts). A
+  // double-import via 'copy' produces two projects with independent
+  // localStorage keys (`cfd-lab-project-{id}`); their snapshot arrays do
+  // not deduplicate across projects because there is no global snapshot
+  // ID namespace. No nested-ID regeneration is needed for the copy path.
+  //
   // Pass 2: copies. Generate fresh id (if id-conflict) and unique name.
   // Only suffix the name when the original would collide with a surviving
   // project — id-only conflicts where names differ keep the original name.

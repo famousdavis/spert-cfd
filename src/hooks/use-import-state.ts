@@ -5,6 +5,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import type { Project } from '@/types';
 import { MAX_IMPORT_FILE_SIZE } from '@/lib/constants';
 import { useProjectList } from '@/contexts/project-list-context';
@@ -69,7 +70,7 @@ export function useImportState(): UseImportStateResult {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   // ── useProjectList ──────────────────────────────────────
-  const { projects, applyImportMerge } = useProjectList();
+  const { projects, driverLoading, applyImportMerge } = useProjectList();
 
   // ── Transition helpers (all [] deps; no setApplying calls) ─────
   const showPreview = useCallback(
@@ -134,7 +135,12 @@ export function useImportState(): UseImportStateResult {
       // already in flight.
       return;
     }
-    setApplying(true);
+    // flushSync ensures applying=true is committed to the DOM before the synchronous
+    // import work begins. Without it, aria-busy on the Confirm button and the
+    // "Importing…" label are not observable to assistive tech before the merge starts
+    // (pitfall #86). Outside the try block so a flushSync throw — extremely rare —
+    // does not skip the finally's setApplying(false) reset.
+    flushSync(() => setApplying(true));
     try {
       const { incoming, conflicts: originalConflicts, decisions } = pending;
       const outcome = await applyImportMerge({ incoming, decisions, originalConflicts });
@@ -160,6 +166,12 @@ export function useImportState(): UseImportStateResult {
   const handleConfirmImport = useCallback(() => {
     if (flowPhase.phase !== 'preview') return;
     if (applying) return;
+    // C2: Drop Confirm on the floor while the project list is hydrating from a
+    // driver swap (e.g., mid-session cloud-mode activation). Conflict detection
+    // ran against a stale list; proceeding could create duplicates or clobber
+    // cloud projects that the dashboard hasn't surfaced yet. Guard runs BEFORE
+    // pendingPreviewRef.current is set so a guarded call leaves no stale ref.
+    if (driverLoading) return;
     const { incoming, conflicts, decisions } = flowPhase;
     pendingPreviewRef.current = { incoming, conflicts, decisions };
     // setApplying(true) is NOT called here. The phase change itself prevents
@@ -172,7 +184,7 @@ export function useImportState(): UseImportStateResult {
       return;
     }
     void applyMerge();
-  }, [flowPhase, applying, showReplaceConfirm, applyMerge]);
+  }, [flowPhase, applying, driverLoading, showReplaceConfirm, applyMerge]);
 
   // ── handleReplaceConfirmed — depends on applyMerge ──────
   const handleReplaceConfirmed = useCallback(() => {
@@ -253,7 +265,17 @@ export function useImportState(): UseImportStateResult {
         readerRef.current = null;
         showError('Failed to read file. Please try again.');
       };
-      reader.readAsText(file);
+      // FileReader.readAsText can throw synchronously (e.g. InvalidStateError).
+      // Without this catch the exception escapes the React event handler and the
+      // reader handle is leaked; showing an error banner here keeps the UI honest
+      // and lets the user try again (pitfall #48).
+      try {
+        reader.readAsText(file);
+      } catch (err) {
+        if (readerRef.current === reader) readerRef.current = null;
+        const detail = err instanceof Error ? err.message : 'Unknown error';
+        showError(`Failed to read file: ${detail}`);
+      }
     },
     [projects, resetReaderState, showError, showPreview],
   );

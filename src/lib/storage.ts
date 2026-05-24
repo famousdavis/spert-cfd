@@ -83,8 +83,19 @@ export function loadProject(id: string): Project | null {
 export function saveProject(project: Project): void {
   if (typeof window === 'undefined') return;
 
+  // H2/C-1: Preserve immutable identity fields from the existing record.
+  //   - createdAt: the actual original creation date, not a re-imported file's date.
+  //   - _originRef: the workspace provenance fingerprint set at create time.
+  // These fields are set by createProject and must not be overwritten by saveProject.
+  // For genuinely new records (loadProject returns null), fall back to the incoming
+  // values so createProject — which calls saveProject internally via the local driver —
+  // can still seed them on first write.
+  const existing = loadProject(project.id);
+
   const toSave: Project = {
     ...project,
+    createdAt: existing?.createdAt ?? project.createdAt,
+    _originRef: existing?._originRef ?? project._originRef,
     _version: DATA_VERSION,
     updatedAt: new Date().toISOString(),
   };
