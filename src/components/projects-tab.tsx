@@ -39,6 +39,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
   const {
     projects,
     activeProjectId,
+    driverLoading,
     createProject,
     deleteProject,
     renameProject,
@@ -177,7 +178,8 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
         </button>
         <button
           onClick={onImportClick}
-          className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100"
+          disabled={driverLoading}
+          className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
         >
           Import
         </button>
@@ -245,6 +247,8 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
           conflicts={importFlowPhase.conflicts}
           decisions={importFlowPhase.decisions}
           applying={importApplying}
+          driverLoading={driverLoading}
+          existingCount={projects.length}
           onSetDecision={setImportDecision}
           onConfirm={onConfirmImport}
           onCancel={onCancelImport}

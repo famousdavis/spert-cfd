@@ -37,6 +37,14 @@ interface ProjectListContextValue {
   activeProjectId: string | null;
   isLoaded: boolean;
   /**
+   * True while loadProjectList() is in-flight for the current driver.
+   * Distinct from isLoaded: isLoaded is one-shot for the initial mount,
+   * driverLoading toggles on every driver swap (e.g. mid-session cloud-flip).
+   * Import call sites consult this to disable the file picker and the
+   * preview's Confirm button during the hydration window.
+   */
+  driverLoading: boolean;
+  /**
    * Bumped when the active project was replaced in local mode by an import.
    * ActiveProjectContext watches this to trigger a reload from storage.
    * Cloud mode uses onProjectChange instead (see import-utils HR4-2 note).
@@ -69,28 +77,55 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  // Cloud-mode mounts start gated; local-mode mounts need no gate (synchronous read).
+  // driver is non-null here — StorageProvider short-circuits until storageReady = driver !== null.
+  const [driverLoading, setDriverLoading] = useState(() => driver.mode === 'cloud');
   const [projectUpdateKey, setProjectUpdateKey] = useState(0);
 
   // Load project list from driver on mount
   useEffect(() => {
     let cancelled = false;
+    let cloudLoadFailed = false;
+    if (driver.mode === 'cloud') {
+      setDriverLoading(true);
+    }
     (async () => {
-      const list = await driver.loadProjectList();
-      if (cancelled) return;
+      try {
+        const list = await driver.loadProjectList();
+        if (cancelled) return;
 
-      // Sample project seeding: local mode only (§8.4)
-      // In cloud mode, an empty list shows the empty state.
-      if (list.length === 0 && driver.mode === 'local') {
-        const sample = createSampleProject();
-        await driver.createProject(sample);
-        driver.setActiveProjectId(sample.id);
-        setProjects([{ id: sample.id, name: sample.name }]);
-        setActiveProjectId(sample.id);
-      } else {
-        setProjects(list);
-        setActiveProjectId(driver.getActiveProjectId());
+        // Sample project seeding: local mode only (§8.4)
+        // In cloud mode, an empty list shows the empty state.
+        if (list.length === 0 && driver.mode === 'local') {
+          const sample = createSampleProject();
+          await driver.createProject(sample);
+          if (cancelled) return; // guard after second await
+          driver.setActiveProjectId(sample.id);
+          setProjects([{ id: sample.id, name: sample.name }]);
+          setActiveProjectId(sample.id);
+        } else {
+          setProjects(list);
+          setActiveProjectId(driver.getActiveProjectId());
+        }
+        setIsLoaded(true);
+      } catch (err) {
+        if (!cancelled) {
+          console.error(
+            'Failed to load project list:',
+            (err as { code?: string }).code ?? 'unknown',
+          );
+          setIsLoaded(true);
+          if (driver.mode === 'cloud') {
+            // C2: Leave driverLoading=true for cloud failures — the user lands on an
+            // empty list with a disabled Import button rather than a writable-but-stale
+            // cloud workspace. Auto-recovery happens via the onProjectListChange
+            // subscription (M3) when connectivity returns, or via sign-out → sign-in.
+            cloudLoadFailed = true;
+          }
+        }
+      } finally {
+        if (!cancelled && !cloudLoadFailed) setDriverLoading(false);
       }
-      setIsLoaded(true);
     })();
     return () => { cancelled = true; };
   }, [driver]);
@@ -100,6 +135,13 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
     if (driver.mode !== 'cloud') return;
     const unsub = driver.onProjectListChange((list) => {
       setProjects(list);
+      // M3: Auto-recover Import button after a cloud-load failure when Firestore
+      // delivers data. In the normal flow driverLoading is already false — this is
+      // a no-op. Gate on list.length > 0 to avoid false recovery if the subscription
+      // fires with a stale empty-cache result before connectivity is restored.
+      if (list.length > 0) {
+        setDriverLoading(false);
+      }
     });
     return unsub;
   }, [driver]);
@@ -113,6 +155,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
       setProjects([]);
       setActiveProjectId(null);
       setIsLoaded(false);
+      setDriverLoading(true); // symmetric reset; new driver effect will set false when ready
     });
   }, []);
 
@@ -349,6 +392,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
         projects,
         activeProjectId,
         isLoaded,
+        driverLoading,
         projectUpdateKey,
         createProject,
         deleteProject,

@@ -2,6 +2,53 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.13.1 — Import hardening (May 24, 2026)
+
+Hardens the v0.13.0 import flow against mid-session storage-mode swaps, FileReader exceptions, double-click races, and local-replace identity-field loss. Adds eight `renderHook`-based behavioral tests for `useImportState`. Documents architectural deviations from the Level 4 spec in `docs/SPEC_DEVIATIONS.md`.
+
+### Changed
+- Import: Import file-picker button and preview Confirm button are now disabled while
+  the project list is loading from the current storage driver (e.g., during mid-session
+  cloud mode activation). Prevents conflict detection or writes against a stale list.
+  A "Project list is updating" hint appears in the import preview during this window.
+  Cancel remains active during list updates.
+- Import: 'Importing…' button state now reliably renders before write operations begin
+  in local mode (flushSync ensures DOM commit before async work).
+- Import: After a cloud-load failure (e.g., no connectivity), the Import button
+  auto-enables when the Firestore subscription delivers data. A sign-out → sign-in
+  cycle also re-triggers the load. Page refresh is no longer the only recovery path.
+
+### Fixed
+- Import: Local-mode 'replace' now preserves `createdAt` and `_originRef` from the
+  existing project, matching cloud-mode behavior. Prior behavior silently clobbered
+  both fields with the incoming file's values.
+- Import: Pressing Escape while an import write is in progress is now a no-op.
+- Import: FileReader exception on `readAsText` is now caught and displayed as an error
+  banner rather than silently thrown.
+
+### Accessibility
+- Import preview: heading receives programmatic focus on mount for screen reader
+  announcement.
+- Import preview: Confirm button carries `aria-busy` during import.
+- Import preview: "Project list is updating" status uses a stable live region that
+  screen readers announce on content change.
+
+### Tests
+- Added `src/hooks/__tests__/use-import-state.test.ts`: eight behavioral tests for the
+  import state machine hook covering phase transitions, applying lifecycle,
+  double-click idempotency, exception recovery, driverLoading guard, and
+  cancel-handler unconditionality.
+
+### Known Limitations
+- Local-mode 'replace' does not preserve `_changeLog`. Fix planned for v0.14.0.
+- Import does not emit an 'imported' `_changeLog` entry; emits 'created' instead.
+  Fix planned for v0.14.0.
+- After enabling cloud sync, give the dashboard a moment to load your existing projects
+  before importing. Importing immediately after cloud-mode activation may not detect all
+  conflicts if Firestore returns cached data while offline. See `docs/SPEC_DEVIATIONS.md`.
+- If loading your cloud projects fails, the Import button remains disabled. It auto-enables
+  when Firestore delivers data, or after a sign-out → sign-in cycle.
+
 ## v0.13.0 — Level 4 import capability (May 18, 2026)
 
 Replaces the single-project import primitive with a multi-project workflow that detects ID and name conflicts, presents a preview with per-conflict resolution (Skip / Add as Copy / Replace), gates any Replace decision behind a secondary confirmation, and rolls back failed creates from optimistic state. Pre-existing `importProjectFromJson` (which silently appended duplicate-named projects on re-import and could not handle multi-project workspace export files) is removed. Adds 86 new test cases (`src/lib/__tests__/import-utils.test.ts`) — 381 total across 23 files.

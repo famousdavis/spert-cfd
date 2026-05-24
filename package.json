@@ -1,6 +1,6 @@
 {
   "name": "spert-cfd",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "private": true,
   "engines": {
     "node": "22.x"
@@ -30,6 +30,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.2",
     "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^22",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",

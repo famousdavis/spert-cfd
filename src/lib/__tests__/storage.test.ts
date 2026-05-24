@@ -17,6 +17,7 @@ import {
 } from '../storage';
 import { DATA_VERSION } from '../migrations';
 import { createSampleProject } from '../sample-data';
+import type { Project } from '@/types';
 
 // ── localStorage mock ────────────────────────────────────
 
@@ -134,6 +135,45 @@ describe('Project CRUD', () => {
 
   it('returns null for non-existent project', () => {
     expect(loadProject('nonexistent')).toBeNull();
+  });
+});
+
+describe('Identity field preservation (H2/C-1)', () => {
+  it('preserves createdAt across saves — incoming createdAt is ignored when an existing record is present', () => {
+    const project = createSampleProject();
+    const originalCreatedAt = project.createdAt;
+    saveProject(project);
+
+    // Simulate an import 'replace' or app-level rewrite that carries a different createdAt.
+    const updated: Project = { ...project, createdAt: '2099-01-01T00:00:00.000Z' };
+    saveProject(updated);
+
+    const loaded = loadProject(project.id)!;
+    expect(loaded.createdAt).toBe(originalCreatedAt);
+  });
+
+  it('preserves _originRef across saves — incoming _originRef is ignored when an existing record is present', () => {
+    const project: Project = { ...createSampleProject(), _originRef: 'workspace-original' };
+    saveProject(project);
+
+    const updated: Project = { ...project, _originRef: 'workspace-different' };
+    saveProject(updated);
+
+    const loaded = loadProject(project.id)!;
+    expect(loaded._originRef).toBe('workspace-original');
+  });
+
+  it('uses the incoming createdAt and _originRef on first write when no existing record exists', () => {
+    const project: Project = {
+      ...createSampleProject(),
+      _originRef: 'fresh-workspace',
+    };
+    // First save acts as a create — loadProject(id) returns null inside saveProject.
+    saveProject(project);
+
+    const loaded = loadProject(project.id)!;
+    expect(loaded.createdAt).toBe(project.createdAt);
+    expect(loaded._originRef).toBe('fresh-workspace');
   });
 });
 
