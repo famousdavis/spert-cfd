@@ -80,16 +80,40 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
     return unsub;
   }, [activeProjectId, driver]);
 
+  // I2 — Listen for access-revocation events dispatched by the Firestore driver.
+  useEffect(() => {
+    if (driver.mode !== 'cloud') return;
+    const handleAccessRevoked = (e: Event) => {
+      const custom = e as CustomEvent<{ id: string }>;
+      if (custom.detail.id === activeProjectId) {
+        setProject(null);
+        // TODO (L1 / future): surface a user-visible message once a
+        // notification channel exists.
+      }
+    };
+    window.addEventListener('spert:project-access-revoked', handleAccessRevoked);
+    return () => {
+      window.removeEventListener('spert:project-access-revoked', handleAccessRevoked);
+    };
+  }, [driver.mode, activeProjectId]);
+
   // Flush pending writes on unmount
   useEffect(() => {
     return () => driver.flush();
   }, [driver]);
 
-  // Flush pending writes before tab close (§8.8)
+  // D2: Register both beforeunload (desktop) and pagehide (iOS Safari, bfcache)
+  // with distinct handler references so removeEventListener can unregister each
+  // independently.
   useEffect(() => {
-    const handler = () => driver.flush();
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
+    const handleBeforeUnload = () => driver.flush();
+    const handlePageHide = () => driver.flush();
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
   }, [driver]);
 
   // Register a synchronous reset callback invoked by StorageProvider's
@@ -105,7 +129,12 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
       setProject((prev) => {
         if (!prev) return prev;
         const updated = { ...prev, workflow: states };
-        driver.saveProject(updated);
+        driver.saveProject(updated).catch((err: unknown) => {
+          console.error(
+            'updateWorkflow: saveProject failed',
+            (err as { code?: string }).code ?? 'unknown',
+          );
+        });
         return updated;
       });
     },
@@ -117,7 +146,12 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
       setProject((prev) => {
         if (!prev) return prev;
         const updated = { ...prev, snapshots };
-        driver.saveProject(updated);
+        driver.saveProject(updated).catch((err: unknown) => {
+          console.error(
+            'updateSnapshots: saveProject failed',
+            (err as { code?: string }).code ?? 'unknown',
+          );
+        });
         return updated;
       });
     },
@@ -132,7 +166,12 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
           ...prev,
           settings: { ...prev.settings, ...patch },
         };
-        driver.saveProject(updated);
+        driver.saveProject(updated).catch((err: unknown) => {
+          console.error(
+            'updateSettings: saveProject failed',
+            (err as { code?: string }).code ?? 'unknown',
+          );
+        });
         return updated;
       });
     },

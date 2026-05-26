@@ -13,10 +13,9 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
-import { signOut as firebaseSignOut } from 'firebase/auth';
 import { createLocalStorageDriver } from '@/lib/local-storage-driver';
 import { createFirestoreDriver } from '@/lib/firestore-driver';
-import { auth, isFirebaseConfigured, db } from '@/lib/firebase';
+import { isFirebaseConfigured, db } from '@/lib/firebase';
 import { useAuth } from './auth-context';
 import type { StorageDriver, StorageMode } from '@/lib/storage-driver';
 import {
@@ -47,6 +46,23 @@ export function useStorage(): StorageContextValue {
     throw new Error('useStorage must be used within StorageProvider');
   }
   return ctx;
+}
+
+/**
+ * Clear all per-project localStorage keys for the current workspace.
+ * Called by performSignOutWithCleanup ONLY when the driver is in cloud
+ * mode. In local mode localStorage is the user's only data copy and
+ * must not be cleared on sign-out (F3 fix). Exported for unit testing.
+ */
+export function clearLocalProjectStorage(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(LS_ACTIVE_PROJECT);
+  localStorage.removeItem(LS_HAS_UPLOADED);
+  const index = loadIndex();
+  for (const id of index.projectIds) {
+    localStorage.removeItem(PROJECT_PREFIX + id);
+  }
+  localStorage.removeItem(INDEX_KEY);
 }
 
 function getPersistedMode(): StorageMode {
@@ -140,30 +156,23 @@ export function StorageProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const performSignOutWithCleanup = async (): Promise<void> => {
       // 1. Zero in-memory state synchronously — prevents prior user's
-      //    projects from flashing in the UI during the auth cascade.
+      //    projects flashing during the auth cascade.
       runDataReset();
-
-      // 2. Cancel pending Firestore writes BEFORE credentials revoke.
+      // 2. Cancel pending Firestore writes before credentials revoke.
+      //    cancelPendingSaves() is idempotent on an empty pendingWrites map
+      //    (safe for the Path 1 → Path 3 double-run).
       driverRef.current?.cancelPendingSaves();
-
-      // 3. Clear per-user localStorage keys. Per-browser carve-outs
-      //    (LS_STORAGE_MODE, LS_TOS_ACCEPTED_VERSION, LS_WORKSPACE_ID,
-      //    LS_FIRST_RUN_SEEN, LS_SUPPRESS_LS_WARNING) are preserved.
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem(LS_ACTIVE_PROJECT);
-        localStorage.removeItem(LS_HAS_UPLOADED);
-        const index = loadIndex();
-        for (const id of index.projectIds) {
-          localStorage.removeItem(PROJECT_PREFIX + id);
-        }
-        localStorage.removeItem(INDEX_KEY);
+      // 3. Clear per-project localStorage keys — gated on cloud mode (F3).
+      //    Local mode: localStorage is the user's only data copy.
+      //    driverRef.current?.mode is read at invocation time (not registration
+      //    time) so it reflects the live driver during cleanup.
+      if (driverRef.current?.mode === 'cloud') {
+        clearLocalProjectStorage();
       }
-
-      // 4. Revoke credentials. onAuthStateChanged(null) fires, cascading
-      //    setUser(null) → effectiveMode → 'local' → driver swap.
-      if (auth) {
-        await firebaseSignOut(auth);
-      }
+      // 4. firebaseSignOut is NOT called here. Callers (Paths 1 and 2 in
+      //    AuthContext) call it explicitly after this function returns.
+      //    Path 3 (externally-revoked) must not call it — doing so would
+      //    create an infinite onAuthStateChanged loop.
     };
 
     return registerSignOutCleanup(performSignOutWithCleanup);

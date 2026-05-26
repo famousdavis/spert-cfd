@@ -208,6 +208,35 @@ Firebase is initialized from `NEXT_PUBLIC_FIREBASE_*` env vars. If not configure
 
 Firestore security rules are managed centrally in the Firebase Console for the shared `spert-suite` project (all six SPERT apps). The `users/{uid}` consent collection is locked to owner-only access: `allow read, write: if isAuth() && request.auth.uid == uid`. Verified during v0.4.2 security audit.
 
+### Sign-Out Paths and Cleanup Guarantees (v0.14.0)
+
+Three distinct sign-out paths call `performSignOutWithCleanup` (registered via
+`signOutCleanupRegistry`), which in order:
+
+1. Calls `runDataReset()` — zeros in-memory project state synchronously
+2. Calls `driverRef.current?.cancelPendingSaves()` — cancels pending cloud writes
+3. Calls `clearLocalProjectStorage()` conditionally — only when driver is in
+   cloud mode (F3 fix: local-mode users' localStorage is their only data copy)
+
+`performSignOutWithCleanup` intentionally does NOT call `firebaseSignOut`. Callers own that step.
+
+**Path 1 — User-initiated:** `handleSignOut` → `runSignOutCleanup()` →
+  `firebaseSignOut(auth)` → `onAuthStateChanged(null)` → Path 3 (idempotent re-run)
+
+**Path 2 — ToS-mismatch:** `clearLocalConsent()` → `runSignOutCleanup()` →
+  `firebaseSignOut(auth)` → `onAuthStateChanged(null)` → Path 3 (idempotent re-run)
+
+**Path 3 — Externally-revoked:** `onAuthStateChanged(null)` →
+  `try { runSignOutCleanup() } catch {...} finally { setUser(null); setIsAuthLoading(false) }`
+  No `firebaseSignOut` — credentials already revoked; calling it would loop.
+
+All cleanup steps are idempotent. Double-invocation (Paths 1/2 → Path 3) is safe.
+
+**Accepted gap — I1a:** Snapshot callbacks lack a `auth?.currentUser?.uid !== uid` guard.
+The driver is recreated on uid change (StorageProvider's driver-swap useEffect), covering
+the race for the vast majority of cases. The `auth` object is not imported by the driver,
+so adding the guard would require a structural change. Accepted as low-risk.
+
 ## Migration System
 
 Semver-based, matching the pattern from MyScrumBudget:

@@ -45,6 +45,44 @@ export function StateRow({
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
+  // WIP limit draft buffer (A3 fix).
+  // '' is the "no limit" sentinel: maps to undefined on commit.
+  const [draftWip, setDraftWip] = useState<number | ''>(state.wipLimit ?? '');
+  const isWipFocusedRef = useRef(false);
+  const draftWipRef = useRef<number | ''>(draftWip);
+  const onSetWipLimitRef = useRef(onSetWipLimit);
+
+  // Sync refs after every render so the unmount cleanup sees latest values.
+  useEffect(() => {
+    draftWipRef.current = draftWip;
+    onSetWipLimitRef.current = onSetWipLimit;
+  });
+
+  // Focus guard: sync draft from prop only when not focused.
+  useEffect(() => {
+    if (!isWipFocusedRef.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync prop into draft when not editing
+      setDraftWip(state.wipLimit ?? '');
+    }
+  }, [state.wipLimit]);
+
+  // Unmount-commit: WorkflowEditor unmounts StateRow when switching Edit→View.
+  useEffect(() => {
+    return () => {
+      if (isWipFocusedRef.current) {
+        const val = typeof draftWipRef.current === 'number' ? draftWipRef.current : undefined;
+        onSetWipLimitRef.current(val);
+      }
+    };
+  }, []);
+
+  const commitWip = () => {
+    isWipFocusedRef.current = false;
+    // '' maps to undefined (no WIP limit); positive number maps to that limit.
+    const val = typeof draftWip === 'number' ? draftWip : undefined;
+    onSetWipLimit(val);
+  };
+
   useEffect(() => {
     if (isEditingName && nameInputRef.current) {
       nameInputRef.current.focus();
@@ -182,11 +220,14 @@ export function StateRow({
               name={`wip-${state.id}`}
               type="number"
               min={0}
-              value={state.wipLimit ?? ''}
+              value={draftWip}
               onChange={(e) => {
                 const val = parseInt(e.target.value);
-                onSetWipLimit(isNaN(val) || val <= 0 ? undefined : val);
+                setDraftWip(isNaN(val) || val <= 0 ? '' : val);
               }}
+              onFocus={() => { isWipFocusedRef.current = true; }}
+              onBlur={commitWip}
+              onKeyDown={(e) => { if (e.key === 'Enter') { commitWip(); e.currentTarget.blur(); } }}
               placeholder="—"
               className="w-10 rounded border border-gray-300 px-1 py-0.5 text-xs text-center"
             />
