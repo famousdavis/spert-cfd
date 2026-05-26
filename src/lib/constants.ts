@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-export const APP_VERSION = '0.13.1';
+export const APP_VERSION = '0.14.0';
 
 /**
  * Maximum file size for CSV and JSON imports (5 MB).
@@ -37,9 +37,15 @@ export const LS_ACTIVE_PROJECT = 'spertcfd-active-project';
 export const LS_STORAGE_MODE = 'spertcfd-storage-mode';
 export const LS_WORKSPACE_ID = 'spertcfd-workspace-id';
 
-/** Debounce delays for storage writes (ms) */
-export const DEBOUNCE_LOCAL_MS = 300;
-export const DEBOUNCE_CLOUD_MS = 500;
+/** Firestore document schema version. Written once by createProject.
+ *  saveProject intentionally omits it (mergeFields exclusion preserves
+ *  the existing value). Update when adding a PROJECT_MIGRATIONS entry. */
+export const SCHEMA_VERSION = '0.7.0';
+
+/** Debounce delay for cloud Firestore writes (ms).
+ *  200ms closes the click-loss window on hard tab kills without
+ *  meaningfully increasing write volume. Local saves are synchronous. */
+export const DEBOUNCE_CLOUD_MS = 200;
 
 /** localStorage key for migration flag */
 export const LS_HAS_UPLOADED = 'spertcfd-has-uploaded-to-cloud';

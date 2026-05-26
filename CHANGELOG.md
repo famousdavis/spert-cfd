@@ -2,6 +2,24 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.14.0 — Cloud storage remediation (May 25, 2026)
+
+Addresses structural cloud storage correctness gaps identified in a full-codebase audit. All fixes are preventive — no data-loss incidents were reported. Project documents are re-stamped to v0.14.0 on next save (no migration required).
+
+### Fixed
+- Security: Externally-revoked Firebase sessions now run full sign-out cleanup before clearing user state, cancelling pending Firestore writes before they fire against a revoked token. (E1)
+- Data integrity: Signing out while in local storage mode no longer deletes local projects. The localStorage clear is now conditional on having been in cloud mode at sign-out time. (F3)
+- Data integrity: Grid cell count inputs and the WIP limit input now buffer keystrokes locally and commit to storage only on blur, Enter, or tab navigation, preventing server-ack snapshots from resetting in-progress edits in cloud mode. (A3)
+- Cloud sharing: When a collaborator's access is revoked, the active project is removed from view and the Firestore subscription is unsubscribed to stop repeated permission-denied errors. (I2)
+- Data integrity: Workflow, snapshot, and settings saves now catch Firestore write failures and route them to the browser console rather than producing unhandled promise rejections. (L1)
+
+### Changed
+- Cloud saves: `saveProject` now uses `mergeFields` instead of `merge: true`, ensuring that switching the metrics period kind does not leave stale fields on the Firestore document. (C1)
+- Cloud saves: Both `beforeunload` and `pagehide` events now trigger a flush of pending writes, covering iOS Safari and back-button (bfcache) navigations. (D2)
+- Performance: Cloud save debounce window reduced from 500ms to 200ms. (D1)
+- Code quality: `schemaVersion` in `createProject` is now the `SCHEMA_VERSION` named constant rather than an inline string literal. (K2)
+- Code quality: Unused `DEBOUNCE_LOCAL_MS` constant removed; local saves are synchronous and require no debounce.
+
 ## v0.13.1 — Import hardening (May 24, 2026)
 
 Hardens the v0.13.0 import flow against mid-session storage-mode swaps, FileReader exceptions, double-click races, and local-replace identity-field loss. Adds eight `renderHook`-based behavioral tests for `useImportState`. Documents architectural deviations from the Level 4 spec in `docs/SPEC_DEVIATIONS.md`.

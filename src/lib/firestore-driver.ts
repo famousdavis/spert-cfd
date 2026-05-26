@@ -28,7 +28,7 @@ import {
   appendChangeLogEntry,
 } from './firestore-helpers';
 import { validateProjectData } from './storage';
-import { LS_ACTIVE_PROJECT, DEBOUNCE_CLOUD_MS } from './constants';
+import { LS_ACTIVE_PROJECT, DEBOUNCE_CLOUD_MS, SCHEMA_VERSION } from './constants';
 import { DATA_VERSION } from './migrations';
 import { callRevokeInvite, callResendInvite } from './callables';
 
@@ -245,7 +245,7 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
         // Cloud metadata — only set by createProject
         owner: uid,
         members: { [uid]: 'owner' },
-        schemaVersion: '0.7.0',
+        schemaVersion: SCHEMA_VERSION,
         // Fingerprinting
         _originRef: uid,
         _changeLog: appendChangeLogEntry(project._changeLog, changeLogEntry),
@@ -279,8 +279,13 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
           pendingWrites.delete(project.id);
           const payload = buildSavePayload(project);
           try {
+            // C1: mergeFields wholesale-replaces each listed top-level key
+            // instead of deep-merging. Prevents ghost fields when settings
+            // sub-fields change (e.g., metricsPeriod kind transitions).
+            // owner, members, schemaVersion, _originRef, _changeLog are
+            // intentionally absent — buildSavePayload never writes them.
             await setDoc(doc(db, PROJECTS_COL, project.id), payload, {
-              merge: true,
+              mergeFields: ['name', 'updatedAt', 'workflow', 'snapshots', 'settings', '_version'],
             });
             resolve();
           } catch (err) {
@@ -340,7 +345,10 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       id: string,
       callback: (project: Project | null) => void,
     ): () => void {
-      return onSnapshot(
+      // Capture unsubscribe synchronously (onSnapshot returns it before any
+      // async error callback can fire).
+      let unsubscribe: (() => void) | null = null;
+      unsubscribe = onSnapshot(
         doc(db, PROJECTS_COL, id),
         (snap) => {
           // Echo prevention: skip snapshots from our own pending writes
@@ -348,12 +356,25 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
           callback(mapDocToProject(snap));
         },
         (err) => {
-          console.error(
-            'onProjectChange listener error:',
-            (err as { code?: string }).code ?? err,
-          );
+          const code = (err as { code?: string }).code;
+          console.error('onProjectChange listener error:', code ?? err);
+          if (code === 'permission-denied') {
+            // Access to this project was revoked. Unsubscribe the failing
+            // listener and notify the UI to remove it from view.
+            // onProjectListChange self-recovers (revoked doc falls out of
+            // the membership query automatically).
+            unsubscribe?.();
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(
+                new CustomEvent('spert:project-access-revoked', {
+                  detail: { id },
+                }),
+              );
+            }
+          }
         },
       );
+      return () => { unsubscribe?.(); };
     },
 
     onProjectListChange(
@@ -438,7 +459,7 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
         // Resolve the promise unconditionally because flush() is invoked
         // when the UI cannot respond to rejections (beforeunload, unmount).
         setDoc(doc(db, PROJECTS_COL, project.id), payload, {
-          merge: true,
+          mergeFields: ['name', 'updatedAt', 'workflow', 'snapshots', 'settings', '_version'],
         }).catch(() => {});
         resolve();
       }

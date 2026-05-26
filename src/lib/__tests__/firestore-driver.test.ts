@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Project } from '@/types';
 
 // ── Firestore SDK mocks ─────────────────────────────────
@@ -53,6 +53,7 @@ Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, wri
 // ── Import after mocks ──────────────────────────────────
 
 import { createFirestoreDriver } from '../firestore-driver';
+import { SCHEMA_VERSION } from '@/lib/constants';
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -108,7 +109,7 @@ describe('FirestoreDriver', () => {
       const [, docData] = mockSetDoc.mock.calls[0];
       expect(docData.owner).toBe(TEST_UID);
       expect(docData.members).toEqual({ [TEST_UID]: 'owner' });
-      expect(docData.schemaVersion).toBe('0.7.0');
+      expect(docData.schemaVersion).toBe(SCHEMA_VERSION);
       expect(docData._originRef).toBe(TEST_UID);
       expect(docData._changeLog).toBeDefined();
       expect(docData._changeLog.length).toBeGreaterThan(0);
@@ -117,18 +118,23 @@ describe('FirestoreDriver', () => {
   });
 
   describe('saveProject', () => {
-    it('uses merge:true and does NOT include owner/members', async () => {
+    it('uses mergeFields and does NOT include owner/members/schemaVersion', async () => {
       vi.useFakeTimers();
       const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
       const project = sampleProject();
 
       const savePromise = driver.saveProject(project);
-      vi.advanceTimersByTime(600); // past 500ms debounce
+      vi.advanceTimersByTime(250); // past 200ms debounce
       await savePromise;
 
       expect(mockSetDoc).toHaveBeenCalled();
       const [, docData, options] = mockSetDoc.mock.calls[0];
-      expect(options).toEqual({ merge: true });
+      // Order-agnostic: production may reorder keys without breaking semantics
+      expect(options.mergeFields).toEqual(
+        expect.arrayContaining(['name', 'updatedAt', 'workflow', 'snapshots', 'settings', '_version']),
+      );
+      expect(options.mergeFields).toHaveLength(6);
+      expect(options).not.toHaveProperty('merge');
       expect(docData.owner).toBeUndefined();
       expect(docData.members).toBeUndefined();
       expect(docData.schemaVersion).toBeUndefined();
@@ -145,7 +151,7 @@ describe('FirestoreDriver', () => {
       expect(project.workflow[0].wipLimit).toBeUndefined();
 
       const savePromise = driver.saveProject(project);
-      vi.advanceTimersByTime(600);
+      vi.advanceTimersByTime(250); // past 200ms debounce
       await savePromise;
 
       const [, docData] = mockSetDoc.mock.calls[0];
@@ -375,5 +381,167 @@ describe('FirestoreDriver', () => {
 
       vi.useRealTimers();
     });
+  });
+});
+
+// ── Pass 6: C1 — mergeFields write semantics ─────────────────────────────────
+describe('saveProject — mergeFields semantics (C1)', () => {
+  beforeEach(() => {
+    store = {};
+    vi.clearAllMocks();
+    mockGetDoc.mockResolvedValue({ exists: () => false });
+  });
+  it('mergeFields list contains all required data keys', async () => {
+    vi.useFakeTimers();
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    driver.saveProject(sampleProject());
+    vi.advanceTimersByTime(250); // past 200ms debounce
+    await Promise.resolve();
+    const [, , options] = mockSetDoc.mock.calls[0];
+    const fields: string[] = options.mergeFields;
+    expect(fields).toContain('name');
+    expect(fields).toContain('updatedAt');
+    expect(fields).toContain('workflow');
+    expect(fields).toContain('snapshots');
+    expect(fields).toContain('settings');
+    expect(fields).toContain('_version');
+    vi.useRealTimers();
+  });
+  it('mergeFields list excludes ACL and fingerprint fields', async () => {
+    vi.useFakeTimers();
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    driver.saveProject(sampleProject());
+    vi.advanceTimersByTime(250); // past 200ms debounce
+    await Promise.resolve();
+    const [, , options] = mockSetDoc.mock.calls[0];
+    const fields: string[] = options.mergeFields;
+    expect(fields).not.toContain('owner');
+    expect(fields).not.toContain('members');
+    expect(fields).not.toContain('schemaVersion');
+    expect(fields).not.toContain('_originRef');
+    expect(fields).not.toContain('_changeLog');
+    vi.useRealTimers();
+  });
+  it('flush() also uses mergeFields (not merge)', () => {
+    vi.useFakeTimers();
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    driver.saveProject(sampleProject());
+    driver.flush();
+    const [, , options] = mockSetDoc.mock.calls[0];
+    expect(options).toHaveProperty('mergeFields');
+    expect(options).not.toHaveProperty('merge');
+    vi.useRealTimers();
+  });
+});
+
+// ── Pass 3: I2 — permission-denied eviction ──────────────────────────────────
+//
+// Environment: node (existing file default). Tests need window.dispatchEvent:
+//   - window: polyfilled via Object.defineProperty(globalThis, 'window', ...)
+//     so production's typeof window !== 'undefined' guard passes.
+//   - dispatchEvent: polyfilled as vi.fn() because globalThis is NOT an
+//     EventTarget in Node 22 — globalThis.dispatchEvent is undefined by default.
+// Both are installed in beforeEach and cleaned up in afterEach.
+describe('onProjectChange — permission-denied handling (I2)', () => {
+  let capturedErrorCb: ((err: { code?: string }) => void) | null = null;
+  let mockUnsub: ReturnType<typeof vi.fn>;
+  // Save pre-test state for restoration
+  let savedDispatchEvent: ((e: Event) => boolean) | undefined;
+  beforeEach(() => {
+    store = {};
+    capturedErrorCb = null;
+    mockUnsub = vi.fn();
+    vi.clearAllMocks();
+    // Polyfill window (production guards on typeof window !== 'undefined').
+    // configurable: true allows afterEach to undo this with Object.defineProperty.
+    Object.defineProperty(globalThis, 'window', {
+      value: globalThis,
+      writable: true,
+      configurable: true,
+    });
+    // Polyfill dispatchEvent. In Node 22, globalThis is NOT an EventTarget
+    // instance and has no dispatchEvent method (empirically verified). Without
+    // this stub, test 1 throws TypeError before any assertion can run.
+    savedDispatchEvent = (globalThis as Record<string, unknown>).dispatchEvent as
+      ((e: Event) => boolean) | undefined;
+    (globalThis as Record<string, unknown>).dispatchEvent = vi.fn(() => true);
+    mockOnSnapshot.mockImplementation((_ref, _successCb, errorCb) => {
+      capturedErrorCb = errorCb;
+      return mockUnsub;
+    });
+    mockGetDoc.mockResolvedValue({ exists: () => false });
+  });
+  afterEach(() => {
+    // Restore dispatchEvent to pre-test state (undefined in Node 22)
+    (globalThis as Record<string, unknown>).dispatchEvent = savedDispatchEvent;
+    // Remove the window polyfill (configurable: true allows this)
+    Object.defineProperty(globalThis, 'window', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    });
+  });
+  it('unsubscribes the listener on permission-denied', () => {
+    // globalThis.dispatchEvent is a stub (no assertion on it in this test)
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    driver.onProjectChange('proj-1', vi.fn());
+    capturedErrorCb!({ code: 'permission-denied' });
+    expect(mockUnsub).toHaveBeenCalledTimes(1);
+  });
+  it('dispatches spert:project-access-revoked with the project id', () => {
+    const dispatched: CustomEvent[] = [];
+    // Override the beforeEach stub with a capturing spy for this test
+    (globalThis as Record<string, unknown>).dispatchEvent = (e: Event) => {
+      if (e.type === 'spert:project-access-revoked') dispatched.push(e as CustomEvent);
+      return true;
+    };
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    driver.onProjectChange('proj-42', vi.fn());
+    capturedErrorCb!({ code: 'permission-denied' });
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0].detail).toEqual({ id: 'proj-42' });
+  });
+  it('does NOT unsubscribe or dispatch for non-permission-denied errors', () => {
+    const dispatched: string[] = [];
+    (globalThis as Record<string, unknown>).dispatchEvent = (e: Event) => {
+      dispatched.push(e.type);
+      return true;
+    };
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    driver.onProjectChange('proj-1', vi.fn());
+    capturedErrorCb!({ code: 'unavailable' });
+    expect(mockUnsub).not.toHaveBeenCalled();
+    expect(dispatched).not.toContain('spert:project-access-revoked');
+  });
+  it('returned unsubscribe fn tears down the snapshot listener', () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const unsub = driver.onProjectChange('proj-1', vi.fn());
+    unsub();
+    expect(mockUnsub).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── Pass 7: K2 — schemaVersion uses named constant ───────────────────────────
+describe('createProject — schemaVersion uses SCHEMA_VERSION constant (K2)', () => {
+  beforeEach(() => {
+    store = {};
+    vi.clearAllMocks();
+    mockGetDoc.mockResolvedValue({ exists: () => false });
+  });
+  it('createProject writes schemaVersion matching the SCHEMA_VERSION constant', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await driver.createProject(sampleProject());
+    const [, payload] = mockSetDoc.mock.calls[0];
+    expect(payload.schemaVersion).toBe(SCHEMA_VERSION);
+  });
+  it('saveProject does NOT write schemaVersion (excluded from mergeFields)', async () => {
+    vi.useFakeTimers();
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    driver.saveProject(sampleProject());
+    vi.advanceTimersByTime(250); // past 200ms debounce (post-Pass-7 constant)
+    await Promise.resolve();
+    const [, payload] = mockSetDoc.mock.calls[0];
+    expect(payload).not.toHaveProperty('schemaVersion');
+    vi.useRealTimers();
   });
 });

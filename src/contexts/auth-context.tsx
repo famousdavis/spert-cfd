@@ -15,6 +15,7 @@ import {
 import {
   onAuthStateChanged,
   signInWithPopup,
+  signOut as firebaseSignOut,
   type User,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -190,8 +191,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
-        setUser(null);
-        setIsAuthLoading(false);
+        // E1 — Path 3: Firebase has already revoked credentials. Run cleanup
+        // to cancel pending writes and optionally clear project localStorage.
+        // firebaseSignOut is NOT called inside performSignOutWithCleanup,
+        // preventing an infinite onAuthStateChanged loop. try/finally guarantees
+        // setUser(null) and setIsAuthLoading(false) fire even if cleanup throws.
+        try {
+          await runSignOutCleanup();
+        } catch (err) {
+          console.error(
+            'External sign-out cleanup failed:',
+            (err as { code?: string }).code ?? err,
+          );
+        } finally {
+          setUser(null);
+          setIsAuthLoading(false);
+        }
         return;
       }
 
@@ -238,8 +253,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // (preserving it across user-initiated sign-out is intentional),
             // but a ToS-version-mismatch sign-out explicitly must clear it.
             clearLocalConsent();
+            // Path 2: run cleanup then explicitly revoke credentials.
+            // Triggers onAuthStateChanged(null) → Path 3 (idempotent second run).
             try {
               await runSignOutCleanup();
+              if (auth) await firebaseSignOut(auth);
             } catch (err) {
               console.error('Sign-out cleanup failed:', (err as { code?: string }).code ?? err);
             }
@@ -326,14 +344,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleSignOut = useCallback(async () => {
     if (!isFirebaseConfigured || !auth) return;
+    // Path 1: run cleanup then explicitly revoke credentials.
+    // firebaseSignOut triggers onAuthStateChanged(null) → Path 3 (idempotent).
     try {
       await runSignOutCleanup();
+      await firebaseSignOut(auth);
     } catch (err) {
-      // Cleanup is best-effort — log but do not re-throw. The underlying
-      // firebaseSignOut is invoked inside runSignOutCleanup.
       console.error('Sign-out cleanup failed:', (err as { code?: string }).code ?? err);
     }
-    // onAuthStateChanged (triggered by firebaseSignOut inside the cleanup) clears user state.
   }, []);
 
   const value: AuthContextValue = {

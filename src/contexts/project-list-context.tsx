@@ -270,12 +270,12 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
 
       // Local-mode active-project replace → bump the reload key.
       // Cloud-mode replaces flow through onProjectChange; incrementing the
-      // key there would race the 500ms saveProject debounce.
+      // key there would race the 200ms saveProject debounce.
       if (shouldIncrementProjectKey(driver.mode, activeProjectId, result.replaced)) {
         setProjectUpdateKey((k) => k + 1);
       }
 
-      // ── Replace writes: fire-and-forget (debounced 500ms cloud) ────
+      // ── Replace writes: fire-and-forget (debounced 200ms cloud) ────
       // saveProject uses Firestore merge:true → owner/members preserved
       // and existing _changeLog stays (buildSavePayload excludes it).
       for (const p of result.replaced) {

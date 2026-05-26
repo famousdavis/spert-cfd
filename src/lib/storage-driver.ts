@@ -49,7 +49,7 @@ export interface StorageDriver {
   /**
    * Save an existing project (data fields only).
    * In cloud mode, uses merge:true and NEVER touches owner/members.
-   * May be debounced internally (300ms local, 500ms cloud).
+   * May be debounced internally (200ms cloud; local saves are synchronous).
    */
   saveProject(project: Project): Promise<void>;
 

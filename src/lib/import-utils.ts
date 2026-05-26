@@ -35,7 +35,7 @@ export type ImportDecisions = Map<string, ConflictResolution>;
 /**
  * Result of applying decisions to an import batch.
  * added[]    → driver.createProject (non-debounced; awaited; failures rolled back)
- * replaced[] → driver.saveProject   (debounced 500ms cloud; fire-and-forget; counts optimistic)
+ * replaced[] → driver.saveProject   (debounced 200ms cloud; fire-and-forget; counts optimistic)
  * skipped[]  → incoming project IDs not applied
  */
 export interface ApplyImportResult {
@@ -478,7 +478,7 @@ export function shouldAutoSwitch(
  * ActiveProjectContext to reload from storage via projectUpdateKey bump.
  *
  * Cloud mode uses the onProjectChange listener; incrementing the key there
- * would race the 500ms saveProject debounce and load pre-write data.
+ * would race the 200ms saveProject debounce and load pre-write data.
  * See the cloud-replace stale-data window in Known Limitations.
  */
 export function shouldIncrementProjectKey(
