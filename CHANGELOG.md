@@ -2,6 +2,11 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.14.3 — TypeScript 6.0 (June 23, 2026)
+
+### Changed
+- Dependency: TypeScript 5.9.3→6.0.3 (major; SoakEligible, 67d). Type-check only — SWC produces the shipped bundle, so no runtime change. (deps)
+
 ## v0.14.2 — Tailwind CSS currency (June 23, 2026)
 
 ### Changed
