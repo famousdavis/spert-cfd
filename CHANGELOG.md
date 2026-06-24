@@ -2,6 +2,12 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.14.5 — React 19.2.5 (June 23, 2026)
+
+### Changed
+- Dependency: react 19.2.4→19.2.5 (SoakEligible, 75d). (deps)
+- Dependency: react-dom 19.2.4→19.2.5 (peer of react; moved atomically). (deps)
+
 ## v0.14.4 — nanoid + lucide-react (June 23, 2026)
 
 ### Changed
