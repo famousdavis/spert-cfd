@@ -2,6 +2,12 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.14.2 — Tailwind CSS currency (June 23, 2026)
+
+### Changed
+- Dependency: tailwindcss 4.2.2→4.2.4 (SoakEligible, 63d). (deps)
+- Dependency: @tailwindcss/postcss 4.2.2→4.2.4 (coupled to tailwindcss; exact-pins it). (deps)
+
 ## v0.14.1 — Security: dependency regen (June 23, 2026)
 
 Clears all 12 transitive advisory keys via full lockfile regen with targeted overrides. The `next→postcss` override (exact `8.5.15`) dedupes next's pinned `postcss 8.4.31`, clearing both the postcss and next advisory keys. The regen floats the firebase/Firestore subtree to patched ceilings, clearing protobufjs (critical CVSS 9.8), @grpc/grpc-js (high), and @protobufjs/utf8 (moderate). The regen also floats undici (high via jsdom), vite (high via vitest), js-yaml (moderate), @babel/core (low), flatted (high), picomatch (high+moderate), and brace-expansion (moderate) to their patched ceilings within existing parent ranges. Also upgrades vitest 4.1.2→4.1.5 to align with the floated vite 8.1.0+ in the same regen.
