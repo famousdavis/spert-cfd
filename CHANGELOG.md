@@ -2,6 +2,21 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.14.1 — Security: dependency regen (June 23, 2026)
+
+Clears all 12 transitive advisory keys via full lockfile regen with targeted overrides. The `next→postcss` override (exact `8.5.15`) dedupes next's pinned `postcss 8.4.31`, clearing both the postcss and next advisory keys. The regen floats the firebase/Firestore subtree to patched ceilings, clearing protobufjs (critical CVSS 9.8), @grpc/grpc-js (high), and @protobufjs/utf8 (moderate). The regen also floats undici (high via jsdom), vite (high via vitest), js-yaml (moderate), @babel/core (low), flatted (high), picomatch (high+moderate), and brace-expansion (moderate) to their patched ceilings within existing parent ranges. Also upgrades vitest 4.1.2→4.1.5 to align with the floated vite 8.1.0+ in the same regen.
+
+### Fixed
+- Security: next 16.1.6→16.2.9 (high-severity advisory cluster, fix floor 16.2.6; 18 advisories cleared). (security)
+- Security: postcss 8.5.8→8.5.15 with `next→postcss` override clearing next-bundled 8.4.31 (CVE GHSA-qx2v-qp2m-jg93, moderate). (security)
+- Security: protobufjs CVSS 9.8 cluster cleared via regen (protobufjs, @grpc/grpc-js high, @protobufjs/utf8 moderate — all via firebase/Firestore subtree). (security)
+- Security: undici, vite, js-yaml, @babel/core, flatted, picomatch, brace-expansion cleared via regen to patched ceilings. (security)
+
+### Changed
+- Dependency: firebase 12.11.0→12.12.1 (SoakEligible, 63d). (deps)
+- Dependency: eslint-config-next 16.1.6→16.2.9 (coupled to next). (deps)
+- Dependency: vitest 4.1.2→4.1.5 (SoakEligible, 63d; folded into regen to align with floated vite). (deps)
+
 ## v0.14.0 — Cloud storage remediation (May 25, 2026)
 
 Addresses structural cloud storage correctness gaps identified in a full-codebase audit. All fixes are preventive — no data-loss incidents were reported. Project documents are re-stamped to v0.14.0 on next save (no migration required).

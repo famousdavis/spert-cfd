@@ -384,6 +384,7 @@ function InvitationSection({
   }, [driver, projectId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional load-on-mount of pending invites
     void refreshPending();
   }, [refreshPending]);
 

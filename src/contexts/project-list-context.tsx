@@ -87,6 +87,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     let cloudLoadFailed = false;
     if (driver.mode === 'cloud') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional cloud-load gating (C2/M3)
       setDriverLoading(true);
     }
     (async () => {

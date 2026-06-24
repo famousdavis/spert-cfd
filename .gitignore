@@ -38,3 +38,6 @@ next-env.d.ts
 # Claude Code session context
 CLAUDE.md
 .claude/
+
+# Local audit baseline for dependency-upgrade campaign (not tracked)
+.audit-baseline.json
