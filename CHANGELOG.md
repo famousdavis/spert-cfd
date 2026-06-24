@@ -2,6 +2,12 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.14.4 — nanoid + lucide-react (June 23, 2026)
+
+### Changed
+- Dependency: nanoid 5.1.7→5.1.9 (SoakEligible, 68d). (deps)
+- Dependency: lucide-react 0.577.0→1.9.0 (major; SoakEligible, 60d; CFD's 12 icons are all non-brand — unaffected by 1.x brand-icon removal). (deps)
+
 ## v0.14.3 — TypeScript 6.0 (June 23, 2026)
 
 ### Changed
