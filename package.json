@@ -1,6 +1,6 @@
 {
   "name": "spert-cfd",
-  "version": "0.14.4",
+  "version": "0.14.5",
   "private": true,
   "engines": {
     "node": "22.x"
@@ -23,8 +23,8 @@
     "lucide-react": "1.9.0",
     "nanoid": "5.1.9",
     "next": "16.2.9",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
     "recharts": "3.8.1"
   },
   "devDependencies": {
