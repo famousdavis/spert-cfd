@@ -61,7 +61,6 @@ export function StateRow({
   // Focus guard: sync draft from prop only when not focused.
   useEffect(() => {
     if (!isWipFocusedRef.current) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync prop into draft when not editing
       setDraftWip(state.wipLimit ?? '');
     }
   }, [state.wipLimit]);

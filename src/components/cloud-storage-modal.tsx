@@ -48,6 +48,7 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
   // Hydrate the Notifications toggle from localStorage post-mount (SSR safe).
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR-safe hydration of localStorage into state
     setNotifyOnLocalStartup(
       localStorage.getItem(LS_SUPPRESS_LS_WARNING) !== 'true',
     );

@@ -54,7 +54,6 @@ export function GridCell({
   // Focus guard: update draft from prop only when NOT focused.
   useEffect(() => {
     if (!isFocusedRef.current) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync prop into draft when not editing
       setDraft(value);
     }
   }, [value]);
