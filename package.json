@@ -1,6 +1,6 @@
 {
   "name": "spert-cfd",
-  "version": "0.14.5",
+  "version": "0.14.6",
   "private": true,
   "engines": {
     "node": "22.x"
@@ -36,7 +36,7 @@
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.9",
-    "jsdom": "28.1.0",
+    "jsdom": "29.0.2",
     "postcss": "8.5.15",
     "tailwindcss": "4.2.4",
     "typescript": "6.0.3",

@@ -2,6 +2,11 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.14.6 — jsdom 29 (June 23, 2026)
+
+### Changed
+- Dependency: jsdom 28.1.0→29.0.2 (major; SoakEligible, 76d; test-environment only — no runtime change). (deps)
+
 ## v0.14.5 — React 19.2.5 (June 23, 2026)
 
 ### Changed
