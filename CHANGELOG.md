@@ -2,6 +2,14 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.14.7 — Node 24 LTS (June 26, 2026)
+
+Moves the runtime toolchain from Node 22 (Maintenance LTS, EOL 2027-04-30) to Node 24 (Active LTS, EOL 2028-04-30). The Node 24 line has been Active LTS since 2025-05-06 — 13+ months — so it clears the 60-day soak bar at the line level; Vercel runs the latest 24.x patch, which carries the June 18, 2026 security fixes. No runtime feature change — validated on Node 24.18.0 with a clean build, 427 tests, and lint all green.
+
+### Changed
+- Runtime: Node.js 22.x→24.x. `.nvmrc` 22→24, `engines.node` 22.x→24.x, Vercel project setting 22.x→24.x. (toolchain)
+- Dependency: @types/node 22.19.17→24.13.2 (matches runtime major; dev-only type definitions, no shipped-bundle change). (deps)
+
 ## v0.14.6 — jsdom 29 (June 23, 2026)
 
 ### Changed
