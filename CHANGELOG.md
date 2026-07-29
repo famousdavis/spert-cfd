@@ -2,6 +2,21 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.14.10 — Full GNU GPL v3 text and brand reservation (July 29, 2026)
+
+Licensing only — no functional, data, or interface changes. The app behaves identically to v0.14.9. This repository's copy of the licence was missing almost all of the GNU GPL v3 text, and it now carries the licence in full.
+
+### Fixed
+- **The GNU GPL v3 text was almost entirely absent.** `LICENSE` was 64 lines: the first three paragraphs of the GPL preamble, then the line "For the complete license text, see &lt;https://www.gnu.org/licenses/gpl-3.0.txt&gt;", then the short "this program is free software" notice. The operative licence — all of Sections 0 through 17, including the conditions on conveying modified source, the patent grant and the warranty disclaimer — was not present in the file at all. GPL v3 Section 4 requires that you "give all recipients a copy of this License along with the Program", and a hyperlink is a weak substitute for that. The file is now the complete 726-line licence.
+- **The heading carried a retired brand name.** Line 1 read "Statistical PERT® Software Suite" — the pre-v1.4 name — rather than "SPERT® Suite".
+- **The additional terms were an older, weaker wording.** This repository still carried the original numbered `1.`/`2.` form of the attribution and UI-notice terms, predating the lettered `a)`/`b)` rewrite. The older wording omitted two things of substance: the prohibition on removing, obscuring or replacing the author attribution with another name, and the requirement that the user-interface notice appear in a visible and accessible location with a link to the original repository where feasible. Both are now present.
+
+### Changed
+- **The licence now reserves the SPERT® brand.** It has always required that the original author attribution be preserved, but it said nothing at all about the brand, which left room to read the GPL's redistribute-and-modify freedom as carrying the name along with the code. That was never the intent. A new Trademark Reservation clause under GPL v3 §7(e) names "SPERT", "Statistical PERT" and "Estimation Made Easy" as trademarks registered with the USPTO, and "GanttApp" and "MyScrumBudget" as unregistered common-law marks, and grants no right to use any of them — whether alone, in combination with other words such as "SPERT Suite", or as a logo.
+- **Modified versions must be renamed.** A companion Marking of Modified Versions clause under GPL v3 §7(c) requires any fork to adopt a name that cannot reasonably be confused with those marks. Between them the two clauses draw the line the licence always meant to draw: the code is free to take, change and redistribute, the author attribution has to travel with it, and the brand stays behind.
+- **Both clauses are non-removable.** They fall inside the categories GPL v3 Section 7 permits, which matters — Section 7's closing paragraph lets a recipient strip any additional term falling outside that list, as a "further restriction". The section header and its opening sentence now cite Section 7 rather than Section 7(b), because the terms draw on 7(b) for attribution, 7(c) for renaming modified versions and 7(e) for the trademark reservation.
+- **`LICENSE` is now a byte-for-byte copy of the canonical file** in the SPERT® Suite landing-page repository, which is its single source of truth, differing only in the project repository URL on line 4. Of the nine suite repositories audited, only MyScrumBudget was an exact copy beforehand; this one and GanttApp were the two shipping a summary and a link in place of the licence.
+
 ## v0.14.9 — Member names in the sharing modal (July 29, 2026)
 
 The sharing modal showed a raw internal account ID for every member except yourself. It now shows their name or email address.
