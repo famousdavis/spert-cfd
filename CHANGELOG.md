@@ -2,6 +2,16 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.14.9 — Member names in the sharing modal (July 29, 2026)
+
+The sharing modal showed a raw internal account ID for every member except yourself. It now shows their name or email address.
+
+### Fixed
+- **Member list rendered raw account IDs.** SPERT® CFD had no member profile lookup at all — the sharing modal rendered `m.uid === user?.uid ? 'You' : m.uid`, so every other member appeared as a 28-character Firebase Auth UID. Unlike the rest of the SPERT® Suite there was no fallback to degrade from; the read side was simply missing, even though the write side (`writeUserProfile`, which dual-writes `spertcfd_profiles` and `spertsuite_profiles`) had existed all along. (fix)
+- **Added `useMemberProfiles`.** A new hook in `src/lib/use-member-profiles.ts` resolves each member in two tiers: `spertcfd_profiles/{uid}` first, then `spertsuite_profiles/{uid}` only if the first misses. The suite mirror is what matters for anyone added through an emailed invitation — the cross-app Cloud Function resolves an invitee **by** their suite profile and then writes only `members.{uid}`, never seeding a per-app profile. So a member who has used another SPERT® app but never opened CFD has only the suite document. (fix)
+- The current user resolves from the auth context with no Firestore read at all, and a member who has signed into CFD costs exactly one read. `firestore.rules` already permits `get` on both collections for any authenticated user, so no security-rules change and no data backfill were required — members added before this release render correctly on next load. (fix)
+- Guarded by five new cases in `src/lib/__tests__/use-member-profiles.test.ts`, covering both tiers, the no-profile case, the current-user short-circuit, and a mixed member list. Suite-wide defect rather than a CFD quirk — first found in SPERT Story Map v0.49.3. (test)
+
 ## v0.14.8 — Repository maintenance (July 26, 2026)
 
 Internal repository maintenance only. No functional, data, or interface changes — the app behaves identically to v0.14.7.

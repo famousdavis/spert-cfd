@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useStorage } from '@/contexts/storage-context';
 import { useEscapeKey } from '@/lib/use-dismiss';
 import { PROJECTS_COL } from '@/lib/firestore-helpers';
+import { useMemberProfiles } from '@/lib/use-member-profiles';
 import { INVITATIONS_ENABLED } from '@/lib/feature-flags';
 import { parseBulkEmails } from '@/lib/parse-bulk-emails';
 import { mapInvitationError } from '@/lib/invitation-errors';
@@ -85,6 +86,9 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
   const members: MemberDisplay[] = Object.entries(project?.members ?? {}).map(
     ([uid, role]) => ({ uid, role }),
   );
+  // v0.14.9: before this, the list rendered the raw Auth UID for everyone but
+  // yourself, because no profile lookup existed at all.
+  const memberProfiles = useMemberProfiles(members.map((m) => m.uid));
   const ownerStatus: OwnerStatus = (() => {
     if (loadError) return 'error';
     if (!project) return 'loading';
@@ -241,7 +245,11 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
                 className="flex items-center justify-between rounded border border-gray-200 px-3 py-2 text-sm"
               >
                 <span className="text-gray-700 truncate max-w-[180px]">
-                  {m.uid === user?.uid ? 'You' : m.uid}
+                  {m.uid === user?.uid
+                    ? 'You'
+                    : memberProfiles[m.uid]?.displayName ||
+                      memberProfiles[m.uid]?.email ||
+                      m.uid}
                 </span>
                 <div className="flex items-center gap-2">
                   {m.role === 'owner' ? (
