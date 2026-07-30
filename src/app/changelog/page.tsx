@@ -6,39 +6,11 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import Link from 'next/link';
 import { Footer } from '@/components/footer';
+import { parseChangelog } from '@/lib/parse-changelog';
 
 export const metadata = {
   title: 'Changelog — SPERT® CFD',
 };
-
-interface ChangelogEntry {
-  version: string;
-  subtitle: string;
-  date: string;
-  items: string[];
-}
-
-function parseChangelog(content: string): ChangelogEntry[] {
-  const entries: ChangelogEntry[] = [];
-
-  for (const section of content.split(/\n(?=## )/)) {
-    const lines = section.trim().split('\n');
-    const match = lines[0].match(/^## (v[\d.]+)\s*[—–-]\s*(.+?)\s*\(([^)]+)\)$/);
-    if (!match) continue;
-
-    const [, version, subtitle, date] = match;
-    const items = lines
-      .slice(1)
-      .filter((line) => line.startsWith('- '))
-      .map((line) => line.slice(2).trim());
-
-    if (items.length > 0) {
-      entries.push({ version, subtitle, date, items });
-    }
-  }
-
-  return entries;
-}
 
 export default function ChangelogPage() {
   const content = readFileSync(join(process.cwd(), 'CHANGELOG.md'), 'utf-8');

@@ -1,0 +1,29 @@
+{
+  "repo": "spert-cfd",
+
+  "versionConstant": {
+    "file": "src/lib/constants.ts",
+    "export": "APP_VERSION"
+  },
+
+  "changelog": {
+    "file": "CHANGELOG.md",
+    "headingPattern": "^## v(\\d+\\.\\d+\\.\\d+)\\s*[—–-]"
+  },
+
+  "claudeMdVersionPatterns": [
+    "^-\\s+\\*\\*Version\\*\\*:\\s+(\\d+\\.\\d+\\.\\d+)"
+  ],
+
+  "_claudeMdNote": "CLAUDE.md is gitignored, so the ship gate's usual consistency grep could never see version drift inside it — and this repo's copy claimed 0.14.7 while the app shipped 0.14.10, three releases stale, until v0.14.11. The pattern above deliberately matches ONLY the `- **Version**: X.Y.Z` declaration line. Historical prose that names an old version ('v0.14.7 adopted Node 24 LTS') is correct as written and must not be flagged. The check is skipped in CI, where the file is never checked out.",
+
+  "commands": [
+    { "name": "lint", "run": "npm run lint" },
+    { "name": "test", "run": "npm test" },
+    {
+      "name": "build (next build — typechecks)",
+      "run": "npm run build",
+      "_note": "`next build` runs tsc, so types are covered by the build here — unlike the Vite repos, which needed tsc wired in explicitly."
+    }
+  ]
+}
