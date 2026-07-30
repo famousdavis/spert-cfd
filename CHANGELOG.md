@@ -2,6 +2,26 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.14.11 — Ship gate, and a changelog that cannot silently lose entries (July 30, 2026)
+
+Release-process hardening — no functional, data, or interface changes. The app behaves identically to v0.14.10.
+
+The changelog page parses `CHANGELOG.md` at build time, and that parser is strict in two ways that both fail silently. A heading must match `## vX.Y.Z — Subtitle (Month D, YYYY)` exactly, and an entry must carry at least one `- ` bullet; anything else is skipped with a bare `continue`. The entry simply never appears on the page, and nothing else can tell you — the markdown is valid, `next build` succeeds, types check, lint passes. Only a person opening the page and noticing an absence would ever catch it. SPERT Forecaster shipped exactly that failure: two entries written as pure prose rendered as empty headings for weeks. This release adds a guard that runs the real parser over the real file and asserts that every heading produces a rendered entry, verified against both failure modes before being trusted.
+
+It also adds the SPERT® Suite ship gate — `npm run shipgate` locally, and the same script in CI on every pull request and push to `main`. This is the first continuous integration this repository has ever had; until now a green check meant Vercel had built a preview, not that the 432 tests had run, because nothing ran them.
+
+The gate immediately caught a stale claim in this repository's `CLAUDE.md`, which declared the project version as 0.14.7 while the app shipped 0.14.10 — three releases behind. That file is gitignored, which is precisely why it drifted: the release checklist's consistency `grep` filters out gitignored files, so version drift inside it was structurally invisible. The gate reads it directly, and only the `- **Version**: X.Y.Z` declaration line, so historical prose naming an older release stays correct as written.
+
+### Added
+- **`npm run shipgate` — the release gate.** Verifies that `package.json`, both version fields in `package-lock.json`, `APP_VERSION` and the newest `CHANGELOG.md` entry agree, checks `CLAUDE.md` for a stale version declaration, then runs lint, the tests and a production build. It reports every disagreement in one run rather than stopping at the first.
+- **Continuous integration** (`.github/workflows/shipgate.yml`), running the same `npm run shipgate` on every pull request and push to `main`, so the local gate and the automated one cannot drift apart. It installs with `npm ci`, which refuses to run if the lockfile and `package.json` disagree.
+- **A guard that every changelog entry actually renders.** It runs the page's own parser over the real `CHANGELOG.md` and asserts one rendered entry per `## ` heading. Proven against both silent-drop modes first: a heading missing its `(date)` parenthesis, and a valid heading whose content is all prose with no `- ` bullet.
+- **A guard that `LICENSE` matches the canonical suite licence** — one SHA-256 of the licence body, normalised for the repository URL on line 4, the only line that legitimately differs across the nine repositories. This repository had the worst drift of the nine before v0.14.10, shipping 64 lines with none of the operative licence.
+- **A guard that every static asset linked from source exists in `public/`.**
+
+### Changed
+- **`parseChangelog` moved out of the page and into `src/lib/parse-changelog.ts`** so it can be tested directly. The page imports it; behaviour is unchanged.
+
 ## v0.14.10 — Full GNU GPL v3 text and brand reservation (July 29, 2026)
 
 Licensing only — no functional, data, or interface changes. The app behaves identically to v0.14.9. This repository's copy of the licence was missing almost all of the GNU GPL v3 text, and it now carries the licence in full.
