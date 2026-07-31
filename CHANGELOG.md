@@ -2,6 +2,17 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.14.12 — The release checks read this project's own Node version (July 31, 2026)
+
+Tooling only — no functional, data, or interface changes. The app behaves identically to v0.14.11.
+
+The ship gate added in v0.14.11 was told to run on "Node 24", written directly into the workflow file. That is not the same as the version this repository pins: it resolves to whichever 24.x release the runner happens to have on hand, and the `.nvmrc` kept alongside the source was never read. The workflow now reads that file, so the version is stated in exactly one place rather than two that were free to drift apart.
+
+The version actually selected here is unchanged, because this `.nvmrc` names the `24` line rather than an exact release. That line-level pin is deliberate — it is what lets each build pick up the newest secure patch in the line while the 60-day soak rule applies at the LTS-line level. What changes is that `spert-admin-tool`, which caps at `24.15.x - 24.17.x` on purpose to avoid a Node ≥24.18 regression that breaks server-rendered pages, will have that cap honoured when it gains the same gate instead of silently overridden.
+
+### Changed
+- **CI resolves Node from `.nvmrc` rather than a hardcoded major.** `shipgate.yml` stays byte-identical across all nine suite repositories — `setup-node` resolves the path per repository, so no per-repo divergence was needed.
+
 ## v0.14.11 — Ship gate, and a changelog that cannot silently lose entries (July 30, 2026)
 
 Release-process hardening — no functional, data, or interface changes. The app behaves identically to v0.14.10.
