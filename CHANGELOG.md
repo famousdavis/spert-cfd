@@ -2,6 +2,18 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.14.13 — The release gate learns about extra changelog copies (July 31, 2026)
+
+Tooling only — no functional, data, or interface changes. The app behaves identically to v0.14.12.
+
+The ship gate could only ever be told about **one** changelog file, so every other copy a repository kept was invisible to it. Six of the nine suite repositories keep the same history in two or three places at once, and a release could pass green with the others left stale. `shipgate.config.json` now accepts a `changelog.extraSurfaces` list, checked either as a byte-identical copy or as an in-app data file whose newest entry must match `package.json`.
+
+**This repository needs none of them, and that is the point worth recording.** SPERT® CFD keeps exactly one changelog: `src/lib/parse-changelog.ts` reads `CHANGELOG.md` directly, so there is no served duplicate and no in-app data file to fall behind. It is the only app in the suite with that property, and it is the reason this release changes the shared script but adds no configuration.
+
+### Changed
+- **`scripts/shipgate.mjs` supports `changelog.extraSurfaces`.** Two match modes: `identical` (byte-for-byte copy) and `firstVersion` (newest in-app entry equals `package.json`). Each failure path was verified by mutation before the change was accepted — a drifted copy, a missing entry, and a deleted file each fail the gate.
+- **No `extraSurfaces` entry here.** The single-source design means there is nothing extra to check; do not add one.
+
 ## v0.14.12 — The release checks read this project's own Node version (July 31, 2026)
 
 Tooling only — no functional, data, or interface changes. The app behaves identically to v0.14.11.
