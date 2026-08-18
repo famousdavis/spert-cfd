@@ -2,6 +2,26 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.0 — The release gate sees the test files the build cannot (August 17, 2026)
+
+Tooling only — no functional, data, or interface changes. The app behaves identically to v0.14.14.
+
+The ship gate ran lint, tests and build, and `shipgate.config.json` recorded that the build covered types: "`next build` runs `tsc`, so types are covered by the build here — unlike the Vite repos, which needed `tsc` wired in explicitly." That was false, and the contrast with the Vite repos is what gave it the standing of a considered finding rather than an assumption.
+
+What `next build` actually does is narrower than the note claimed. Next builds its TypeScript program from the full `tsconfig` file list — all 33 test files in this repository included — and then **discards every diagnostic** whose path matches `__tests__/`, `__mocks__/`, `*.test.*` or `*.spec.*` before deciding whether to fail. The exclusion is by filename and unconditional; importing a test file into the application would not bring it under the build. Production source is genuinely gated, and remains so. Test files never were.
+
+This is not hypothetical. The sibling GanttApp has carried three type errors in its test files since 2026-07-30 — introduced in the very commit that added its ship gate — and has reported green on every gate step continuously since. This repository was measured clean, 0 errors, and that is precisely why the gate went in now: at zero there is nothing to fix first and no baseline to accept. But it was clean by circumstance rather than by protection. It carries the identical exposure and was spared GanttApp's particular error class only because it targets `ES2017` rather than `es5`.
+
+The new step was proven to fire rather than assumed to. A type error injected into `src/lib/__tests__/colors.test.ts` drove `typecheck` red — `colors.test.ts(41,7): error TS2322` — while `build` passed **green in the same run**, which demonstrates the gap rather than arguing it. The probe was reverted and the revert asserted byte-identical.
+
+### Added
+- **`npm run typecheck`** — `tsc --noEmit`. There was no such command; `tsconfig.json` includes `**/*.ts`, so this covers the test files the build filters out.
+- **A `typecheck` step in the ship gate**, between lint and test, matching the order the shared script has always documented and the position MyScrumBudget uses. It runs in CI on every pull request and push to `main` through the same `npm run shipgate` invocation, so local and CI cannot drift.
+
+### Changed
+- **The false note in `shipgate.config.json` was deleted, not softened.** Its replacement states what the build does cover, what it does not, and names the command and the source file that establish it. Leaving it in place would have left the configuration contradicting itself — and it is exactly what would later justify removing the new step as redundant.
+- **The build step was renamed** from `build (next build — typechecks)` to `build (next build)`. The suffix carried the same overclaim as the note.
+
 ## v0.14.14 — The licence gains two conditions and sheds an overreach (August 2, 2026)
 
 Licensing only — no functional, data, or interface changes. The app behaves identically to v0.14.13.
