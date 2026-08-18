@@ -19,11 +19,16 @@
 
   "commands": [
     { "name": "lint", "run": "npm run lint" },
+    {
+      "name": "typecheck",
+      "run": "npm run typecheck",
+      "_note": "Deliberately separate from `build`, and NOT redundant with it — do not delete this step on the assumption that `next build` already covers types. It does not cover test files. Next builds the TS program from the full tsconfig `fileNames`, test files included, then discards every diagnostic whose path matches `__tests__/`|`__mocks__/` or `*.test.*`|`*.spec.*` (next/dist/lib/typescript/runTypeCheck.js, Next 16.2.9). The exclusion is by FILENAME and unconditional — importing a test file into the app would NOT bring it under the build. All 33 test files here match both patterns, twice over. `tsc --noEmit` covers them because tsconfig includes `**/*.ts`. MEASURED 2026-08-17 with `npx tsc --noEmit`: 0 errors, so this gate went in at zero with no baseline to accept. FALSIFIED in the install commit (v0.15.0) rather than assumed: a TS2322 (`const x: number = <string>`) injected into src/lib/__tests__/colors.test.ts drove THIS step red — `colors.test.ts(41,7): error TS2322` — while `build (next build)` passed GREEN in the SAME run, which is the coverage gap demonstrated rather than argued; lint and test were inert to the probe; probe reverted and md5-asserted byte-identical. Sibling context: GanttApp has carried three TS2802 errors in test files since 2026-07-30 (c4e174a — the very commit that added its ship gate), green on every gate step since, because it has no step like this one. cfd was clean only by CIRCUMSTANCE: identical exposure, spared GanttApp's specific error class only by `target: ES2017` rather than es5. THE RULE: a note asserting X must name the COMMAND that measured X."
+    },
     { "name": "test", "run": "npm test" },
     {
-      "name": "build (next build — typechecks)",
+      "name": "build (next build)",
       "run": "npm run build",
-      "_note": "`next build` runs tsc, so types are covered by the build here — unlike the Vite repos, which needed tsc wired in explicitly."
+      "_note": "`next build` typechecks production source and is a real gate for it — `next.config.ts` sets no `ignoreBuildErrors`. It does NOT gate test files, and not because they are unimported: Next builds the program from the full tsconfig `fileNames`, test files included, then discards every diagnostic whose path matches `__tests__/`|`__mocks__/` or `*.test.*`|`*.spec.*` (next/dist/lib/typescript/runTypeCheck.js, Next 16.2.9). All 33 test files here match both patterns, so no import arrangement brings them under the build. `npm run typecheck` — `tsc --noEmit`, tsconfig `include: **/*.ts` — is the command that covers them. This REPLACES a note reading '`next build` runs tsc, so types are covered by the build here — unlike the Vite repos, which needed tsc wired in explicitly', which was false; its contrast with the Vite repos gave it the authority of a considered finding, and it is precisely what would have justified deleting the typecheck step as redundant. The step name also dropped its '— typechecks' suffix, which carried the same overclaim. Shown false by measurement in the v0.15.0 install commit — see the typecheck step's note."
     }
   ]
 }
