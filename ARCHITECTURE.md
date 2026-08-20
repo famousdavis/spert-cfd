@@ -206,7 +206,7 @@ Two-tier legal consent model:
 
 Firebase is initialized from `NEXT_PUBLIC_FIREBASE_*` env vars. If not configured, sign-in UI is hidden and the app operates in local-only mode.
 
-Firestore security rules are managed centrally in the Firebase Console for the shared `spert-suite` project (all six SPERT apps). The `users/{uid}` consent collection is locked to owner-only access: `allow read, write: if isAuth() && request.auth.uid == uid`. Verified during v0.4.2 security audit.
+Firestore security rules are managed centrally for the shared `spert-suite` project (all SPERT apps). The canonical ruleset lives in the Landing Page repo and, since 2026-08-19, **deploys via CI on merge to that repo's `main`** rather than by Firebase Console paste-replace; a scheduled job compares the deployed rules against the file and fails on divergence. The `users/{uid}` consent collection is locked to owner-only access: `allow read, write: if isAuth() && request.auth.uid == uid`. Verified during v0.4.2 security audit.
 
 ### Sign-Out Paths and Cleanup Guarantees (v0.14.0)
 

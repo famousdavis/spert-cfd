@@ -2,19 +2,19 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-'use client';
+"use client";
 
-import { useCallback, useRef, useState } from 'react';
-import { useStorage } from '@/contexts/storage-context';
-import { useAuth } from '@/contexts/auth-context';
-import { useProjectList } from '@/contexts/project-list-context';
-import { createLocalStorageDriver } from '@/lib/local-storage-driver';
-import { LS_ACTIVE_PROJECT } from '@/lib/constants';
-import { SwitchToLocalDialog } from './switch-to-local-dialog';
+import { useCallback, useRef, useState } from "react";
+import { useStorage } from "@/contexts/storage-context";
+import { useAuth } from "@/contexts/auth-context";
+import { useProjectList } from "@/contexts/project-list-context";
+import { createLocalStorageDriver } from "@/lib/local-storage-driver";
+import { LS_ACTIVE_PROJECT } from "@/lib/constants";
+import { SwitchToLocalDialog } from "./switch-to-local-dialog";
 import {
   CloudMigrationFlow,
   type CloudMigrationFlowHandle,
-} from './cloud-migration-flow';
+} from "./cloud-migration-flow";
 
 export function StorageSection() {
   const { mode, switchMode, isCloudAvailable, driver } = useStorage();
@@ -28,15 +28,16 @@ export function StorageSection() {
   } = useAuth();
   const { projects } = useProjectList();
   const migrationRef = useRef<CloudMigrationFlowHandle>(null);
-  const [showSwitchToLocalConfirm, setShowSwitchToLocalConfirm] = useState(false);
+  const [showSwitchToLocalConfirm, setShowSwitchToLocalConfirm] =
+    useState(false);
 
   const handleLocalModeClick = useCallback(() => {
-    if (mode !== 'cloud') {
+    if (mode !== "cloud") {
       // Already local; nothing to preserve or discard.
       return;
     }
     if (projects.length === 0) {
-      switchMode('local');
+      switchMode("local");
       return;
     }
     setShowSwitchToLocalConfirm(true);
@@ -55,20 +56,20 @@ export function StorageSection() {
         }
       } catch (err) {
         console.error(
-          'Failed to copy project to local storage:',
-          (err as { code?: string }).code ?? 'unknown',
+          "Failed to copy project to local storage:",
+          (err as { code?: string }).code ?? "unknown",
         );
       }
     }
     localStorage.removeItem(LS_ACTIVE_PROJECT);
     setShowSwitchToLocalConfirm(false);
-    switchMode('local');
+    switchMode("local");
   }, [projects, driver, switchMode]);
 
   const handleDiscard = useCallback(() => {
     localStorage.removeItem(LS_ACTIVE_PROJECT);
     setShowSwitchToLocalConfirm(false);
-    switchMode('local');
+    switchMode("local");
   }, [switchMode]);
 
   const handleCancelSwitch = useCallback(() => {
@@ -85,7 +86,7 @@ export function StorageSection() {
           <input
             type="radio"
             name="storage-mode"
-            checked={mode === 'local'}
+            checked={mode === "local"}
             onChange={handleLocalModeClick}
             className="accent-blue-600"
           />
@@ -95,7 +96,7 @@ export function StorageSection() {
           <input
             type="radio"
             name="storage-mode"
-            checked={mode === 'cloud'}
+            checked={mode === "cloud"}
             onChange={() => {
               if (user) {
                 migrationRef.current?.requestCloudSwitch();
@@ -145,6 +146,10 @@ export function StorageSection() {
                   Sign in with Microsoft
                 </button>
               </div>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Microsoft sign-in requires a work or school account. For a
+                personal account, use Google.
+              </p>
               {signInError && (
                 <div
                   role="alert"
