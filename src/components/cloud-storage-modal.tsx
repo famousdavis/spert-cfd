@@ -2,31 +2,31 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
-import { useAuth } from '@/contexts/auth-context';
-import { useStorage } from '@/contexts/storage-context';
-import { useProjectList } from '@/contexts/project-list-context';
-import { createLocalStorageDriver } from '@/lib/local-storage-driver';
-import { useEscapeKey } from '@/lib/use-dismiss';
-import { normalizeDisplayName } from '@/lib/user-display';
-import { LS_ACTIVE_PROJECT, LS_SUPPRESS_LS_WARNING } from '@/lib/constants';
-import { GoogleLogo } from './icons/google-logo';
-import { MicrosoftLogo } from './icons/microsoft-logo';
-import { SwitchToLocalDialog } from './switch-to-local-dialog';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
+import { useStorage } from "@/contexts/storage-context";
+import { useProjectList } from "@/contexts/project-list-context";
+import { createLocalStorageDriver } from "@/lib/local-storage-driver";
+import { useEscapeKey } from "@/lib/use-dismiss";
+import { normalizeDisplayName } from "@/lib/user-display";
+import { LS_ACTIVE_PROJECT, LS_SUPPRESS_LS_WARNING } from "@/lib/constants";
+import { GoogleLogo } from "./icons/google-logo";
+import { MicrosoftLogo } from "./icons/microsoft-logo";
+import { SwitchToLocalDialog } from "./switch-to-local-dialog";
 import {
   CloudMigrationFlow,
   type CloudMigrationFlowHandle,
-} from './cloud-migration-flow';
+} from "./cloud-migration-flow";
 
 interface CloudStorageModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-const TITLE_ID = 'cloud-storage-modal-title';
+const TITLE_ID = "cloud-storage-modal-title";
 
 export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
   const {
@@ -42,15 +42,16 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
 
   const migrationRef = useRef<CloudMigrationFlowHandle>(null);
   const [signingOut, setSigningOut] = useState(false);
-  const [showSwitchToLocalConfirm, setShowSwitchToLocalConfirm] = useState(false);
+  const [showSwitchToLocalConfirm, setShowSwitchToLocalConfirm] =
+    useState(false);
   const [notifyOnLocalStartup, setNotifyOnLocalStartup] = useState(true);
 
   // Hydrate the Notifications toggle from localStorage post-mount (SSR safe).
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR-safe hydration of localStorage into state
     setNotifyOnLocalStartup(
-      localStorage.getItem(LS_SUPPRESS_LS_WARNING) !== 'true',
+      localStorage.getItem(LS_SUPPRESS_LS_WARNING) !== "true",
     );
   }, [open]);
 
@@ -72,7 +73,7 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
       await signOut();
       onClose();
     } catch (err) {
-      console.error('Sign-out error:', err);
+      console.error("Sign-out error:", err);
     } finally {
       setSigningOut(false);
     }
@@ -91,20 +92,20 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
         }
       } catch (err) {
         console.error(
-          'Failed to copy project to local storage:',
-          (err as { code?: string }).code ?? 'unknown',
+          "Failed to copy project to local storage:",
+          (err as { code?: string }).code ?? "unknown",
         );
       }
     }
     localStorage.removeItem(LS_ACTIVE_PROJECT);
     setShowSwitchToLocalConfirm(false);
-    switchMode('local');
+    switchMode("local");
   }, [projects, driver, switchMode]);
 
   const handleDiscard = useCallback(() => {
     localStorage.removeItem(LS_ACTIVE_PROJECT);
     setShowSwitchToLocalConfirm(false);
-    switchMode('local');
+    switchMode("local");
   }, [switchMode]);
 
   const handleCancelSwitch = useCallback(() => {
@@ -116,7 +117,7 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
     if (next) {
       localStorage.removeItem(LS_SUPPRESS_LS_WARNING);
     } else {
-      localStorage.setItem(LS_SUPPRESS_LS_WARNING, 'true');
+      localStorage.setItem(LS_SUPPRESS_LS_WARNING, "true");
     }
   }, []);
 
@@ -124,7 +125,7 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
 
   const isSignedIn = !!user;
   const fullName = normalizeDisplayName(user?.displayName);
-  const emailLocal = user?.email?.split('@')[0] ?? '';
+  const emailLocal = user?.email?.split("@")[0] ?? "";
   const identityPrimary = fullName || emailLocal;
 
   return (
@@ -158,21 +159,23 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
         <div className="px-5 py-4">
           {/* Storage section */}
           <section className="mb-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Storage</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">
+              Storage
+            </h3>
 
             <div className="flex flex-col gap-2 mb-3">
               <label
                 className={`flex items-center gap-2 text-sm ${
-                  !isSignedIn ? 'text-gray-900' : ''
+                  !isSignedIn ? "text-gray-900" : ""
                 }`}
               >
                 <input
                   type="radio"
                   name="cloud-modal-storage-mode"
-                  checked={mode === 'local'}
+                  checked={mode === "local"}
                   disabled={!isSignedIn}
                   onChange={() => {
-                    if (isSignedIn && mode === 'cloud') {
+                    if (isSignedIn && mode === "cloud") {
                       setShowSwitchToLocalConfirm(true);
                     }
                   }}
@@ -182,16 +185,16 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
               </label>
               <label
                 className={`flex items-center gap-2 text-sm ${
-                  !isSignedIn ? 'opacity-50 text-gray-500' : 'text-gray-900'
+                  !isSignedIn ? "opacity-50 text-gray-500" : "text-gray-900"
                 }`}
               >
                 <input
                   type="radio"
                   name="cloud-modal-storage-mode"
-                  checked={mode === 'cloud'}
+                  checked={mode === "cloud"}
                   disabled={!isSignedIn || !isCloudAvailable}
                   onChange={() => {
-                    if (isSignedIn && mode === 'local') {
+                    if (isSignedIn && mode === "local") {
                       migrationRef.current?.requestCloudSwitch();
                     }
                   }}
@@ -225,6 +228,13 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
                     <span>Sign in with Microsoft</span>
                   </button>
                 </div>
+                {/* Microsoft is restricted to work/school accounts at the app
+                    registration, so a personal account is refused by Microsoft
+                    before a password is entered. */}
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Microsoft sign-in requires a work or school account. For a
+                  personal account, use Google.
+                </p>
                 {signInError && (
                   <div
                     role="alert"
@@ -249,7 +259,7 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
                 <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-between mb-3">
                   <div className="min-w-0 mr-3">
                     <div className="text-sm font-medium text-gray-900 truncate">
-                      {identityPrimary || 'Signed in'}
+                      {identityPrimary || "Signed in"}
                     </div>
                     {user.email && (
                       <div className="text-xs text-gray-500 truncate">
@@ -263,12 +273,12 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
                     disabled={signingOut}
                     className="text-sm text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap"
                   >
-                    {signingOut ? 'Signing out…' : 'Sign out'}
+                    {signingOut ? "Signing out…" : "Sign out"}
                   </button>
                 </div>
 
                 {/* State 2 only: migration flow + "Keep using local storage" */}
-                {mode === 'local' && (
+                {mode === "local" && (
                   <>
                     <CloudMigrationFlow ref={migrationRef} />
                     <button
@@ -295,8 +305,8 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
                   Warn me on startup when using local storage
                 </div>
                 <div className="text-xs text-gray-500 mt-0.5">
-                  Shows a caution banner each time the app opens while your
-                  data is stored locally in this browser.
+                  Shows a caution banner each time the app opens while your data
+                  is stored locally in this browser.
                 </div>
               </div>
               <input

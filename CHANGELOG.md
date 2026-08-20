@@ -2,6 +2,12 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.1 — Microsoft sign-in now requires a work or school account (August 19, 2026)
+
+- **Personal Microsoft accounts are no longer accepted.** outlook.com, hotmail.com and live.com addresses are refused at the sign-in screen, before any password is entered — Microsoft itself enforces this, not the app. The change was made for institutions evaluating the Suite, who reasonably expect "sign in with Microsoft" to mean an organisational account rather than any account at all.
+- **Nothing changes for personal use — sign in with Google instead.** Google still accepts personal accounts, so anyone can still enable cloud sync. The cloud storage window and the Settings page now say so, rather than letting you choose Microsoft and discover the restriction from an error message.
+- **Internal:** corrected documentation describing Firestore rules as deployed by pasting them into the Firebase Console. They now deploy automatically from the canonical repository, and a scheduled check reports any divergence.
+
 ## v0.15.0 — The release gate sees the test files the build cannot (August 17, 2026)
 
 Tooling only — no functional, data, or interface changes. The app behaves identically to v0.14.14.
