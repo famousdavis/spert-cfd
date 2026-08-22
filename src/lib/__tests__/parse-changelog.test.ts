@@ -13,11 +13,21 @@ import { splitBold } from '../parse-changelog';
  * `splitBold` renders the one markdown construct the changelog actually uses.
  *
  * Before it existed the page rendered `<li>{item}</li>` on the raw string, so
- * every `**bold**` showed as literal asterisks — 139 of 406 bullets, going back
- * to the earliest entries that adopted the convention. Unit tests could not see
- * it and did not: nothing asserted on rendered output, so the defect was only
- * ever visible to someone opening the page.
+ * every `**bold**` showed as literal asterisks. Measured on CHANGELOG.md at
+ * v0.15.3, 406 bullets; the method is named in line comments below, because a
+ * regex ending in an escaped asterisk closes a block comment.
+ *
+ * It reached back to the earliest entry that used the convention. That is
+ * SEVEN MONTHS, not years — the repo's first commit is 2026-01-30 and its
+ * earliest changelog entry is 31 January 2026; every heading is 2026.
+ *
+ * Unit tests could not see it and did not: nothing asserted on rendered
+ * output, so the defect was only ever visible to someone opening the page.
  */
+
+// method                                   what it counts        n
+//   /^- \*\*/         bullets opening with a bold span    139
+//   /\*\*[^*]+\*\*/   bullets containing a bold span      141  (144 spans)
 
 /** Concatenating the segments must reproduce the input minus `**` delimiters. */
 const rejoin = (s: string) =>
@@ -153,5 +163,57 @@ describe('splitBold over the real CHANGELOG.md', () => {
     );
 
     expect(empty).toEqual([]);
+  });
+});
+
+/**
+ * The residual, pinned rather than fixed.
+ *
+ * `splitBold` handles bold and deliberately leaves single-asterisk emphasis
+ * literal. That was invisible while NOTHING rendered: every bullet showed
+ * asterisks and read as a convention. Once bold renders and italic does not, a
+ * survivor reads as a bug — so the population matters, and it must not grow.
+ *
+ * The property test above CANNOT catch this. It asserts text preservation, and
+ * italic text is preserved perfectly — `*packages*` goes in and comes out
+ * identical, so it passes. Presentation residue is a different property and
+ * needs its own assertion. This is that assertion.
+ *
+ * Two bullets carry it, both predating the renderer. A third would mean a new
+ * entry introduced markup the page cannot render: fix the ENTRY — plain words,
+ * no markup — rather than widening `splitBold`. That regex is already delicate
+ * (a code span shields a glob from being read as a bold delimiter) and four
+ * bullets of italic do not justify more surface.
+ *
+ * Wildcard domains such as those in the CSP bullet are NOT counted: they sit
+ * inside backticks and the code-span rule strips them before this looks.
+ */
+describe('literal *italic* spans still reaching the page', () => {
+  const bullets = readFileSync(join(process.cwd(), 'CHANGELOG.md'), 'utf-8')
+    .split('\n')
+    .filter((line) => line.startsWith('- '))
+    .map((line) => line.slice(2).trim());
+
+  /** Emphasis left outside code spans once bold has been consumed. */
+  const residualItalics = (bullet: string) => {
+    const rendered = bullet.replace(/`[^`]*`/g, '').replace(/\*\*(.+?)\*\*/g, '$1');
+    return rendered.match(/\*[^*\s][^*]*\*/g) ?? [];
+  };
+
+  it('is exactly the two known pre-existing bullets — a third is a new defect', () => {
+    const found = bullets.flatMap(residualItalics).sort();
+
+    expect(
+      found,
+      'a changelog entry introduced *italic* markup, which the page renders as ' +
+        'literal asterisks beside working bold. Fix the entry (plain words), do ' +
+        'not widen splitBold',
+    ).toEqual(['*before*', '*display*', '*preserved*']);
+  });
+
+  it('has teeth — the detector finds emphasis when it is there', () => {
+    expect(residualItalics('eight *packages* were affected')).toEqual(['*packages*']);
+    expect(residualItalics('nothing emphasised here')).toEqual([]);
+    expect(residualItalics('a `*.googleapis.com` wildcard is not markup')).toEqual([]);
   });
 });

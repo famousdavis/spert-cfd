@@ -74,14 +74,20 @@ const SEGMENT = /(`[^`]*`)|\*\*(.+?)\*\*/g;
  * Splits `**bold**` out of a bullet into renderable segments.
  *
  * Deliberately NOT a markdown renderer. It handles the one construct the
- * changelog actually uses — 139 of 406 bullets open with a bold lead-in — and
- * leaves everything else literal: single-asterisk emphasis, backticks, and
- * unmatched delimiters, all of which the page already rendered as text.
+ * changelog actually uses and leaves everything else literal: single-asterisk
+ * emphasis, backticks, and unmatched delimiters, all of which the page already
+ * rendered as text.
+ *
+ * Measured on CHANGELOG.md at v0.15.3, 406 bullets. The count depends on the
+ * question asked, so the method is named in line comments above the function.
  *
  * Segment `text` values concatenate back to the input minus only the bold
  * delimiters. `parse-changelog.test.ts` asserts that over every bullet in the
  * real CHANGELOG.md.
  */
+// method                                   what it counts        n
+//   /^- \*\*/         bullets opening with a bold span    139
+//   /\*\*[^*]+\*\*/   bullets containing a bold span      141  (144 spans)
 export function splitBold(text: string): TextSegment[] {
   const segments: TextSegment[] = [];
   let last = 0;
