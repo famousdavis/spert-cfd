@@ -2,6 +2,11 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.4 — The changelog page renders bold text (August 22, 2026)
+
+- **Bold text on this page now looks bold.** Every entry here is written with emphasis on its opening phrase, and until now that emphasis rendered as literal asterisk characters wrapped around the words instead. It affected 141 of 406 bullets, reaching back to the earliest entry that used the convention in January 2026 — so this page has been slightly harder to scan for its whole life, on every entry you can see below.
+- **Nothing else changed.** No behaviour, no data, no dependency. The fix is confined to how this one page turns the project's changelog file into what you are reading.
+
 ## v0.15.3 — Every known security advisory cleared (August 22, 2026)
 
 - **All 25 known security advisories affecting this app are now fixed.** The audit went from 25 to 0. Most were in the framework and build tooling rather than in SPERT CFD's own code, and they are cleared outright rather than assessed as low-risk and left. The count is stated the honest way: eight packages were affected, which is the number the tooling reports by default, and those eight carried 25 distinct advisories between them.
