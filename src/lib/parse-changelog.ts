@@ -47,3 +47,53 @@ export function parseChangelog(content: string): ChangelogEntry[] {
 
   return entries;
 }
+
+/** One run of bullet text, flagged for whether it should render bold. */
+export interface TextSegment {
+  text: string;
+  bold: boolean;
+}
+
+/**
+ * Matches a backtick code span OR a `**bold**` span, in that order.
+ *
+ * The code-span alternative exists to be CONSUMED AND DISCARDED, not rendered:
+ * it stops a doubled asterisk inside a code span from being read as a bold
+ * delimiter. CHANGELOG.md already contains a doubled-asterisk glob inside
+ * backticks, and without this rule a bullet mentioning such a glob BEFORE a
+ * bold span would pair the glob's asterisks with the bold span's opening ones
+ * and swallow everything between them. Today's single instance is safe only
+ * because its bold span opens and closes first — ordering, not correctness.
+ *
+ * NB: that glob cannot be written literally in a block comment here, because
+ * the sequence closes the comment. The same construct, twice.
+ */
+const SEGMENT = /(`[^`]*`)|\*\*(.+?)\*\*/g;
+
+/**
+ * Splits `**bold**` out of a bullet into renderable segments.
+ *
+ * Deliberately NOT a markdown renderer. It handles the one construct the
+ * changelog actually uses — 139 of 406 bullets open with a bold lead-in — and
+ * leaves everything else literal: single-asterisk emphasis, backticks, and
+ * unmatched delimiters, all of which the page already rendered as text.
+ *
+ * Segment `text` values concatenate back to the input minus only the bold
+ * delimiters. `parse-changelog.test.ts` asserts that over every bullet in the
+ * real CHANGELOG.md.
+ */
+export function splitBold(text: string): TextSegment[] {
+  const segments: TextSegment[] = [];
+  let last = 0;
+
+  for (const match of text.matchAll(SEGMENT)) {
+    if (match[2] === undefined) continue; // a code span — leave it in the plain tail
+    const start = match.index;
+    if (start > last) segments.push({ text: text.slice(last, start), bold: false });
+    segments.push({ text: match[2], bold: true });
+    last = start + match[0].length;
+  }
+
+  if (last < text.length) segments.push({ text: text.slice(last), bold: false });
+  return segments;
+}

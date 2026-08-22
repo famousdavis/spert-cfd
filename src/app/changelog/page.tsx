@@ -4,9 +4,10 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { Footer } from '@/components/footer';
-import { parseChangelog } from '@/lib/parse-changelog';
+import { parseChangelog, splitBold } from '@/lib/parse-changelog';
 
 export const metadata = {
   title: 'Changelog — SPERT® CFD',
@@ -42,7 +43,17 @@ export default function ChangelogPage() {
             </div>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
               {entry.items.map((item, i) => (
-                <li key={i}>{item}</li>
+                <li key={i}>
+                  {splitBold(item).map((segment, j) =>
+                    segment.bold ? (
+                      <strong key={j} className="font-semibold text-gray-900">
+                        {segment.text}
+                      </strong>
+                    ) : (
+                      <Fragment key={j}>{segment.text}</Fragment>
+                    ),
+                  )}
+                </li>
               ))}
             </ul>
           </article>
