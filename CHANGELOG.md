@@ -2,6 +2,13 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.3 — Every known security advisory cleared (August 22, 2026)
+
+- **All 25 known security advisories affecting this app are now fixed.** The audit went from 25 to 0. Most were in the framework and build tooling rather than in SPERT CFD's own code, and they are cleared outright rather than assessed as low-risk and left. The count is stated the honest way: eight *packages* were affected, which is the number the tooling reports by default, and those eight carried 25 distinct advisories between them.
+- **The web framework moved up a version.** Next.js 16.2.9 to 16.3.0, which is what makes most of the rest possible — the older version pinned two of its own components below the versions that carry the fixes. The specific release was chosen deliberately over two newer ones: the newer releases fix bugs in features this app does not use, and had been public for barely a day, while this one has been in the wild for nearly three weeks.
+- **A dependency pin from June has been removed rather than raised.** It was added to force a patched component into place, and it had quietly become the thing holding that component *below* its fix. With the framework upgraded, the pin is unnecessary and the app now resolves to a single up-to-date copy — a cleaner result than the pin was originally built to achieve.
+- **No behaviour changes.** Nothing about creating projects, recording snapshots, or reading the cumulative flow diagram has changed. This release was verified against the running app as well as the test suite.
+
 ## v0.15.2 — Coverage is measurable from a clean checkout (August 22, 2026)
 
 - **Test coverage can now be measured at all.** The coverage provider was never declared as a dependency — it existed only as an optional extra of the test runner, so a fresh clone of the project installed everything except that, and asking for a coverage report returned a missing-dependency error instead. It is now declared and installs with everything else.
