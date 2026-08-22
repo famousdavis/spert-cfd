@@ -2,6 +2,12 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.5 — A complexity check now guards the codebase (August 22, 2026)
+
+- **The build now measures how hard each function is to change safely, and holds the line.** A cognitive-complexity checker runs on every change. It found 10 functions above the threshold, and that number is now recorded as the accepted baseline — the build fails if it goes up, and equally if it goes down without the baseline being updated. That second half is the point: it catches a change that quietly relocates complexity rather than removing it.
+- **Nothing was rewritten to reach a number.** The 10 findings are accepted, not a backlog. Complexity measures the cost of changing code, not the likelihood that it is wrong, so rewriting working code to satisfy a metric is a poor trade. The most complex function is the one that validates saved project data, which is exactly where careful handling belongs.
+- **No behaviour changes.** Nothing about creating projects, recording snapshots, or reading the cumulative flow diagram is affected. This release adds a check, not a feature.
+
 ## v0.15.4 — The changelog page renders bold text (August 22, 2026)
 
 - **Bold text on this page now looks bold.** Every entry here is written with emphasis on its opening phrase, and until now that emphasis rendered as literal asterisk characters wrapped around the words instead. It affected 141 of 406 bullets, reaching back to the earliest entry that used the convention in January 2026 — so this page has been slightly harder to scan for its whole life, on every entry you can see below.
