@@ -1,6 +1,6 @@
 {
   "name": "spert-cfd",
-  "version": "0.15.2",
+  "version": "0.15.3",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -23,8 +23,8 @@
     "date-fns": "4.1.0",
     "firebase": "12.12.1",
     "lucide-react": "1.9.0",
-    "nanoid": "5.1.9",
-    "next": "16.2.9",
+    "nanoid": "5.1.16",
+    "next": "16.3.0",
     "react": "19.2.5",
     "react-dom": "19.2.5",
     "recharts": "3.8.1"
@@ -38,18 +38,15 @@
     "@types/react-dom": "19.2.3",
     "@vitest/coverage-v8": "4.1.5",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.3.0",
     "jsdom": "29.0.2",
-    "postcss": "8.5.15",
+    "postcss": "8.5.23",
     "tailwindcss": "4.2.4",
     "typescript": "6.0.3",
     "vitest": "4.1.5"
   },
   "overrides": {
-    "next": {
-      "postcss": "8.5.15"
-    },
-    "protobufjs": "^7.6.3",
+    "protobufjs": "^7.6.5",
     "@grpc/grpc-js": "~1.9.16",
     "vite": "^8.0.16"
   }
