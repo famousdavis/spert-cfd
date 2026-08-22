@@ -10,7 +10,7 @@ const eslintConfig = defineConfig([
   { ignores: [".claude/**"] },
   ...nextVitals,
   ...nextTs,
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+  globalIgnores([".next/**", "out/**", "build/**", "coverage/**", "next-env.d.ts"]),
   {
     rules: {
       // Honour two intentional patterns the codebase already uses:
