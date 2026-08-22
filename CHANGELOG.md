@@ -2,6 +2,12 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.2 — Coverage is measurable from a clean checkout (August 22, 2026)
+
+- **Test coverage can now be measured at all.** The coverage provider was never declared as a dependency — it existed only as an optional extra of the test runner, so a fresh clone of the project installed everything except that, and asking for a coverage report returned a missing-dependency error instead. It is now declared and installs with everything else.
+- **The report counts every source file, not just the ones a test happens to load.** By default the tool omits a file no test imports, rather than listing it at zero. Half the codebase — 41 of 82 files — was invisible that way, which made the headline percentage look considerably better than the real one. All 82 are now counted, and the honest figure is 40.89% of statements rather than 61.43%.
+- **Generated coverage output no longer affects the lint result.** Running coverage writes a report directory into the project, and it carries some third-party JavaScript the linter was reading. It is now excluded, so the lint result no longer depends on whether coverage happened to have been run locally.
+
 ## v0.15.1 — Microsoft sign-in now requires a work or school account (August 19, 2026)
 
 - **Personal Microsoft accounts are no longer accepted.** outlook.com, hotmail.com and live.com addresses are refused at the sign-in screen, before any password is entered — Microsoft itself enforces this, not the app. The change was made for institutions evaluating the Suite, who reasonably expect "sign in with Microsoft" to mean an organisational account rather than any account at all.
