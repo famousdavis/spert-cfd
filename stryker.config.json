@@ -1,0 +1,45 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "First mutation baseline (v0.15.7). Scope is SIX files — see docs/mutation-baseline.md for the candidacy gate that selected them and, just as importantly, for what was excluded and why. Run via `npm run mutate`, NEVER `npx stryker` directly: the wrapper deletes the previous report before running, because a run that fails to start emits no survivors and no score, which is indistinguishable from a perfect result. This is a BASELINE, not a gate — `npm run mutate` is deliberately NOT a shipgate step and must not be wired into shipgate.config.json.",
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.config.ts"
+  },
+  "_vitestNote": "⚠️ Omitting configFile reports every mutant as NoCoverage — 'untested' rather than 'misconfigured', which reads as a finding instead of a fault. No scoped vitest config: the full suite runs in ~2.2s and coverageAnalysis perTest already restricts execution to covering tests. A scoped config would reintroduce the transitive-import-derivation hazard that a narrowed include creates; not having one removes it rather than mitigating it. No .stryker-tmp exclude is needed here — MEASURED: test.include is anchored `src/**/*.test.ts`, so minimatch cannot match `.stryker-tmp/sandbox-N/src/**`.",
+  "checkers": [
+    "typescript"
+  ],
+  "tsconfigFile": "tsconfig.json",
+  "_tsconfigNote": "The plain tsconfig, not a stryker-specific one. This repo's tsconfig has NO `references`, so it is not a solution file and needs no side-step config; `npm run typecheck` is clean including test files. It also does not need a .stryker-tmp exclude despite an unanchored `**/*.ts` include — MEASURED: TypeScript's wildcard globs skip dot-directories, so `tsc --noEmit` exits 0 with a deliberately broken file under .stryker-tmp/. That is why .stryker-tmp is protected for free and `reports/` is not: reports/ escapes only because it holds no .ts.",
+  "mutate": [
+    "src/lib/storage.ts",
+    "src/lib/import-utils.ts",
+    "src/lib/invitation-errors.ts",
+    "src/lib/csv.ts",
+    "src/lib/calculations.ts",
+    "src/lib/migrations.ts"
+  ],
+  "_mutateNote": "395 branches. Selected by the item-03 candidacy gate: pure logic, no react/next import, >=10 branches, >=70% branch coverage, AND a survivor would change what we do. storage.ts carries validateProjectData (cc 35) which is the SOLE integrity guard in local-storage mode — the canonical firestore.rules expresses only a 12-name top-level key allowlist, no value types, and only in cloud mode. invitation-errors.ts is at 100% branches: coverage is exhausted, so only mutation can say whether the assertions are real. import-utils.ts was initially excluded by a blanket category label ('cloud plumbing') never checked against the file; it is import conflict resolution and project merging, data-destructive if wrong. calculations.ts was excluded by item 03 because the answer was already 'write tests'; item 04 wrote them and proved by hand that one COVERED branch is unobservable, so covered != asserted here. Excluded: firestore-driver.ts (27.36% br), user-display.ts (42.85%), firebase.ts, consent.ts and the React hooks — below the coverage floor or not pure logic, where mutation would only rediscover what coverage already says.",
+  "reporters": [
+    "json",
+    "clear-text",
+    "progress"
+  ],
+  "_reportersNote": "⚠️ Passing --reporters on the CLI REPLACES this array, silently dropping `json` and with it the report file that mutation-guard.mjs and every future comparison depend on. If a run needs a different reporter set, change it here.",
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
+  },
+  "_jsonReporterNote": "⚠️ Load-bearing, with no compile-time link to its consumer: scripts/mutation-guard.mjs hard-codes path.resolve('reports/mutation/mutation.json'). Changing either side alone breaks the guard silently — it would report 'no report written' for a run that succeeded.",
+  "coverageAnalysis": "perTest",
+  "timeoutMS": 60000,
+  "concurrency": 4,
+  "_excludedMutationsNote": "None, deliberately. The suite disagrees — the Vite siblings exclude StringLiteral/ObjectLiteral, the Next.js one excludes nothing. A FIRST baseline should see the full mutant population: excluding shrinks the denominator before anyone knows what is in it. If StringLiteral proves a large EQUIV cluster of unasserted error messages, that is a finding to record and a reason to exclude in a later COMPARISON run.",
+  "_maxTestRunnerReuseNote": "Absent, following two of three siblings. Scheduler's score collapsed without it; GanttApp measured ZERO per-mutant verdict differences over 150 mutants both ways. ⚠️ If tested here, compare PER-MUTANT VERDICTS, not the score — two offsetting differences cancel in an aggregate. Note the cost: runner startup is paid per mutant, and this suite reports environment ~5.1s and import ~5.6s summed across workers, so per-mutant cost is NOT the 2.2s suite wall-clock.",
+  "_thresholdsComment": "No `break` threshold. A baseline is a measurement, not a gate; it must not be able to fail a release. ⚠️ And the score is a proxy: at Story Map one toEqual on a palette table killed 31 survivors for +1.86pp while ten compile-time guards removed 32 survivors for +0.15pp — a reader optimising the score would do the assertion and skip the guards, which is exactly backwards.",
+  "thresholds": {
+    "high": 90,
+    "low": 70,
+    "break": null
+  }
+}

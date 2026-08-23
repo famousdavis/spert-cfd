@@ -1,6 +1,6 @@
 {
   "name": "spert-cfd",
-  "version": "0.15.6",
+  "version": "0.15.7",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "mutate": "node scripts/mutation-guard.mjs",
     "shipgate": "node scripts/shipgate.mjs"
   },
   "dependencies": {
@@ -31,6 +32,9 @@
     "recharts": "3.8.1"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "9.6.1",
+    "@stryker-mutator/typescript-checker": "9.6.1",
+    "@stryker-mutator/vitest-runner": "9.6.1",
     "@tailwindcss/postcss": "4.2.4",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",

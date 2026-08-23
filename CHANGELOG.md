@@ -2,6 +2,13 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.7 — Mutation testing establishes a first quality baseline (August 23, 2026)
+
+- **The test suite is now itself under test.** A mutation run makes 1,187 small deliberate changes to the app's core logic — flipping a comparison, dropping a guard — and checks whether any test notices. 604 were caught, 180 slipped through unnoticed, and the rest could not compile. Those 180 are recorded rather than fixed: each one marks a place where the code is exercised but not actually asserted, which is information a coverage percentage cannot express.
+- **It immediately found two real gaps on the same field.** Nothing asserted that a work-in-progress count exactly equal to its limit is not a violation, and nothing used a limit of zero. Both are boundary cases in the WIP-limit warnings, both were invisible to a fully green test suite, and both are now written down.
+- **This is a measurement, not a gate.** The run is deliberately not part of the release checks and cannot fail a build. The score is recorded but explicitly not a target — a single broad assertion can move it far more than ten genuine improvements, so optimising it would reward the wrong work.
+- **No behaviour changes.** Nothing about creating projects, recording snapshots, or reading the cumulative flow diagram is affected.
+
 ## v0.15.6 — A false claim removed from the shared release script (August 22, 2026)
 
 - **Development and release tooling only.** No application code changed. Nothing about creating projects, recording snapshots, or reading the cumulative flow diagram is affected.

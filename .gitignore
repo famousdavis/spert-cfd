@@ -42,6 +42,14 @@ CLAUDE.md
 # Local audit baseline for dependency-upgrade campaign (not tracked)
 .audit-baseline.json
 
+# Stryker mutation testing. ⚠️ .stryker-tmp holds full SANDBOX COPIES of every
+# mutated source file, including deliberately broken source mid-run — and this
+# repository is PUBLIC. Untracked but un-ignored, it is one `git add -A` from a
+# public commit, which is the exact failure the deny-by-default block below was
+# written for. reports/ is generated output.
+/.stryker-tmp
+/reports
+
 # Working notes at the repository root — analyses, plans, critiques, briefings,
 # orchestration prompts.
 #
