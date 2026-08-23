@@ -124,3 +124,117 @@ describe('calculateMetrics', () => {
     expect(result.wipViolations).toHaveLength(2);
   });
 });
+
+// ── The `days` window ────────────────────────────────────
+// Untested until now: only 'all' and 'range' were exercised, so the whole
+// `days` case of filterSnapshotsByPeriod was dark.
+
+describe('filterSnapshotsByPeriod — the days window', () => {
+  it('measures the window from the LATEST SNAPSHOT, not from today', () => {
+    // Latest is 2024-01-15; a 10-day window starts at 2024-01-05.
+    // Anchoring to the latest snapshot is what keeps this assertion stable
+    // as real time passes — anchoring to `new Date()` would not.
+    const result = filterSnapshotsByPeriod(snapshots, { kind: 'days', value: 10 });
+    expect(result.map((s) => s.date)).toEqual(['2024-01-08', '2024-01-15']);
+  });
+
+  it('keeps every snapshot when the window is wider than the data', () => {
+    const result = filterSnapshotsByPeriod(snapshots, { kind: 'days', value: 365 });
+    expect(result).toHaveLength(3);
+  });
+
+  it('returns the empty array unchanged rather than indexing into it', () => {
+    // Guards `sorted[sorted.length - 1]` on an empty array, which
+    // `noUncheckedIndexedAccess` would type as possibly-undefined but this
+    // repo does not enable.
+    expect(filterSnapshotsByPeriod([], { kind: 'days', value: 7 })).toEqual([]);
+  });
+});
+
+// ── rateOfChange's two early returns ─────────────────────
+
+describe('rateOfChange guards, observed through calculateMetrics', () => {
+  it('reports zero rates from a single snapshot — no window to measure across', () => {
+    const result = calculateMetrics(workflow, [snapshots[0]], { kind: 'all' });
+    expect(result.throughput).toBe(0);
+    expect(result.arrivalRate).toBe(0);
+  });
+
+  it('reports zero throughput when the done count does not increase', () => {
+    const flat: Snapshot[] = [
+      { date: '2024-02-01', counts: { backlog: 5, dev: 2, review: 1, done: 7 } },
+      { date: '2024-02-08', counts: { backlog: 4, dev: 2, review: 1, done: 7 } },
+    ];
+    const result = calculateMetrics(workflow, flat, { kind: 'all' });
+    expect(result.throughput).toBe(0);
+  });
+
+  it('reports zero throughput when the done count goes backwards', () => {
+    const regressed: Snapshot[] = [
+      { date: '2024-02-01', counts: { backlog: 5, dev: 2, review: 1, done: 9 } },
+      { date: '2024-02-08', counts: { backlog: 4, dev: 2, review: 1, done: 6 } },
+    ];
+    expect(calculateMetrics(workflow, regressed, { kind: 'all' }).throughput).toBe(0);
+  });
+});
+
+// ── Little's Law with nothing completing ─────────────────
+
+describe("Little's Law divide guard", () => {
+  it('returns 0 rather than dividing WIP by zero throughput', () => {
+    // WIP is present and throughput is zero. Without the guard this is
+    // Infinity. The 0 is a sentinel: metrics-panel.tsx renders
+    // `avgLeadTime > 0 ? ... : '—'`, so the user sees a dash, not "0.0d".
+    const stalled: Snapshot[] = [
+      { date: '2024-02-01', counts: { backlog: 5, dev: 3, review: 2, done: 7 } },
+      { date: '2024-02-08', counts: { backlog: 5, dev: 3, review: 2, done: 7 } },
+    ];
+    const result = calculateMetrics(workflow, stalled, { kind: 'all' });
+    expect(result.totalWip).toBe(5);
+    expect(result.throughput).toBe(0);
+    expect(result.avgLeadTime).toBe(0);
+    expect(Number.isFinite(result.avgLeadTime)).toBe(true);
+  });
+});
+
+// ── A state absent from a snapshot's counts ──────────────
+// This is the ordinary case, not an exotic one: add a workflow state after
+// snapshots exist and every earlier snapshot lacks that key.
+// validateProjectData requires counts values to be finite numbers but does
+// NOT require a key per workflow state, so such a project is valid.
+//
+// The type system cannot see it. `counts: Record<string, number>` with
+// `noUncheckedIndexedAccess` unset types `counts[id]` as `number`, never
+// `number | undefined`, so every `?? 0` here is developer-supplied and
+// compiler-invisible. Without them these values are NaN.
+
+describe('a workflow state missing from a snapshot', () => {
+  const withGap: Snapshot[] = [
+    { date: '2024-03-01', counts: { backlog: 10, dev: 2, review: 1, done: 0 } },
+    { date: '2024-03-08', counts: { backlog: 8, done: 4 } }, // dev and review absent
+  ];
+
+  it('counts a missing active state as zero WIP, not NaN', () => {
+    const result = calculateMetrics(workflow, withGap, { kind: 'all' });
+    expect(result.wipByState.dev).toBe(0);
+    expect(result.wipByState.review).toBe(0);
+    expect(result.totalWip).toBe(0);
+    expect(Number.isNaN(result.totalWip)).toBe(false);
+  });
+
+  it('keeps throughput and arrival rate finite across the gap', () => {
+    const result = calculateMetrics(workflow, withGap, { kind: 'all' });
+    expect(Number.isFinite(result.throughput)).toBe(true);
+    expect(Number.isFinite(result.arrivalRate)).toBe(true);
+    expect(Number.isNaN(result.arrivalRate)).toBe(false);
+  });
+
+  it('does not report a WIP violation for a limited state that is absent', () => {
+    // `dev` carries wipLimit 5 and is missing from counts. The guard reads
+    // it as 0, and 0 never exceeds a positive limit.
+    // NB the state must HAVE a wipLimit for this to be reached at all —
+    // `state.wipLimit !== undefined &&` short-circuits first.
+    const snapshot: Snapshot = { date: '2024-03-08', counts: { backlog: 8, done: 4 } };
+    expect(detectWipViolations(workflow, snapshot)).toHaveLength(0);
+  });
+});
