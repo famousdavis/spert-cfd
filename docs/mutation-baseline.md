@@ -57,6 +57,49 @@ same shape as every unstated criterion this campaign has hit.
 denominator before anyone knows what is in it. At 18 of 180, `StringLiteral` is not the dominant
 cluster here, so there is no case for excluding it yet.
 
+## Survivor classification — all 180, by cluster
+
+⚠️ **METHOD, stated because the result is not interpretable without it.** A survivor is **GAP** if a
+distinguishing input exists that the suite does not supply, and **EQUIV** if no input distinguishes
+the mutant from the original. Clusters are formed by *construct*, not by mutator name; each cluster
+was then **spot-verified** by searching the test file for the distinguishing input. Individual rows
+are given where a file's count is small enough to make that cheaper than a cluster. This is cluster
+classification with sampled verification — **not 180 individually adjudicated mutants**, and the
+difference matters for anyone comparing against this baseline later.
+
+### `storage.ts` — 104
+
+| cluster | n | verdict | spot-verification |
+|---|---|---|---|
+| Multi-arm type guards — `typeof X !== 'object' \|\| X === null \|\| Array.isArray(X)` at L159/174/177/184/188/208 | **81** | **GAP** | The suite supplies **one negative case per guard**; each guard has three arms. `counts: null` appears nowhere in the test file, so mutating `sn.counts === null` → `false` is undetected |
+| Anchor-dropping on regexes — L164 hex colour, L176 ISO date | **4** | **GAP** | Mutants drop `^` or `$`. Distinguishing inputs exist (`"xx#a1b2c3"`, `"#a1b2c3zz"`); the three existing colour tests cover short, missing-hash and invalid-char, never padding |
+| Boundary operators — `> MAX` → `>= MAX` (L153, L163), `<= 0` → `< 0` (L168), `> 50` → `>= 50` (L253) | **4** | **GAP** | No test uses a name of exactly `MAX_NAME_LENGTH`, a `wipLimit` of exactly 0, or exactly 50 changelog entries |
+| Guard inversions — `!== undefined` → `=== undefined` (L222 `schemaVersion`, L232 `_storageRef`) | **2** | **GAP** | Inverts optional-field handling; no test supplies the field as present *and* malformed |
+| Enum allowlist members — `['created','imported',…]` L241, `['all','days','range']` L190, `['owner','editor','viewer']` L213 | **7** | **GAP** | Each member needs its own case; the suite exercises a subset |
+| `.trim()` / `.every()` → `.some()` — L153, L180, L242 | **3** | **GAP** | No whitespace-only *project* name test (the whitespace test is for workflow-state names, L163). `.every` → `.some` needs a counts object mixing one valid and one invalid value |
+| **Storage key constants** — `INDEX_KEY`, `PROJECT_PREFIX` → `""` (L12, L13) | **2** | ⚠️ **EQUIV** | The constants are used **symmetrically on write and read**, so a suite that round-trips through them cannot observe the change. Killing these needs an assertion on the literal key, which is a different kind of test |
+| Snapshot-loop `BlockStatement` emptied — L173 | **1** | **GAP** | No project fixture carries an *invalid* snapshot inside an otherwise valid project |
+
+**Verdict: 102 GAP, 2 EQUIV.** The dominant finding is structural — **the suite tests one negative
+per guard while the guards carry three arms each**, so two thirds of the guard surface is executed
+but unasserted.
+
+### The other five — 76
+
+| file | n | verdict | note |
+|---|---|---|---|
+| `import-utils.ts` | 26 | **GAP** | Concentrated on optional-field ternaries (L122 id fallback, L160–161 migrated-name checks), the copy-name truncation boundary (L249), and the auto-switch condition (L469). All have distinguishing inputs; none is symmetric |
+| `csv.ts` | 25 | **GAP** | L151 `target === 'date' \|\| target === 'skip'` (5) and L57 the escaped-quote lookahead (3) dominate. Parser edge cases — a `""` at end-of-field, a skip column adjacent to a date column |
+| `migrations.ts` | 17 | **GAP** | L68 and L89 `pending.length === 0` (4 each) — the no-migrations-needed short circuit. No test asserts the *early-return* path is what ran, only that the result is correct, so the branch is executed and unasserted |
+| `calculations.ts` | 7 | **GAP** | ⚠️ **Every one is an inclusive/exclusive boundary**: L42 `>=` cutoff, L46 `>=`/`<=` range ends, L60 `< 2`, L66 `<= 0`, L125 `>` wipLimit. A single coherent cluster, and the same class the pre-registered control surfaced |
+| `invitation-errors.ts` | 1 | **GAP** | L23 `.code ?? ''` string literal. One survivor across 45 branches — at 100% branch coverage this file is effectively a complete answer |
+
+⚠️ **`calculations.ts` is the most legible result in the run.** Seven survivors, seven boundary
+conditions, no other pattern. The item-04 tests established *behaviour*; the boundaries either side
+of each comparison were never pinned.
+
+---
+
 ## The pre-registered control — satisfied, and it corrected its own prediction
 
 Item 04 proved **by hand** that `detectWipViolations`'s `?? 0` (`calculations.ts:125`) is
