@@ -2,6 +2,15 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.9 — Creating several projects at once no longer drops one from the saved order (August 24, 2026)
+
+- **What you would have seen.** Creating several projects in quick succession — importing a batch, or accepting several shared projects at once — could leave one of them missing from the saved display order. The project itself was always there and always correct; only its place in your ordering was lost, and it fell to the end of the list instead. Reordering by hand put it back for good.
+- **Why it happened.** Saving the display order worked in two steps: read the current order, then write the whole list back with the new project added. Two creates happening at the same time both read the same list before either had written, so each wrote back a list containing itself and not the other. Whichever landed second won, and the first project's place was gone. It has been a known limitation since v0.13.0 and was recorded in the code as one.
+- **What changed.** Both adding to the order and removing from it are now single instructions sent to the database — "add this one" and "remove this one" — rather than a read followed by a rewrite of the whole list. The database applies each to whatever the order holds at the moment it arrives, so two creates at the same time now both land. There is no read to go stale.
+- **Dragging to reorder deliberately still rewrites the whole list**, because that is what a reorder means: you are stating the complete sequence you want. That is recorded in the code alongside the reason, so the two are not confused later.
+- **Measured rather than reasoned about.** The fault was reproduced against a real database before the change — two simultaneous creates, one id lost — and the same test after the change kept both. The mirror case of creating one project while deleting another was also run, and afterwards produces the right answer regardless of which lands first; before the change, one of the two operations was always lost, and which one varied from run to run.
+- **The new checks were run against the old code first and had to fail.** Four of the five did, for the four reasons expected; the fifth covers the reorder behaviour that was intentionally left alone and passes on both sides. A check that passes before the fix is not checking the fix.
+
 ## v0.15.8 — The mutation guard no longer passes the run it exists to catch (August 22, 2026)
 
 - **Development tooling only.** No application code changed, and nothing about creating projects, recording snapshots, or reading the cumulative flow diagram is affected.

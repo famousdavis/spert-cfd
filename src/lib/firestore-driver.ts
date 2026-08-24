@@ -9,6 +9,8 @@ import {
   setDoc,
   deleteDoc,
   deleteField,
+  arrayUnion,
+  arrayRemove,
   collection,
   query,
   where,
@@ -266,15 +268,27 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
 
       await setDoc(doc(db, PROJECTS_COL, project.id), docData);
 
-      // Append to project order
-      const order = await loadProjectOrder();
-      if (!order.includes(project.id)) {
-        await setDoc(
-          doc(db, SETTINGS_COL, uid),
-          { projectOrder: [...order, project.id] },
-          { merge: true },
-        );
-      }
+      // Append to project order.
+      //
+      // arrayUnion, not read-then-write: the server applies it to whatever
+      // the document holds when the write lands, so two concurrent creates
+      // both land instead of one overwriting the other. The old code read
+      // the array, appended locally and wrote the whole thing back, and a
+      // second create reading the same array dropped one id.
+      //
+      // arrayUnion appends only values not already present, so it SUBSUMES
+      // the `!order.includes()` guard the read used to feed. Do not keep
+      // both.
+      //
+      // setDoc + merge, NOT updateDoc: updateDoc fails on a missing
+      // document, and the settings doc legitimately does not exist for a new
+      // user. Measured on the emulator: setDoc + merge + arrayUnion on a
+      // non-existent doc yields { projectOrder: ["p1"] }.
+      await setDoc(
+        doc(db, SETTINGS_COL, uid),
+        { projectOrder: arrayUnion(project.id) },
+        { merge: true },
+      );
     },
 
     saveProject(project: Project): Promise<void> {
@@ -320,12 +334,13 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
 
       await deleteDoc(doc(db, PROJECTS_COL, id));
 
-      // Remove from project order
-      const order = await loadProjectOrder();
-      const updated = order.filter((pid) => pid !== id);
+      // Remove from project order. The mirror of createProject's arrayUnion,
+      // and measured to match the old `filter(pid => pid !== id)` exactly,
+      // including at the doc-absent edge: arrayRemove on a missing document
+      // yields [], which is what filtering an empty read gave.
       await setDoc(
         doc(db, SETTINGS_COL, uid),
-        { projectOrder: updated },
+        { projectOrder: arrayRemove(id) },
         { merge: true },
       );
     },
@@ -345,6 +360,17 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     },
 
     async reorderProjects(orderedIds: string[]): Promise<void> {
+      // A WHOLE-ARRAY write on purpose, and it stays one. An explicit reorder
+      // IS the user stating the complete intended sequence; no field
+      // transform expresses that, and arrayUnion here would append rather
+      // than reorder.
+      //
+      // This site therefore still races with createProject, deliberately: a
+      // reorder landing after a concurrent create drops the new id, because
+      // the sequence the user submitted did not contain it. That is
+      // last-write-wins working as intended, it predates the v0.15.9 change,
+      // and it is not what that change was for. Do not "finish the job" by
+      // converting this one.
       await setDoc(
         doc(db, SETTINGS_COL, uid),
         { projectOrder: orderedIds },
