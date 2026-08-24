@@ -16,6 +16,12 @@ const mockDoc = vi.fn((_db, _col, id) => ({ id, path: `${_col}/${id}` }));
 const mockCollection = vi.fn((_db, col) => ({ id: col }));
 const mockQuery = vi.fn((...args) => ({ _query: true, args }));
 const mockWhere = vi.fn((...args) => ({ _where: true, args }));
+// Field-transform SENTINELS, deliberately NOT working array functions. A mock
+// that computed a real array would be satisfied by the OLD read-then-write
+// implementation, so the assertions below would pin nothing. Verified by
+// running these tests against the pre-change driver first: 4 of 5 failed.
+const mockArrayUnion = vi.fn((...args: unknown[]) => ({ _arrayUnion: args }));
+const mockArrayRemove = vi.fn((...args: unknown[]) => ({ _arrayRemove: args }));
 
 // vi.mock is hoisted above the `const mockX = vi.fn(...)` declarations,
 // so the factory body must defer access to the mock identifiers. The
@@ -34,6 +40,11 @@ vi.mock('firebase/firestore', () => ({
   getDoc: (...args: Parameters<typeof mockGetDoc>) => mockGetDoc(...args),
   getDocs: (...args: Parameters<typeof mockGetDocs>) => mockGetDocs(...args),
   onSnapshot: (...args: Parameters<typeof mockOnSnapshot>) => mockOnSnapshot(...args),
+  // Must be EXPORTED here, not merely declared above: firestore-driver.ts
+  // imports arrayUnion/arrayRemove at module scope, and a factory that omits
+  // them fails at module initialisation rather than at the call site.
+  arrayUnion: (...args: Parameters<typeof mockArrayUnion>) => mockArrayUnion(...args),
+  arrayRemove: (...args: Parameters<typeof mockArrayRemove>) => mockArrayRemove(...args),
 }));
 
 // ── localStorage mock ────────────────────────────────────
@@ -543,5 +554,79 @@ describe('createProject — schemaVersion uses SCHEMA_VERSION constant (K2)', ()
     const [, payload] = mockSetDoc.mock.calls[0];
     expect(payload).not.toHaveProperty('schemaVersion');
     vi.useRealTimers();
+  });
+});
+
+// ── projectOrder is written atomically (v0.15.9) ─────────
+
+/**
+ * `spertcfd_settings/{uid}.projectOrder` had three write sites, two of which
+ * were read-modify-write: `createProject` and `deleteProject` each did
+ * `loadProjectOrder()` and then wrote the recomputed whole array back. Two
+ * concurrent creates read the same array and both wrote it back, so one id was
+ * lost — measured on the emulator, and documented at
+ * `project-list-context.tsx:297` as a known limitation since v0.13.0.
+ *
+ * Both now use a field transform, which the server applies to whatever the
+ * document holds at the moment the write lands.
+ *
+ * THESE ASSERT SHAPE ONLY. The mocked `arrayUnion`/`arrayRemove` return
+ * sentinels, not arrays, so there is nothing here to compute against. Array
+ * SEMANTICS — that union appends, that remove strips every occurrence, that
+ * two concurrent unions both land — belong on the emulator, where the document
+ * can be read back. They were measured there and are not restated here.
+ *
+ * The zero-`getDoc` assertions are the load-bearing half. They are what make
+ * "the read is gone" true rather than "a transform is also being written", and
+ * they are why `loadProjectOrder` now has exactly two callers
+ * (`loadProjectList` and `onProjectListChange`) instead of four.
+ */
+describe('projectOrder writes are atomic (v0.15.9)', () => {
+  /** The `setDoc` call that targets the settings doc, whichever order it lands in. */
+  function settingsWrite(): Record<string, unknown> | undefined {
+    const call = mockSetDoc.mock.calls.find(
+      ([ref]) => typeof ref?.path === 'string' && ref.path.startsWith('spertcfd_settings/'),
+    );
+    return call?.[1] as Record<string, unknown> | undefined;
+  }
+
+  it('createProject writes projectOrder as an arrayUnion carrying the id', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await driver.createProject(sampleProject({ id: 'proj-7' }));
+
+    expect(settingsWrite()).toBeDefined();
+    expect(settingsWrite()?.projectOrder).toEqual({ _arrayUnion: ['proj-7'] });
+  });
+
+  it('createProject reads nothing: getDoc is not called on that path', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await driver.createProject(sampleProject({ id: 'proj-7' }));
+
+    expect(mockGetDoc).not.toHaveBeenCalled();
+  });
+
+  it('deleteProject writes projectOrder as an arrayRemove carrying the id', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await driver.deleteProject('proj-7');
+
+    expect(settingsWrite()).toBeDefined();
+    expect(settingsWrite()?.projectOrder).toEqual({ _arrayRemove: ['proj-7'] });
+  });
+
+  it('deleteProject reads nothing: getDoc is not called on that path', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await driver.deleteProject('proj-7');
+
+    expect(mockGetDoc).not.toHaveBeenCalled();
+  });
+
+  it('reorderProjects still writes a PLAIN array, not a transform', async () => {
+    // An explicit reorder IS the user stating the complete intended sequence,
+    // and no transform expresses that. A transform assertion passing here
+    // would mean the wrong site had been converted.
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await driver.reorderProjects(['c', 'a', 'b']);
+
+    expect(settingsWrite()?.projectOrder).toEqual(['c', 'a', 'b']);
   });
 });
