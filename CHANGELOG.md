@@ -2,6 +2,15 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.10 — Project rows no longer fail to draw after someone is added to a project (August 24, 2026)
+
+- **What you would have seen.** After someone was invited to a project, or accepted an invitation to one, that project's row in the project list could fail to draw. The project was fine and its data was intact; the list simply could not render the row.
+- **Why it happened.** The row shows when the project was last updated, and it expects that to be a plain date written as text. The shared service that adds a person to a project was writing the time in a different form — an object rather than text — and the date formatter throws an error rather than shrugging when handed something it cannot read. Six different forms of that value crash it, and only two are safe.
+- **What changed.** Every form the value can arrive in is now converted to plain text at the point the project is read from the cloud, before anything else touches it. Four of the forms carry a real time and are recovered, so the row shows the true date. The remaining two carry no time at all — an unfinished placeholder, or a missing value — and those now show `Updated —` rather than crashing.
+- **Two different blanks, deliberately kept apart.** A project whose details have not finished loading still shows nothing at all, exactly as before. Only a project that genuinely has no recorded update time shows the dash. Merging the two would have been simpler and would have quietly claimed "no update time recorded" for every project that was merely still loading.
+- **Text that is not a date is treated as no date, not passed through.** This is the one case that would have survived the fix: the stored value is declared to be text, so text that happens not to be a date is the only bad form the app's own type rules still allow. It is now checked rather than assumed.
+- **The new checks were run against the old code first and had to fail.** Removing the conversion fails eight of the twelve; the four that still pass are the ones where doing nothing was already the right answer, which is what makes the other eight meaningful. Merging the two blanks fails exactly the one check written for it and none of the others — which is why that check exists.
+
 ## v0.15.9 — Creating several projects at once no longer drops one from the saved order (August 24, 2026)
 
 - **What you would have seen.** Creating several projects in quick succession — importing a batch, or accepting several shared projects at once — could leave one of them missing from the saved display order. The project itself was always there and always correct; only its place in your ordering was lost, and it fell to the end of the list instead. Reordering by hand put it back for good.

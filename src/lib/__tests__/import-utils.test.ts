@@ -148,7 +148,13 @@ describe('classifyImportData', () => {
     expect(result.kind).toBe('ok');
     if (result.kind === 'ok') {
       expect((result.projects[0] as unknown as Record<string, unknown>).evilField).toBeUndefined();
-      expect(result.projects[0].updatedAt >= before).toBe(true);
+      // `Project.updatedAt` became optional in v0.15.10 (cloud reads can carry
+      // no recoverable instant). The import path always stamps one, so assert
+      // that first — it is a stronger claim than the comparison alone, which
+      // would have been vacuously true against `undefined`.
+      const stamped = result.projects[0].updatedAt;
+      expect(stamped).toBeDefined();
+      expect(stamped! >= before).toBe(true);
     }
   });
 
