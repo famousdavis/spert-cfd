@@ -2,6 +2,13 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.11 — A note in the code explaining why this app stays quiet where a sibling app warns (August 25, 2026)
+
+- **Nothing about the app changed.** No behaviour, no appearance, no data. This release adds explanatory comments only, and that was verified rather than assumed: with all comments stripped, the file is byte-for-byte identical before and after.
+- **The question it settles.** SPERT® Forecaster carries a near-identical copy of the code that reads a project's last-updated time, and at the point it uses that code it writes a warning to the developer console when the stored value carries no usable time. This app does not. A future reader comparing the two would reasonably file that as an oversight in this one.
+- **It is not an oversight.** Forecaster has no place on screen where that case shows up, so without the warning it is completely invisible there. This app does have one — the project row shows `Updated —` — so the case is already in front of the person who needs to know about it, and a console warning would be noise for something that is not hidden.
+- **Where the note went, and why it matters.** The difference is not in the shared classifier — neither app's copy of that file logs anything — it is in the two callers. The note therefore sits at this app's caller, opposite where Forecaster warns, rather than in the shared file. Putting it in the shared file would have created a brand-new difference between two files that are deliberately kept alike, in order to explain a difference that lives somewhere else.
+
 ## v0.15.10 — Project rows no longer fail to draw after someone is added to a project (August 24, 2026)
 
 - **What you would have seen.** After someone was invited to a project, or accepted an invitation to one, that project's row in the project list could fail to draw. The project was fine and its data was intact; the list simply could not render the row.
