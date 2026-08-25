@@ -107,6 +107,22 @@ function mapDocToProject(snap: DocumentSnapshot): Project | null {
     id: snap.id,
     name: data.name,
     createdAt: data.createdAt,
+    // NO LOG HERE, DELIBERATELY — and this is the one respect in which this file
+    // differs from spert-forecaster's `src/shared/firebase/firestore-converters.ts`,
+    // which console.warns at its equivalent call site.
+    //
+    // The difference is in the callers, not in the classifier: `updated-at.ts` is
+    // near-identical in both repos and neither copy logs. Forecaster warns because
+    // it has NO RENDER SITE for this case — its own comment says so — so an
+    // unrecoverable `updatedAt` simply drops out of the merge mask and is
+    // completely invisible. Here it is visible: `normalizeUpdatedAt` returns
+    // `undefined`, and `project-row.tsx` renders `UPDATED_AT_FALLBACK` (an em dash)
+    // for exactly that. The user already sees the case, so a console.warn would be
+    // noise for something that is not hidden.
+    //
+    // This is not an oversight and should not be "made symmetric". Two
+    // near-identical files differing in one respect for a stated reason is a better
+    // outcome than two files that match by accident.
     updatedAt: normalizeUpdatedAt(data.updatedAt),
     workflow: data.workflow ?? [],
     snapshots: data.snapshots ?? [],
