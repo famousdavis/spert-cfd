@@ -33,6 +33,7 @@ import { validateProjectData } from './storage';
 import { LS_ACTIVE_PROJECT, DEBOUNCE_CLOUD_MS, SCHEMA_VERSION } from './constants';
 import { DATA_VERSION } from './migrations';
 import { callRevokeInvite, callResendInvite } from './callables';
+import { normalizeUpdatedAt } from './updated-at';
 
 // ── Invitation helpers ──────────────────────────────────
 
@@ -106,7 +107,7 @@ function mapDocToProject(snap: DocumentSnapshot): Project | null {
     id: snap.id,
     name: data.name,
     createdAt: data.createdAt,
-    updatedAt: data.updatedAt,
+    updatedAt: normalizeUpdatedAt(data.updatedAt),
     workflow: data.workflow ?? [],
     snapshots: data.snapshots ?? [],
     settings: data.settings ?? {

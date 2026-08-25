@@ -11,10 +11,14 @@ import { CSS } from '@dnd-kit/utilities';
 import { Trash2 } from 'lucide-react';
 import { MAX_NAME_LENGTH } from '@/lib/constants';
 
+/** Rendered in place of a date when no instant is recoverable. Owner-chosen. */
+const UPDATED_AT_FALLBACK = '\u2014';
+
 export interface ProjectStats {
   snapshotCount: number;
   workflowStateCount: number;
-  updatedAt: string;
+  /** ISO 8601, or absent when the stored value carried no recoverable instant. */
+  updatedAt?: string;
   memberCount?: number;
   isOwner?: boolean;
 }
@@ -33,7 +37,11 @@ interface ProjectCardProps {
   isDragging?: boolean;
 }
 
-function ProjectCard({
+// Exported for PC-1 layer 2 (Brief 19), which renders it directly: the
+// Sortable wrapper needs a DndContext that contributes nothing to the
+// assertion. Behaviour is unchanged — SortableProjectCard is still the only
+// thing the app mounts.
+export function ProjectCard({
   id,
   name,
   stats,
@@ -67,8 +75,18 @@ function ProjectCard({
     if (e.key === 'Escape') setIsRenaming(false);
   };
 
+  // TWO distinct no-render cases, deliberately NOT collapsed into one guard.
+  //   stats == null                  -> stats have not loaded  -> null -> NBSP
+  //   stats present, updatedAt unset -> no recoverable instant -> UPDATED_AT_FALLBACK
+  // Collapsing them would render "Updated —" for a project whose stats merely
+  // have not loaded yet, which is a false claim about the data. The em dash has
+  // to travel THROUGH formattedDate: it is a truthy string, so the `Updated ${}`
+  // template below fires. Landing it in the falsy branch instead renders a bare
+  // dash with no "Updated", or a bare NBSP.
   const formattedDate = stats
-    ? format(new Date(stats.updatedAt), 'MMM d, yyyy')
+    ? stats.updatedAt
+      ? format(new Date(stats.updatedAt), 'MMM d, yyyy')
+      : UPDATED_AT_FALLBACK
     : null;
 
   return (

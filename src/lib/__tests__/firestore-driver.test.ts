@@ -630,3 +630,90 @@ describe('projectOrder writes are atomic (v0.15.9)', () => {
     expect(settingsWrite()?.projectOrder).toEqual(['c', 'a', 'b']);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PC-1 LAYER 1 (Brief 19) — every stored `updatedAt` shape normalises at the
+// converter, so `Project.updatedAt` is honestly an ISO string or absent by the
+// time anything holds it.
+//
+// Hops 1-2 of the four-hop chain. Layer 2 (the render) and layer 3 (the
+// carrier type) are in
+// `src/components/__tests__/project-row-updated-at.test.tsx`.
+//
+// ⚠️ The fix has to land HERE, at `mapDocToProject`, not at the render site.
+// A render-site fix leaves `Project.updatedAt` lying about its type and does
+// not protect the second consumer, `onProjectChange`'s onSnapshot callback,
+// which is asserted below for exactly that reason.
+//
+// EXPECTED_ISO is a literal rather than a computed value: rows 1-5 all encode
+// the SAME instant by different means, so a shared literal is what proves the
+// classifier recovered it rather than merely returned something.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('mapDocToProject — updatedAt normalisation (PC-1 layer 1)', () => {
+  const EPOCH_MS = Date.UTC(2026, 7, 23, 12, 0, 0);
+  const EXPECTED_ISO = '2026-08-23T12:00:00.000Z';
+
+  const RECOVERS_THE_INSTANT: [string, unknown][] = [
+    ['1 ISO string Date.parse accepts', EXPECTED_ISO],
+    ['2 number millis', EPOCH_MS],
+    ['3 client Timestamp (has toDate)', { toDate: () => new Date(EPOCH_MS) }],
+    ['4 {seconds,nanoseconds}', { seconds: EPOCH_MS / 1000, nanoseconds: 0 }],
+    ['5 {_seconds,_nanoseconds}', { _seconds: EPOCH_MS / 1000, _nanoseconds: 0 }],
+  ];
+
+  // Rows 4 and 5 are NOT a duplicate: distinct branches of the classifier with
+  // distinct producers — `seconds` is what a client-SDK recursive sanitizer
+  // rebuilds a Timestamp into via Object.entries; `_seconds` is the Admin SDK's
+  // serialization. Either branch can be independently forgotten.
+
+  const NO_RECOVERABLE_INSTANT: [string, unknown][] = [
+    ['6 unresolved serverTimestamp sentinel', { _methodName: 'serverTimestamp' }],
+    ['7 undefined', undefined],
+    ['8a string Date.parse rejects', 'not-a-date'],
+    ['8b empty string', ''],
+  ];
+
+  function docWith(updatedAt: unknown) {
+    return {
+      exists: () => true,
+      id: 'p1',
+      // onProjectChange gates on this before mapping; loadProject ignores it.
+      metadata: { hasPendingWrites: false },
+      data: () => ({
+        name: 'P', createdAt: EXPECTED_ISO, updatedAt,
+        workflow: [], snapshots: [], settings: {},
+      }),
+    };
+  }
+
+  it.each(RECOVERS_THE_INSTANT)('%s -> the ISO of that instant', async (_label, shape) => {
+    mockGetDoc.mockResolvedValueOnce(docWith(shape));
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const project = await driver.loadProject('p1');
+    expect(project?.updatedAt).toBe(EXPECTED_ISO);
+  });
+
+  it.each(NO_RECOVERABLE_INSTANT)('%s -> undefined, never a substituted date', async (_label, shape) => {
+    mockGetDoc.mockResolvedValueOnce(docWith(shape));
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const project = await driver.loadProject('p1');
+    // ⚠️ `undefined` specifically: `''` is itself a crashing shape and `null`
+    // survives write paths that strip only `undefined`.
+    expect(project?.updatedAt).toBeUndefined();
+    expect(project?.updatedAt).not.toBe('');
+    expect(project?.updatedAt).not.toBeNull();
+    // Never a substituted current date, and never createdAt.
+    expect(project?.createdAt).toBe(EXPECTED_ISO);
+  });
+
+  it('normalises on the onSnapshot path too, not only on loadProject', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    let received: unknown = null;
+    mockOnSnapshot.mockImplementationOnce((_ref: unknown, next: (s: unknown) => void) => {
+      next(docWith({ _methodName: 'serverTimestamp' }));
+      return () => {};
+    });
+    driver.onProjectChange('p1', (p) => { received = p; });
+    expect((received as { updatedAt?: string } | null)?.updatedAt).toBeUndefined();
+  });
+});

@@ -46,7 +46,15 @@ export interface Project {
   id: string;
   name: string;
   createdAt: string;
-  updatedAt: string;
+  /**
+   * ISO 8601. OPTIONAL since v0.15.10: `mapDocToProject` normalizes every
+   * Firestore shape through `normalizeUpdatedAt`, which returns `undefined`
+   * when the stored value carries no recoverable instant (an unresolved
+   * serverTimestamp sentinel, an absent field, or a string `Date.parse`
+   * rejects). Renderers must branch; they must NOT substitute the current
+   * date or `createdAt`. Never `''` — that is itself a crashing shape.
+   */
+  updatedAt?: string;
   workflow: WorkflowState[];
   snapshots: Snapshot[];
   settings: ProjectSettings;
