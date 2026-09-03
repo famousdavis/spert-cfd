@@ -2,6 +2,13 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.13 — The two release scripts are byte-identical across the suite again (September 3, 2026)
+
+- **Nothing about the app changed.** Release tooling only: no application code, no behaviour, no appearance, no data.
+- **Two forms were in circulation.** The post-release check added in v0.15.12 went out to the nine projects in the suite in two slightly different shapes. Partway through that rollout one project's code-style tool objected to how a line in it was written, so the line was rewritten; the projects that had already received the file kept the first version.
+- **Why one line matters here.** The two behave identically — the corrected one computes a value before using it rather than nesting one expression inside another. These scripts are deliberately the same file in every project, so that none can quietly drift onto its own version of the release rules, and two forms in circulation is exactly the drift that arrangement exists to prevent. Every project now carries the corrected one.
+- **The lesson kept rather than the fix.** A file that must be identical everywhere should be corrected at its source and re-sent, not corrected where the problem happened to surface. Fixing it in place is what produced two forms.
+
 ## v0.15.12 — The release step that only a written instruction held is now enforced by code (September 3, 2026)
 
 - **Nothing about the app changed.** Release tooling only: no application code, no behaviour, no appearance, no data.
