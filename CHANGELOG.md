@@ -2,6 +2,16 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.12 — The release step that only a written instruction held is now enforced by code (September 3, 2026)
+
+- **Nothing about the app changed.** Release tooling only: no application code, no behaviour, no appearance, no data.
+- **The step that was not enforced.** Releasing this app includes bringing the local copy of the project back into line with the copy on the server once a release has landed. Merging advances the server; it does not touch the local copy. If the local one is left behind, every report still reads as though the release arrived everywhere, and the next release is then built on the wrong starting point. That step existed only as a line in a written checklist.
+- **Why nothing had caught it.** Two mechanisms that look like they should have covered it could not. The pre-release check runs before a release is merged, so the condition it would be checking does not exist yet. The automated build cannot check it either, because it is a fact about the machine doing the release rather than about the project, and a fresh automated copy has no view of anyone's working copy. The gap was invisible rather than merely unaddressed.
+- **Two checks, at the two moments.** Before a release, the existing check now refuses to proceed if the local copy is behind the server, so a release is never cut on a stale starting point. Being ahead is normal and is not reported, since that is what the release itself is. After a release, a new command compares the local copy, the local record of the server, and the server's own answer, and reports which one disagrees — three sources rather than two, because the first two can be stale together and agree with each other while both are wrong.
+- **What the pre-release check deliberately does not do.** It does not require a clean working copy, and must not start to. It runs partway through a release, after the version and release-notes edits are made and before they are committed, so uncommitted work is expected at that exact moment; requiring cleanliness there would fail every release. That check belongs to the after-the-merge command, where it is correct.
+- **Why it compares fingerprints instead of reading a command's output.** The step had once been reported as done elsewhere in the suite on the strength of a command's closing message, where the informative line had been trimmed away. The message that remained, that everything was already current, cannot distinguish a real check with nothing to do from no check at all. Both checks read the resulting state and compare fingerprints instead. Running a command is not the same as checking its effect.
+- **The release script stays identical across the suite.** It is deliberately the same file in every SPERT® repo so that no one app can quietly drift onto its own rules; this repo now carries the same version as the others.
+
 ## v0.15.11 — A note in the code explaining why this app stays quiet where a sibling app warns (August 25, 2026)
 
 - **Nothing about the app changed.** No behaviour, no appearance, no data. This release adds explanatory comments only, and that was verified rather than assumed: with all comments stripped, the file is byte-for-byte identical before and after.
