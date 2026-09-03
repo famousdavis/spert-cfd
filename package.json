@@ -1,6 +1,6 @@
 {
   "name": "spert-cfd",
-  "version": "0.15.11",
+  "version": "0.15.12",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "mutate": "node scripts/mutation-guard.mjs",
-    "shipgate": "node scripts/shipgate.mjs"
+    "shipgate": "node scripts/shipgate.mjs",
+    "verify:sync": "node scripts/verify-sync.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

@@ -17,6 +17,10 @@
 
   "_claudeMdNote": "CLAUDE.md is gitignored, so the ship gate's usual consistency grep could never see version drift inside it — and this repo's copy claimed 0.14.7 while the app shipped 0.14.10, three releases stale, until v0.14.11. The pattern above deliberately matches ONLY the `- **Version**: X.Y.Z` declaration line. Historical prose that names an old version ('v0.14.7 adopted Node 24 LTS') is correct as written and must not be flagged. The check is skipped in CI, where the file is never checked out.",
 
+  "gitBaseBranch": "main",
+
+  "_gitBaseBranchNote": "Consumed by TWO scripts at two different moments, and the split is the point. shipgate.mjs uses it PRE-merge for one assertion only — that this clone is not BEHIND origin/<branch>, i.e. the release is being cut on top of current main. verify-sync.mjs uses it POST-merge for the three-way SHA comparison (local, remote-tracking, GitHub API) plus a clean-tree check. Neither check can live in the other's moment: the gate runs partway through a release with the version and changelog edits UNCOMMITTED, so a clean-tree assertion there would fail every release; and the post-merge SHA condition does not exist yet when the gate runs. Both self-skip under CI: actions/checkout is shallow and detached, so origin/<branch> is not a meaningful local ref there, and a CI runner has no view of a developer's clone at all — which is why this drift was invisible to every mechanism the suite already had. Remove this key to disable both checks; the gate then prints nothing for them rather than passing silently.",
+
   "commands": [
     {
       "name": "lint",
