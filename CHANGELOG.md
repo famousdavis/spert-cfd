@@ -2,6 +2,14 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.14 — A release check that quietly stopped running (September 4, 2026)
+
+- **Nothing about the app changed.** Release tooling only: no application code, no behaviour, no appearance, no data.
+- **A check was skipping itself.** The release gate confirms that this project's internal notes file declares the same version number as everything else. That check skips when the notes file is not present, which is correct on the automated build server, where the file is deliberately excluded from the repository and genuinely absent.
+- **The same absence had a second, unrelated cause.** When a release is prepared in a separate working copy, the tooling that creates that copy leaves excluded files behind. The check saw an absent file, assumed the build-server reason, and skipped — reporting a skip while the gate went green, so nothing looked wrong.
+- **The two reasons are now told apart.** On the build server it skips as before. Otherwise it looks for the notes file in the main working copy and checks it there. If it still cannot be found, that is now a failure rather than a skip, because a check that cannot run should say so instead of passing quietly.
+- **Shared release script.** Kept byte-identical across the suite; this project takes the corrected copy.
+
 ## v0.15.13 — The two release scripts are byte-identical across the suite again (September 3, 2026)
 
 - **Nothing about the app changed.** Release tooling only: no application code, no behaviour, no appearance, no data.
