@@ -2,6 +2,14 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.15 — The licence names the company that owns the SPERT® marks (September 13, 2026)
+
+- **Nothing about the app changed.** Licence text only: no application code, no behaviour, no appearance, no data.
+- **The SPERT® Suite business transferred to a company.** The spertsuite.com website, the hosting it runs on, and the SPERT®, Statistical PERT® and Estimation Made Easy® trademarks passed to famousdavis, LLC on September 12, 2026. The licence's trademark clause still named the previous owner while the newly published Terms of Service named the company, so two published legal documents disagreed about who owns the marks. The clause now names the company.
+- **⚠️ Copyright in the software did not transfer, and the licence still says so.** It is held by William W. Davis, MSPM, PMP personally and licensed to the company. The clauses requiring his name to be kept as the author, and withholding his name from promotional use, are unchanged — as are the copyright notices in every source file and the credit shown in the app. Two different names now appear in the licence and both are correct: the company operates the service, the individual owns the code.
+- **Nothing you may do with this software changed.** It is still the GNU General Public License v3 with the same additional terms — the code is free to take, change and share, a modified version must still be released under a different name, and credit to the original author must still travel with it.
+- **Eight projects, one file, one pass.** The licence is copied byte-for-byte into eight projects and each pins a checksum of it, so changing it in one place alone fails the other seven at once. All eight were updated together and are released separately.
+
 ## v0.15.14 — A release check that quietly stopped running (September 4, 2026)
 
 - **Nothing about the app changed.** Release tooling only: no application code, no behaviour, no appearance, no data.
