@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-export const APP_VERSION = '0.15.16';
+export const APP_VERSION = '0.15.17';
 
 /**
  * Maximum file size for CSV and JSON imports (5 MB).
@@ -15,7 +15,7 @@ export const MAX_IMPORT_FILE_SIZE = 5 * 1024 * 1024;
 export const MAX_NAME_LENGTH = 200;
 
 /** Current ToS acceptance version (date-based) */
-export const TOS_VERSION = '04-05-2026';
+export const TOS_VERSION = '10-05-2026';
 
 /** App identifier for Firestore consent records */
 export const APP_ID = 'spert-cfd';
