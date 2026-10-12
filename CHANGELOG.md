@@ -2,6 +2,14 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.18 — CSV import reads Excel's dates, says why a row was skipped, and has a real file button (October 11, 2026)
+
+- **Dates like 10/5/2026 now import.** The CSV importer accepted only YYYY-MM-DD. A file exported from SPERT® CFD, opened in Excel and saved again comes back with its dates rewritten as M/D/YYYY in a US locale — and then imported nothing, every row skipped as an invalid date. M/D/YYYY is now accepted and stored as YYYY-MM-DD. The month comes first: 5/10/2026 is May 10. A date that cannot be month-first, such as 13/10/2026, is skipped rather than guessed.
+- **A skipped row now says why.** The last step lists the date values it could not read, so a stray character — like the apostrophe in `10/13/2026'` — can be found and fixed, and it states the accepted formats. It also shows the range of dates about to be imported, so a month and day read the wrong way round stands out before anything is saved.
+- **No more "Import 0 rows".** When no row has a usable date the dialog says nothing can be imported and offers no Import button. Before, it said "Ready to import" and offered to import zero rows.
+- **Choosing the file is obvious.** The file picker showed as plain text — "Choose File No file chosen" — with nothing that looked clickable, because the app's base styles strip the browser's own button styling. It is now a **Choose CSV file** button in a drop zone that also takes a dragged-in file, and the expected layout and date formats are stated before you pick. A **Back** button returns to the previous step, so a corrected file can be chosen without closing the dialog.
+- **Fixed: some dates were stored in a form the app then refused to load.** The old date check also passed values such as `20261005` and `2026-W40` and stored them exactly as written, but every snapshot date must be YYYY-MM-DD for a project to pass the check the app runs when loading it. The importer now stores only YYYY-MM-DD.
+
 ## v0.15.17 — New Terms of Service and Privacy Policy (October 5, 2026)
 
 - **When you sign in, SPERT® CFD asks you to accept the new Terms of Service and Privacy Policy.** Both have new editions — version 1.3 of each, effective October 5, 2026 — published at the same spertsuite.com addresses the app already links to. The acceptance it had recorded was for the April 5, 2026 editions (`TOS_VERSION` was `'04-05-2026'` and had never moved); it is now `'10-05-2026'`, so the record names the edition you actually accept.

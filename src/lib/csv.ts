@@ -105,6 +105,31 @@ export function suggestMapping(
   });
 }
 
+// ── Date Normalization ───────────────────────────────────
+
+/** The date formats the importer accepts, worded for the user. */
+export const CSV_DATE_FORMATS = 'YYYY-MM-DD or M/D/YYYY';
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const US_DATE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+
+/**
+ * Normalize an imported date cell to `YYYY-MM-DD`, or null if it is not a real
+ * date in an accepted format. US `M/D/YYYY` is accepted because Excel rewrites
+ * an exported CSV's ISO dates that way when it re-saves the file in a US
+ * locale. Month comes first: `5/10/2026` is May 10.
+ *
+ * The output always has the exact shape `validateProjectData()` requires.
+ * `isValidDate()` alone is looser — `parseISO` also accepts `20261005`,
+ * `2026-10` and `2026-W40`, which the importer used to store verbatim.
+ */
+export function normalizeImportDate(raw: string | undefined): string | null {
+  const value = raw?.trim() ?? '';
+  const us = US_DATE.exec(value);
+  const iso = us ? `${us[3]}-${us[1].padStart(2, '0')}-${us[2].padStart(2, '0')}` : value;
+  return ISO_DATE.test(iso) && isValidDate(iso) ? iso : null;
+}
+
 // ── Apply Import ─────────────────────────────────────────
 
 export interface ImportResult {
@@ -112,6 +137,10 @@ export interface ImportResult {
   importedCount: number;
   skippedCount: number;
   overwrittenCount: number;
+  /** Date cells of rows skipped for an unrecognized date, as written in the file */
+  skippedDates: string[];
+  /** Earliest and latest imported dates, or null when nothing imports */
+  dateRange: { first: string; last: string } | null;
 }
 
 export function applyCSVImport(
@@ -122,24 +151,31 @@ export function applyCSVImport(
 ): ImportResult {
   const dateColIndex = mapping.indexOf('date');
   if (dateColIndex === -1) {
-    return { snapshots: existingSnapshots, importedCount: 0, skippedCount: parsed.rows.length, overwrittenCount: 0 };
+    return {
+      snapshots: existingSnapshots,
+      importedCount: 0,
+      skippedCount: parsed.rows.length,
+      overwrittenCount: 0,
+      skippedDates: [],
+      dateRange: null,
+    };
   }
 
   const existingDates = new Set(existingSnapshots.map((s) => s.date));
   let importedCount = 0;
   let skippedCount = 0;
   let overwrittenCount = 0;
+  const skippedDates: string[] = [];
 
   const imported: Snapshot[] = [];
 
   for (const row of parsed.rows) {
-    const rawDate = row[dateColIndex]?.trim();
-    if (!rawDate || !isValidDate(rawDate)) {
+    const date = normalizeImportDate(row[dateColIndex]);
+    if (!date) {
       skippedCount++;
+      skippedDates.push(row[dateColIndex] ?? '');
       continue;
     }
-
-    const date = rawDate;
 
     const counts: Record<string, number> = {};
     for (const id of workflowStateIds) {
@@ -163,10 +199,16 @@ export function applyCSVImport(
     importedCount++;
   }
 
+  const chronological = sortSnapshots(imported);
+
   return {
     snapshots: mergeSnapshots(existingSnapshots, imported),
     importedCount,
     skippedCount,
     overwrittenCount,
+    skippedDates,
+    dateRange: chronological.length
+      ? { first: chronological[0].date, last: chronological[chronological.length - 1].date }
+      : null,
   };
 }

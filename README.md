@@ -11,7 +11,7 @@ A Cumulative Flow Diagram tool for agile teams. Part of the SPERT® Suite. Core 
 - **WIP limits** on active states with visual warnings
 - **Editable data grid** with keyboard navigation (arrow keys, Tab, Enter, Escape)
 - **Carry-forward** — new snapshots copy previous day's values
-- **CSV export and import** with auto-column-mapping
+- **CSV export and import** with auto-column-mapping (dates as YYYY-MM-DD or M/D/YYYY)
 - **Stacked area CFD chart** with brush zoom and toggleable legend
 - **Flow metrics** — WIP, throughput, arrival rate, and average lead time (Little's Law)
 - **Configurable metrics period** (all data, last N days, or custom date range)

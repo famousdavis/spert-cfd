@@ -60,7 +60,7 @@ src/
 │   │   ├── grid-cell.tsx         # Single numeric input cell
 │   │   ├── grid-toolbar.tsx      # Add Row, CSV Export/Import, sort toggle
 │   │   ├── add-row-dialog.tsx    # Date picker + carry-forward preview
-│   │   └── csv-import-modal.tsx  # 3-stage: upload → mapping → confirm
+│   │   └── csv-import-modal.tsx  # 3-stage: upload (button or drag-and-drop) → mapping → confirm
 │   ├── metrics/
 │   │   ├── metrics-panel.tsx     # Period selector + metric cards + WIP violations
 │   │   └── metric-card.tsx       # Single metric display
@@ -89,7 +89,7 @@ src/
 │   ├── migrations.ts             # Semver-based migration framework
 │   ├── sample-data.ts            # Sample project factory (14 snapshots, 5 states)
 │   ├── calculations.ts           # Flow metrics: WIP, throughput, lead time, violations
-│   ├── csv.ts                    # CSV parse (RFC 4180), export, column mapping, import
+│   ├── csv.ts                    # CSV parse (RFC 4180), export, column mapping, import (dates normalized to ISO)
 │   ├── colors.ts                 # 12 preset colors + W3C contrast calculation
 │   ├── dates.ts                  # Date formatting + collection helpers (sort, merge)
 │   ├── download.ts               # Browser file download + standardized export filenames
