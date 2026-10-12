@@ -8,6 +8,7 @@ import {
   parseCSV,
   suggestMapping,
   applyCSVImport,
+  normalizeImportDate,
 } from '../csv';
 import type { Snapshot, WorkflowState } from '@/types';
 
@@ -111,6 +112,46 @@ describe('suggestMapping', () => {
   });
 });
 
+describe('normalizeImportDate', () => {
+  it('passes ISO dates through', () => {
+    expect(normalizeImportDate('2026-10-05')).toBe('2026-10-05');
+  });
+
+  it('converts US M/D/YYYY to ISO, month first', () => {
+    expect(normalizeImportDate('10/5/2026')).toBe('2026-10-05');
+    expect(normalizeImportDate('5/10/2026')).toBe('2026-05-10');
+    expect(normalizeImportDate('01/09/2026')).toBe('2026-01-09');
+  });
+
+  it('trims surrounding whitespace', () => {
+    expect(normalizeImportDate('  10/5/2026 ')).toBe('2026-10-05');
+  });
+
+  it('rejects a month above 12, so day-first dates are not silently accepted', () => {
+    expect(normalizeImportDate('13/10/2026')).toBeNull();
+  });
+
+  it('rejects dates that do not exist', () => {
+    expect(normalizeImportDate('2/30/2026')).toBeNull();
+    expect(normalizeImportDate('2026-02-30')).toBeNull();
+  });
+
+  it('rejects a stray character after the date', () => {
+    expect(normalizeImportDate("10/13/2026'")).toBeNull();
+  });
+
+  it('rejects shapes parseISO accepts but snapshots cannot store', () => {
+    for (const raw of ['20261005', '2026-10', '2026', '2026-W40', '2026-10-05T10:00']) {
+      expect(normalizeImportDate(raw)).toBeNull();
+    }
+  });
+
+  it('rejects blank and missing cells', () => {
+    expect(normalizeImportDate('')).toBeNull();
+    expect(normalizeImportDate(undefined)).toBeNull();
+  });
+});
+
 describe('applyCSVImport', () => {
   it('imports rows with correct mapping', () => {
     const parsed = parseCSV('Date,Backlog,In Dev,Done\n2024-02-01,5,3,2');
@@ -153,6 +194,38 @@ describe('applyCSVImport', () => {
     const result = applyCSVImport(parsed, mapping, [], stateIds);
     expect(result.importedCount).toBe(1);
     expect(result.skippedCount).toBe(1);
+    expect(result.skippedDates).toEqual(['baddate']);
+  });
+
+  it('imports a CSV re-saved by Excel with US dates, storing ISO dates', () => {
+    const parsed = parseCSV(
+      "Date,Backlog,In Dev,Done\n10/5/2026,9,1,0\n10/13/2026',8,2,0\n10/30/2026,5,3,2",
+    );
+    const mapping = suggestMapping(parsed.headers, workflow);
+    const stateIds = workflow.map((s) => s.id);
+
+    const result = applyCSVImport(parsed, mapping, [], stateIds);
+    expect(result.snapshots.map((s) => s.date)).toEqual(['2026-10-05', '2026-10-30']);
+    expect(result.snapshots[1].counts).toEqual({ backlog: 5, dev: 3, done: 2 });
+    expect(result.skippedDates).toEqual(["10/13/2026'"]);
+    expect(result.dateRange).toEqual({ first: '2026-10-05', last: '2026-10-30' });
+  });
+
+  it('reports the date range chronologically whatever the row order', () => {
+    const parsed = parseCSV('Date,Backlog\n2024-03-01,1\n2024-01-01,2\n2024-02-01,3');
+    const mapping = suggestMapping(parsed.headers, workflow);
+
+    const result = applyCSVImport(parsed, mapping, [], workflow.map((s) => s.id));
+    expect(result.dateRange).toEqual({ first: '2024-01-01', last: '2024-03-01' });
+  });
+
+  it('reports no date range when nothing imports', () => {
+    const parsed = parseCSV('Date,Backlog\n20240101,5');
+    const mapping = suggestMapping(parsed.headers, workflow);
+
+    const result = applyCSVImport(parsed, mapping, [], workflow.map((s) => s.id));
+    expect(result.importedCount).toBe(0);
+    expect(result.dateRange).toBeNull();
   });
 
   it('handles no date column mapped', () => {

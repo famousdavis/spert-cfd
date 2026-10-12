@@ -10,13 +10,15 @@ import {
   parseCSV,
   suggestMapping,
   applyCSVImport,
+  CSV_DATE_FORMATS,
   type ParsedCSV,
   type ColumnTarget,
+  type ImportResult,
 } from '@/lib/csv';
-import { sortWorkflow } from '@/lib/dates';
+import { sortWorkflow, formatDate } from '@/lib/dates';
 import { useEscapeKey } from '@/lib/use-dismiss';
 import { MAX_IMPORT_FILE_SIZE } from '@/lib/constants';
-import { X } from 'lucide-react';
+import { FileSpreadsheet, X } from 'lucide-react';
 
 interface CsvImportModalProps {
   workflow: WorkflowState[];
@@ -26,6 +28,39 @@ interface CsvImportModalProps {
 }
 
 type Stage = 'upload' | 'mapping' | 'confirm';
+
+/** Mirrors the file input's `accept`, which drag-and-drop bypasses */
+const ACCEPTED_FILE = /\.(csv|tsv|txt)$/i;
+
+function count(n: number, noun: string): string {
+  return `${n} ${noun}${n === 1 ? '' : 's'}`;
+}
+
+/**
+ * Drag-and-drop for the whole overlay. Drops are caught anywhere on it, so a
+ * file that misses the drop zone never makes the browser leave the app to
+ * open the file itself.
+ */
+function useFileDrop(enabled: boolean, onFile: (file: File) => void) {
+  const [dragging, setDragging] = useState(false);
+  const handlers = {
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = enabled ? 'copy' : 'none';
+      setDragging(enabled);
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragging(false);
+      const file = e.dataTransfer.files[0];
+      if (enabled && file) onFile(file);
+    },
+  };
+  return { dragging, handlers };
+}
 
 export function CsvImportModal({
   workflow,
@@ -37,7 +72,6 @@ export function CsvImportModal({
   const [parsed, setParsed] = useState<ParsedCSV | null>(null);
   const [mapping, setMapping] = useState<ColumnTarget[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEscapeKey(onClose);
@@ -47,11 +81,14 @@ export function CsvImportModal({
     modalRef.current?.focus();
   }, []);
 
-  const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+  const loadFile = useCallback(
+    (file: File) => {
       setError(null);
+
+      if (!ACCEPTED_FILE.test(file.name)) {
+        setError(`"${file.name}" is not a CSV file. Choose a .csv file.`);
+        return;
+      }
 
       // Check file size limit
       if (file.size > MAX_IMPORT_FILE_SIZE) {
@@ -85,6 +122,8 @@ export function CsvImportModal({
     [workflow],
   );
 
+  const { dragging, handlers: dropHandlers } = useFileDrop(stage === 'upload', loadFile);
+
   const handleMappingChange = (colIndex: number, target: ColumnTarget) => {
     setMapping((prev) => {
       const next = [...prev];
@@ -110,7 +149,10 @@ export function CsvImportModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      {...dropHandlers}
+    >
       <div
         ref={modalRef}
         tabIndex={-1}
@@ -133,24 +175,7 @@ export function CsvImportModal({
         {/* Body */}
         <div className="overflow-y-auto p-4 flex-1">
           {stage === 'upload' && (
-            <div>
-              <p className="text-sm text-gray-600 mb-3">
-                Select a CSV file to import snapshot data.
-              </p>
-              <input
-                id="csv-import-file"
-                name="csv-import-file"
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.tsv,.txt"
-                onChange={handleFileChange}
-                className="text-sm"
-                aria-label="CSV file to import"
-              />
-              {error && (
-                <p className="mt-2 text-xs text-red-600">{error}</p>
-              )}
-            </div>
+            <UploadStage dragging={dragging} error={error} onFile={loadFile} />
           )}
 
           {stage === 'mapping' && parsed && (
@@ -242,30 +267,24 @@ export function CsvImportModal({
           )}
 
           {stage === 'confirm' && importResult && (
-            <div>
-              <p className="text-sm text-gray-600 mb-3">Ready to import:</p>
-              <ul className="text-sm text-gray-700 space-y-1 mb-3">
-                <li>{importResult.importedCount} rows to import</li>
-                {importResult.overwrittenCount > 0 && (
-                  <li className="text-amber-700">
-                    {importResult.overwrittenCount} existing snapshots will be overwritten
-                  </li>
-                )}
-                {importResult.skippedCount > 0 && (
-                  <li className="text-gray-500">
-                    {importResult.skippedCount} rows skipped (invalid date)
-                  </li>
-                )}
-              </ul>
-            </div>
+            <ImportSummary result={importResult} />
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 border-t px-4 py-3">
+        <div className="flex items-center gap-2 border-t px-4 py-3">
+          {stage !== 'upload' && (
+            <button
+              onClick={() => setStage(stage === 'confirm' ? 'mapping' : 'upload')}
+              className="rounded px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
+            >
+              Back
+            </button>
+          )}
+
           <button
             onClick={onClose}
-            className="rounded px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
+            className="ml-auto rounded px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
           >
             Cancel
           </button>
@@ -280,7 +299,7 @@ export function CsvImportModal({
             </button>
           )}
 
-          {stage === 'confirm' && importResult && (
+          {stage === 'confirm' && importResult && importResult.importedCount > 0 && (
             <button
               onClick={() => {
                 onImport(importResult.snapshots);
@@ -288,11 +307,115 @@ export function CsvImportModal({
               }}
               className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
             >
-              Import {importResult.importedCount} rows
+              Import {count(importResult.importedCount, 'row')}
             </button>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+interface UploadStageProps {
+  dragging: boolean;
+  error: string | null;
+  onFile: (file: File) => void;
+}
+
+function UploadStage({ dragging, error, onFile }: UploadStageProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div>
+      <div
+        className={`flex flex-col items-center rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors ${
+          dragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'
+        }`}
+      >
+        <FileSpreadsheet size={32} className="mb-3 text-gray-400" aria-hidden="true" />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          Choose CSV file
+        </button>
+        <p className="mt-2 text-xs text-gray-500">
+          {dragging ? 'Drop the file to import it' : 'or drag and drop it here'}
+        </p>
+      </div>
+
+      <input
+        id="csv-import-file"
+        name="csv-import-file"
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,.tsv,.txt"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          // Clear the value so choosing the same file again still fires onChange
+          e.target.value = '';
+          if (file) onFile(file);
+        }}
+        className="hidden"
+        aria-label="CSV file to import"
+      />
+
+      <p className="mt-3 text-xs text-gray-500">
+        The first row must be column headers: a Date column plus one column per
+        workflow state. Dates as {CSV_DATE_FORMATS}.
+      </p>
+
+      {error && (
+        <p role="alert" className="mt-2 text-xs text-red-600">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ImportSummary({ result }: { result: ImportResult }) {
+  const { importedCount, overwrittenCount, skippedCount, skippedDates, dateRange } = result;
+  const examples = skippedDates
+    .slice(0, 3)
+    .map((d) => (d ? `"${d}"` : '(blank)'))
+    .join(', ');
+
+  return (
+    <div>
+      {importedCount > 0 ? (
+        <>
+          <p className="text-sm text-gray-600 mb-3">Ready to import:</p>
+          <ul className="text-sm text-gray-700 space-y-1 mb-3">
+            <li>{count(importedCount, 'row')} to import</li>
+            {dateRange && (
+              <li>
+                Dates: {formatDate(dateRange.first)} – {formatDate(dateRange.last)}
+              </li>
+            )}
+            {overwrittenCount > 0 && (
+              <li className="text-amber-700">
+                {count(overwrittenCount, 'existing snapshot')} will be overwritten
+              </li>
+            )}
+          </ul>
+        </>
+      ) : (
+        <p role="alert" className="text-sm font-medium text-red-700 mb-3">
+          Nothing can be imported — no row has a recognized date.
+        </p>
+      )}
+
+      {skippedCount > 0 && (
+        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <p>
+            {count(skippedCount, 'row')} skipped — date not recognized: {examples}
+            {skippedDates.length > 3 && ', …'}
+          </p>
+          <p className="mt-1">Dates must be {CSV_DATE_FORMATS} (month first).</p>
+        </div>
+      )}
     </div>
   );
 }
