@@ -2,6 +2,10 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.20 — Signing out of cloud storage keeps your local projects (October 22, 2026)
+
+- **Signing out of Cloud Storage no longer deletes the projects you kept in this browser's local storage.** They stay on this device, as they already did when you signed out in local mode.
+
 ## v0.15.19 — A project you create in cloud storage opens straight away (October 22, 2026)
 
 - **In cloud storage, a project you have just created now opens straight away.** Before, opening it showed "Open a project from the Projects tab" until you reloaded the page.

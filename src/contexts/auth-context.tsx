@@ -191,8 +191,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
-        // E1 — Path 3: Firebase has already revoked credentials. Run cleanup
-        // to cancel pending writes and optionally clear project localStorage.
+        // E1 — Path 3: Firebase has already revoked credentials. Run cleanup to
+        // cancel pending writes and, in cloud mode, clear the cloud session's keys.
         // firebaseSignOut is NOT called inside performSignOutWithCleanup,
         // preventing an infinite onAuthStateChanged loop. try/finally guarantees
         // setUser(null) and setIsAuthLoading(false) fire even if cleanup throws.
