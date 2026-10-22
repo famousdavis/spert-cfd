@@ -201,6 +201,21 @@ describe('FirestoreDriver', () => {
       expect(list[0]).toEqual({ id: 'p1', name: 'Project 1' });
       expect(list[1]).toEqual({ id: 'p2', name: 'Project 2' });
     });
+
+    it('applies the stored projectOrder, with projects missing from it last', async () => {
+      // The test above runs with no settings doc, so the order is empty and
+      // any comparator passes it; this one holds a real order.
+      const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+      mockGetDocs.mockResolvedValue({
+        forEach: (cb: (doc: { id: string; data: () => Record<string, unknown> }) => void) => {
+          for (const id of ['p1', 'p2', 'p3', 'p4']) cb({ id, data: () => ({ name: id }) });
+        },
+      });
+      mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ projectOrder: ['p3', 'p1', 'p2'] }) });
+
+      const list = await driver.loadProjectList();
+      expect(list.map((p) => p.id)).toEqual(['p3', 'p1', 'p2', 'p4']);
+    });
   });
 
   describe('onProjectChange', () => {
