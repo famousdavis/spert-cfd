@@ -10,6 +10,7 @@ import type { Project } from '@/types';
 const mockSetDoc = vi.fn().mockResolvedValue(undefined);
 const mockDeleteDoc = vi.fn().mockResolvedValue(undefined);
 const mockGetDoc = vi.fn();
+const mockGetDocFromCache = vi.fn();
 const mockGetDocs = vi.fn();
 const mockOnSnapshot = vi.fn();
 const mockDoc = vi.fn((_db, _col, id) => ({ id, path: `${_col}/${id}` }));
@@ -38,6 +39,7 @@ vi.mock('firebase/firestore', () => ({
   setDoc: (...args: Parameters<typeof mockSetDoc>) => mockSetDoc(...args),
   deleteDoc: (...args: Parameters<typeof mockDeleteDoc>) => mockDeleteDoc(...args),
   getDoc: (...args: Parameters<typeof mockGetDoc>) => mockGetDoc(...args),
+  getDocFromCache: (...args: Parameters<typeof mockGetDocFromCache>) => mockGetDocFromCache(...args),
   getDocs: (...args: Parameters<typeof mockGetDocs>) => mockGetDocs(...args),
   onSnapshot: (...args: Parameters<typeof mockOnSnapshot>) => mockOnSnapshot(...args),
   // Must be EXPORTED here, not merely declared above: firestore-driver.ts
@@ -715,5 +717,125 @@ describe('mapDocToProject — updatedAt normalisation (PC-1 layer 1)', () => {
     });
     driver.onProjectChange('p1', (p) => { received = p; });
     expect((received as { updatedAt?: string } | null)?.updatedAt).toBeUndefined();
+  });
+});
+
+// ── QC26 Q01: reads of a project whose create has not landed ─────────────────
+// Until the create lands the server holds no document, so the rules deny any
+// get or listen on it; the denied listener was then taken for a revoked share
+// and the new project could not be opened. Measured on the emulator against
+// the deployed rules: 10/10 denied before this change.
+describe('creates in flight (QC26 Q01)', () => {
+  const denied = () => Object.assign(new Error('denied'), { code: 'permission-denied' });
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  const snapNamed = (name: string) => ({
+    exists: () => true,
+    id: 'proj-1',
+    metadata: { hasPendingWrites: false },
+    data: () => ({ name, createdAt: '2026-01-01T00:00:00.000Z', workflow: [], snapshots: [], settings: {} }),
+  });
+
+  /** Holds the next setDoc (the project create) until the test settles it. */
+  function holdCreate() {
+    const held: { land: () => void; fail: (e: unknown) => void } = { land: () => {}, fail: () => {} };
+    mockSetDoc.mockImplementationOnce(
+      () => new Promise<void>((resolve, reject) => { held.land = resolve; held.fail = reject; }),
+    );
+    return held;
+  }
+
+  beforeEach(() => {
+    mockOnSnapshot.mockImplementation(() => vi.fn());
+  });
+
+  it('loadProject reads the local cache while the create is in flight, and the server once it lands', async () => {
+    const held = holdCreate();
+    mockGetDocFromCache.mockResolvedValueOnce(snapNamed('From cache'));
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const created = driver.createProject(sampleProject());
+
+    expect((await driver.loadProject('proj-1'))?.name).toBe('From cache');
+    expect(mockGetDoc).not.toHaveBeenCalled();
+
+    held.land();
+    await created;
+    mockGetDoc.mockResolvedValueOnce(snapNamed('From server'));
+    expect((await driver.loadProject('proj-1'))?.name).toBe('From server');
+    expect(mockGetDocFromCache).toHaveBeenCalledTimes(1);
+  });
+
+  it('onProjectChange waits for an in-flight create before it listens', async () => {
+    const held = holdCreate();
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const created = driver.createProject(sampleProject());
+    driver.onProjectChange('proj-1', vi.fn());
+    await flush();
+    expect(mockOnSnapshot).not.toHaveBeenCalled();
+
+    held.land();
+    await created;
+    await flush();
+    expect(mockOnSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('unsubscribing before the create lands means it never listens', async () => {
+    const held = holdCreate();
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const created = driver.createProject(sampleProject());
+    const unsubscribe = driver.onProjectChange('proj-1', vi.fn());
+    unsubscribe();
+
+    held.land();
+    await created;
+    await flush();
+    expect(mockOnSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('a create that fails never listens, and later loads ask the server', async () => {
+    const held = holdCreate();
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const created = driver.createProject(sampleProject()).catch((e: { code?: string }) => e.code);
+    driver.onProjectChange('proj-1', vi.fn());
+
+    held.fail(denied());
+    expect(await created).toBe('permission-denied');
+    await flush();
+    expect(mockOnSnapshot).not.toHaveBeenCalled();
+
+    mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => null });
+    await driver.loadProject('proj-1');
+    expect(mockGetDoc).toHaveBeenCalledTimes(1);
+    expect(mockGetDocFromCache).not.toHaveBeenCalled();
+  });
+
+  it('a cache miss during an in-flight create waits for the create before asking the server', async () => {
+    const held = holdCreate();
+    mockGetDocFromCache.mockRejectedValueOnce(Object.assign(new Error('miss'), { code: 'unavailable' }));
+    mockGetDoc.mockResolvedValueOnce(snapNamed('From server'));
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const created = driver.createProject(sampleProject());
+    const loading = driver.loadProject('proj-1');
+    await flush();
+    expect(mockGetDoc).not.toHaveBeenCalled(); // a get now would be denied
+
+    held.land();
+    await created;
+    expect((await loading)?.name).toBe('From server');
+    expect(mockGetDoc).toHaveBeenCalledTimes(1);
+  });
+
+  it('createProject settles on the project write: a refused projectOrder append is logged, not thrown', async () => {
+    // The project exists once its own write lands; the order append is
+    // bookkeeping. Rejecting here made the UI call a saved project unsaved
+    // and remove its card (Rev-Q01 F2).
+    mockSetDoc
+      .mockImplementationOnce(() => Promise.resolve())       // the project doc
+      .mockImplementationOnce(() => Promise.reject(denied())); // the projectOrder append
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+
+    await expect(driver.createProject(sampleProject())).resolves.toBeUndefined();
+    expect(errors).toHaveBeenCalledWith('createProject: projectOrder append failed:', 'permission-denied');
+    errors.mockRestore();
   });
 });

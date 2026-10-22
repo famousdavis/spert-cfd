@@ -113,7 +113,9 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
   const handleCreate = useCallback(() => {
     const name = newName.trim();
     if (!name) return;
-    createProject(name);
+    createProject(name).catch(() => {
+      setUiError(`Couldn't create "${name}" — it wasn't saved. Please try again.`);
+    });
     setNewName('');
   }, [newName, createProject]);
 

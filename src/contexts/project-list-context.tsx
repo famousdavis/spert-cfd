@@ -50,7 +50,12 @@ interface ProjectListContextValue {
    * Cloud mode uses onProjectChange instead (see import-utils HR4-2 note).
    */
   projectUpdateKey: number;
-  createProject: (name: string) => string;
+  /**
+   * Adds the card and makes it active at once; resolves with the id once the
+   * project is saved. Rejects if the save fails, after removing the card and
+   * restoring the previously active project.
+   */
+  createProject: (name: string) => Promise<string>;
   deleteProject: (id: string) => void;
   switchProject: (id: string) => void;
   renameProject: (id: string, name: string) => void;
@@ -161,7 +166,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const createProject = useCallback(
-    (name: string): string => {
+    (name: string): Promise<string> => {
       const safeName = name.slice(0, MAX_NAME_LENGTH);
       const id = nanoid(8);
       const now = new Date().toISOString();
@@ -183,17 +188,41 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
         },
       };
 
-      // Fire and forget — driver handles persistence
-      driver.createProject(project).catch((err) => {
-        console.error('Failed to create project:', (err as { code?: string }).code ?? 'unknown');
-      });
+      // Called synchronously, BEFORE the new id becomes active: the cloud
+      // driver must see this create as in flight by the time the active-
+      // project effects read the id. Not Promise.resolve().then(...) as in
+      // applyImportMerge — that defers the call past those reads, and the
+      // new project could not be opened again (measured, QC26 Q01). The
+      // try/catch still turns a synchronous throw (the local driver when
+      // localStorage is full) into a rejection.
+      let saved: Promise<void>;
+      try {
+        saved = driver.createProject(project);
+      } catch (err) {
+        saved = Promise.reject(err);
+      }
+      const previousActiveId = activeProjectId;
       driver.setActiveProjectId(id);
-
       setProjects((prev) => [...prev, { id, name: safeName }]);
       setActiveProjectId(id);
-      return id;
+
+      return saved.then(
+        () => id,
+        (err) => {
+          console.error('Failed to create project:', (err as { code?: string }).code ?? 'unknown');
+          setProjects((prev) => prev.filter((p) => p.id !== id));
+          // Restore the previous project only if the user has not opened
+          // another meanwhile. The driver holds the live active id: every
+          // switch writes it synchronously.
+          if (driver.getActiveProjectId() === id) {
+            driver.setActiveProjectId(previousActiveId);
+            setActiveProjectId(previousActiveId);
+          }
+          throw err;
+        },
+      );
     },
-    [driver]
+    [driver, activeProjectId]
   );
 
   const deleteProject = useCallback(

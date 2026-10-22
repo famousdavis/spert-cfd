@@ -2,6 +2,11 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.19 — A project you create in cloud storage opens straight away (October 22, 2026)
+
+- **In cloud storage, a project you have just created now opens straight away.** Before, opening it showed "Open a project from the Projects tab" until you reloaded the page.
+- **If a new project cannot be saved, its card is removed and the project you had open before comes back.** If you are on the Projects tab, it also tells you.
+
 ## v0.15.18 — CSV import reads Excel's dates, says why a row was skipped, and has a real file button (October 11, 2026)
 
 - **Dates like 10/5/2026 now import.** The CSV importer accepted only YYYY-MM-DD. A file exported from SPERT® CFD, opened in Excel and saved again comes back with its dates rewritten as M/D/YYYY in a US locale — and then imported nothing, every row skipped as an invalid date. M/D/YYYY is now accepted and stored as YYYY-MM-DD. The month comes first: 5/10/2026 is May 10. A date that cannot be month-first, such as 13/10/2026, is skipped rather than guessed.
