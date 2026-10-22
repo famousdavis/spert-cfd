@@ -31,7 +31,9 @@ describe('the emulator enforces the pinned, deployed rules', () => {
     const driver = createFirestoreDriver(uid, client(uid))
     const p = newProject(uniqueId('p'), 'Allowed control')
     await driver.createProject(p)
-    expect((await driver.loadProject(p.id))?.name).toBe('Allowed control')
+    // PLANTED FAILURE (QC26 Q03 PC6): proves the required check goes red on an emulator-tier failure.
+    // Reverted by the next commit.
+    expect((await driver.loadProject(p.id))?.name).toBe('PLANTED FAILURE')
   })
 
   it('positive control: a denied listen is counted as revoked access and a listener error', async () => {
