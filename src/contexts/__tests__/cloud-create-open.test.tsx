@@ -31,6 +31,7 @@ type PendingCreate = { path: string; data: Data; view: Data; resolve: () => void
 let server: Map<string, Data>;
 let landInstantly: boolean;
 let rejectCreates: boolean;
+let rejectOrderAppend: boolean;
 let pendingCreates: PendingCreate[];
 let writes: Array<{ path: string; merge: boolean }>;
 
@@ -82,7 +83,8 @@ vi.mock('firebase/firestore', () => ({
   },
   setDoc: (ref: Ref, data: Data, opts?: unknown) => {
     writes.push({ path: ref.path, merge: opts !== undefined });
-    if (!isProjectDoc(ref)) return Promise.resolve();
+    // spertcfd_settings/{uid}: the projectOrder append, written after the project lands.
+    if (!isProjectDoc(ref)) return rejectOrderAppend ? Promise.reject(denied()) : Promise.resolve();
     if (opts !== undefined) {
       // A save: the SDK commits one client's writes in order, so a save
       // queued behind a pending create lands after it (measured on the
@@ -177,6 +179,7 @@ beforeEach(() => {
   }]]);
   landInstantly = false;
   rejectCreates = false;
+  rejectOrderAppend = false;
   pendingCreates = [];
   writes = [];
   localStorage.setItem('spertcfd-active-project', 'A');
@@ -252,6 +255,40 @@ describe('cloud mode: a project you just created can be opened (QC26 Q01)', () =
     expect.soft(result.current.list.activeProjectId).toBe('A');
     expect.soft(result.current.active.project?.id).toBe('A');
     expect.soft(await outcome).toBe('rejected:permission-denied'); // so the Projects tab can say so
+  });
+
+  it('a rejection that arrives after the user opened another project leaves that project open', async () => {
+    // RQ3 from the PR review (Rev-Q01): pins the "only if still active" guard.
+    rejectCreates = true;
+    server.set(`${PROJECTS}/B`, {
+      name: 'Bravo', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+      workflow: [], snapshots: [], owner: UID, members: { [UID]: 'owner' },
+    });
+    const { result, create } = await mountWithProjectA();
+    const { id } = create('Beta');
+    act(() => { result.current.list.switchProject('B'); });
+    await settle();
+    act(() => { land(); });
+    await settle();
+    expect.soft(result.current.list.projects.map((p) => p.id)).not.toContain(id);
+    expect.soft(result.current.list.activeProjectId).toBe('B');
+    expect.soft(result.current.active.project?.id).toBe('B');
+  });
+
+  it('a project that saved but missed the saved order keeps its card and stays open', async () => {
+    // The project write landed; only the projectOrder append was refused
+    // (e.g. a settings field the rules do not yet allow). The project exists,
+    // so it must not be reported as unsaved or removed (Rev-Q01 F2).
+    rejectOrderAppend = true;
+    const { result, create } = await mountWithProjectA();
+    const { id, outcome } = create();
+    await settle();
+    act(() => { land(); });
+    await settle();
+    expect.soft(await outcome).toBe('resolved');
+    expect.soft(result.current.list.projects.map((p) => p.id)).toContain(id);
+    expect.soft(result.current.list.activeProjectId).toBe(id);
+    expect.soft(result.current.active.project?.id).toBe(id);
   });
 });
 

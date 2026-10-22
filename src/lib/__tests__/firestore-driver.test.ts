@@ -807,4 +807,35 @@ describe('creates in flight (QC26 Q01)', () => {
     expect(mockGetDoc).toHaveBeenCalledTimes(1);
     expect(mockGetDocFromCache).not.toHaveBeenCalled();
   });
+
+  it('a cache miss during an in-flight create waits for the create before asking the server', async () => {
+    const held = holdCreate();
+    mockGetDocFromCache.mockRejectedValueOnce(Object.assign(new Error('miss'), { code: 'unavailable' }));
+    mockGetDoc.mockResolvedValueOnce(snapNamed('From server'));
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const created = driver.createProject(sampleProject());
+    const loading = driver.loadProject('proj-1');
+    await flush();
+    expect(mockGetDoc).not.toHaveBeenCalled(); // a get now would be denied
+
+    held.land();
+    await created;
+    expect((await loading)?.name).toBe('From server');
+    expect(mockGetDoc).toHaveBeenCalledTimes(1);
+  });
+
+  it('createProject settles on the project write: a refused projectOrder append is logged, not thrown', async () => {
+    // The project exists once its own write lands; the order append is
+    // bookkeeping. Rejecting here made the UI call a saved project unsaved
+    // and remove its card (Rev-Q01 F2).
+    mockSetDoc
+      .mockImplementationOnce(() => Promise.resolve())       // the project doc
+      .mockImplementationOnce(() => Promise.reject(denied())); // the projectOrder append
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+
+    await expect(driver.createProject(sampleProject())).resolves.toBeUndefined();
+    expect(errors).toHaveBeenCalledWith('createProject: projectOrder append failed:', 'permission-denied');
+    errors.mockRestore();
+  });
 });

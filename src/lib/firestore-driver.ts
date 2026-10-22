@@ -374,11 +374,25 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       // document, and the settings doc legitimately does not exist for a new
       // user. Measured on the emulator: setDoc + merge + arrayUnion on a
       // non-existent doc yields { projectOrder: ["p1"] }.
-      await setDoc(
-        doc(db, SETTINGS_COL, uid),
-        { projectOrder: arrayUnion(project.id) },
-        { merge: true },
-      );
+      //
+      // Caught, not thrown: the project already exists once its own write has
+      // landed, so createProject settles on that write alone. A refused
+      // append (e.g. a settings field the rules do not yet allow) left the UI
+      // calling a saved project unsaved and removing its card; a retry then
+      // made a duplicate. Without its entry the project sorts last. Awaited
+      // still, so callers that await createProject keep the write order.
+      try {
+        await setDoc(
+          doc(db, SETTINGS_COL, uid),
+          { projectOrder: arrayUnion(project.id) },
+          { merge: true },
+        );
+      } catch (err) {
+        console.error(
+          'createProject: projectOrder append failed:',
+          (err as { code?: string }).code ?? 'unknown',
+        );
+      }
     },
 
     saveProject(project: Project): Promise<void> {
