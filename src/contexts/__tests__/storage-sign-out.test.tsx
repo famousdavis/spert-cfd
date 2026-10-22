@@ -90,19 +90,8 @@ vi.mock('@/contexts/auth-context', () => ({
   useAuth: (...args: unknown[]) => mockUseAuth(...args),
 }));
 
-// ── storage.ts mock ──────────────────────────────────────────────────────────
-vi.mock('@/lib/storage', () => ({
-  loadIndex: vi.fn(() => ({
-    version: '0.13.1',
-    activeProjectId: 'proj-1',
-    projectIds: ['proj-1', 'proj-2'],
-  })),
-  INDEX_KEY: 'cfd-lab',
-  PROJECT_PREFIX: 'cfd-lab-project-',
-}));
-
 // ── Import after mocks ────────────────────────────────────────────────────────
-import { clearLocalProjectStorage, StorageProvider } from '../storage-context';
+import { clearCloudSessionKeys, StorageProvider } from '../storage-context';
 import { LS_ACTIVE_PROJECT, LS_HAS_UPLOADED } from '@/lib/constants';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -114,22 +103,24 @@ function seedProjectData() {
   store['cfd-lab-project-proj-2'] = JSON.stringify({ id: 'proj-2' });
 }
 
-// ── F3 unit tests: clearLocalProjectStorage directly ─────────────────────────
-describe('clearLocalProjectStorage — unit (F3)', () => {
+// ── Unit tests: clearCloudSessionKeys directly ───────────────────────────────
+// Before v0.15.20 this function also removed every local project and the
+// index (QC26 Q02): the next two tests asserted the opposite of what they do now.
+describe('clearCloudSessionKeys — unit', () => {
   beforeEach(() => { store = {}; seedProjectData(); });
   it('removes LS_ACTIVE_PROJECT and LS_HAS_UPLOADED', () => {
-    clearLocalProjectStorage();
+    clearCloudSessionKeys();
     expect(store[LS_ACTIVE_PROJECT]).toBeUndefined();
     expect(store[LS_HAS_UPLOADED]).toBeUndefined();
   });
-  it('removes all project data keys listed in the index', () => {
-    clearLocalProjectStorage();
-    expect(store['cfd-lab-project-proj-1']).toBeUndefined();
-    expect(store['cfd-lab-project-proj-2']).toBeUndefined();
+  it('leaves every local project data key', () => {
+    clearCloudSessionKeys();
+    expect(store['cfd-lab-project-proj-1']).toBeDefined();
+    expect(store['cfd-lab-project-proj-2']).toBeDefined();
   });
-  it('removes the index key itself', () => {
-    clearLocalProjectStorage();
-    expect(store['cfd-lab']).toBeUndefined();
+  it('leaves the index key', () => {
+    clearCloudSessionKeys();
+    expect(store['cfd-lab']).toBeDefined();
   });
 });
 
@@ -152,8 +143,11 @@ describe('performSignOutWithCleanup — mode gate (F3 integration)', () => {
     // Local mode: project data must survive
     expect(store['cfd-lab-project-proj-1']).toBeDefined();
     expect(store['cfd-lab']).toBeDefined();
+    // ...and so must the keys that cloud-mode sign-out clears
+    expect(store[LS_ACTIVE_PROJECT]).toBe('proj-1');
+    expect(store[LS_HAS_UPLOADED]).toBe('true');
   });
-  it('DOES clear project localStorage when driver is in cloud mode', async () => {
+  it('clears only the cloud session keys when driver is in cloud mode', async () => {
     store['spertcfd-storage-mode'] = 'cloud';
     mockUseAuth.mockReturnValue({ user: mockUser, isAuthLoading: false });
     seedProjectData();
@@ -162,8 +156,11 @@ describe('performSignOutWithCleanup — mode gate (F3 integration)', () => {
     });
     expect(capturedCleanup).not.toBeNull();
     await capturedCleanup!();
-    expect(store['cfd-lab-project-proj-1']).toBeUndefined();
-    expect(store['cfd-lab']).toBeUndefined();
+    // Local projects survive (before v0.15.20 they were removed, QC26 Q02)
+    expect(store['cfd-lab-project-proj-1']).toBeDefined();
+    expect(store['cfd-lab']).toBeDefined();
+    expect(store[LS_ACTIVE_PROJECT]).toBeUndefined();
+    expect(store[LS_HAS_UPLOADED]).toBeUndefined();
   });
 });
 

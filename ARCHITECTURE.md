@@ -215,8 +215,14 @@ Three distinct sign-out paths call `performSignOutWithCleanup` (registered via
 
 1. Calls `runDataReset()` — zeros in-memory project state synchronously
 2. Calls `driverRef.current?.cancelPendingSaves()` — cancels pending cloud writes
-3. Calls `clearLocalProjectStorage()` conditionally — only when driver is in
-   cloud mode (F3 fix: local-mode users' localStorage is their only data copy)
+3. Calls `clearCloudSessionKeys()` conditionally — only when driver is in
+   cloud mode. It removes `spertcfd-active-project` (the cloud project id, the
+   only key a cloud session writes) and `spertcfd-has-uploaded-to-cloud` (so the
+   upload prompt is offered again). Local projects (`cfd-lab`, `cfd-lab-project-*`)
+   are kept in both modes: v0.7.7 cleared them, F3 (v0.14.0) stopped that in
+   local mode, v0.15.20 in cloud mode — the cloud driver never writes them, so
+   they hold only projects the user kept locally (after Skip, an upload that
+   kept local copies, or work done signed out)
 
 `performSignOutWithCleanup` intentionally does NOT call `firebaseSignOut`. Callers own that step.
 

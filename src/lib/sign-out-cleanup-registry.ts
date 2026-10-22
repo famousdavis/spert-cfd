@@ -9,8 +9,8 @@
  * useStorage() directly. StorageProvider registers its zero-argument
  * cleanup function on mount; AuthProvider invokes runSignOutCleanup()
  * before firebaseSignOut, so the driver has a chance to cancel pending
- * writes and clear per-user localStorage while credentials are still
- * valid.
+ * writes and clear the cloud session's localStorage keys while
+ * credentials are still valid.
  *
  * Only one registrant (StorageProvider) — a single nullable slot, not
  * an array. Re-registration replaces the prior slot (idempotent under

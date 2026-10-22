@@ -23,7 +23,6 @@ import {
   LS_ACTIVE_PROJECT,
   LS_HAS_UPLOADED,
 } from '@/lib/constants';
-import { INDEX_KEY, PROJECT_PREFIX, loadIndex } from '@/lib/storage';
 import { registerSignOutCleanup } from '@/lib/sign-out-cleanup-registry';
 import { runDataReset } from '@/lib/app-data-reset-registry';
 
@@ -49,20 +48,28 @@ export function useStorage(): StorageContextValue {
 }
 
 /**
- * Clear all per-project localStorage keys for the current workspace.
- * Called by performSignOutWithCleanup ONLY when the driver is in cloud
- * mode. In local mode localStorage is the user's only data copy and
- * must not be cleared on sign-out (F3 fix). Exported for unit testing.
+ * Clear what a cloud session leaves in this browser. Called by
+ * performSignOutWithCleanup ONLY when the driver is in cloud mode.
+ * Exported for unit testing.
+ *
+ * - LS_ACTIVE_PROJECT holds the cloud project id: the only key a cloud
+ *   session writes (measured, QC26 Q02).
+ * - LS_HAS_UPLOADED is reset so the upload prompt is offered again on the
+ *   next explicit switch to cloud.
+ *
+ * The local projects (`cfd-lab`, `cfd-lab-project-*`) are NOT cleared. The
+ * cloud driver never writes them, so they hold exactly the projects the
+ * user kept in local mode — after Skip, after an upload that kept local
+ * copies, or after work done signed out — and are the only copy of any
+ * not uploaded. v0.7.7 cleared them so the next person at a shared
+ * browser would not see them; v0.14.0 (F3) stopped that in local mode,
+ * and v0.15.20 stops it in cloud mode too, so sign-out keeps them in
+ * either mode.
  */
-export function clearLocalProjectStorage(): void {
+export function clearCloudSessionKeys(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(LS_ACTIVE_PROJECT);
   localStorage.removeItem(LS_HAS_UPLOADED);
-  const index = loadIndex();
-  for (const id of index.projectIds) {
-    localStorage.removeItem(PROJECT_PREFIX + id);
-  }
-  localStorage.removeItem(INDEX_KEY);
 }
 
 function getPersistedMode(): StorageMode {
@@ -162,12 +169,12 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       //    cancelPendingSaves() is idempotent on an empty pendingWrites map
       //    (safe for the Path 1 → Path 3 double-run).
       driverRef.current?.cancelPendingSaves();
-      // 3. Clear per-project localStorage keys — gated on cloud mode (F3).
-      //    Local mode: localStorage is the user's only data copy.
+      // 3. Clear the cloud session's keys — gated on cloud mode (F3). Local
+      //    projects are kept in both modes (see clearCloudSessionKeys).
       //    driverRef.current?.mode is read at invocation time (not registration
       //    time) so it reflects the live driver during cleanup.
       if (driverRef.current?.mode === 'cloud') {
-        clearLocalProjectStorage();
+        clearCloudSessionKeys();
       }
       // 4. firebaseSignOut is NOT called here. Callers (Paths 1 and 2 in
       //    AuthContext) call it explicitly after this function returns.
