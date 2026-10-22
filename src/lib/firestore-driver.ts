@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid';
 import {
   doc,
   getDoc,
+  getDocFromCache,
   setDoc,
   deleteDoc,
   deleteField,
@@ -177,6 +178,20 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     }
   >();
 
+  // Creates whose project setDoc has not settled: projectId → that setDoc.
+  //
+  // Until a create lands, the server holds no document, and the rule
+  // `allow get: if isCfdMember(resource.data)` DENIES any get or listen on it
+  // (resource is null). The app reads a new project at once — it becomes the
+  // active project, its card loads stats — so without this every such read
+  // failed, and the denied listener was taken for a revoked share
+  // (QC26 Q01: 10/10 on the emulator against the deployed rules).
+  //
+  // While a create is in flight, loadProject reads the local cache, which
+  // holds the pending write and any save queued behind it (measured 10/10
+  // online and offline), and onProjectChange waits for the create to land.
+  const inFlightCreates = new Map<string, Promise<void>>();
+
   /** Build the membership query for this user's projects. */
   function membershipQuery() {
     // ⚠️ This filter's SHAPE is a security boundary, not a convenience.
@@ -212,6 +227,43 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       // Settings doc may not exist yet — that's fine
     }
     return [];
+  }
+
+  /** Listen to one project doc; a permission-denied error reads as revoked access. */
+  function listenToProject(
+    id: string,
+    callback: (project: Project | null) => void,
+  ): () => void {
+    // Capture unsubscribe synchronously (onSnapshot returns it before any
+    // async error callback can fire).
+    let unsubscribe: (() => void) | null = null;
+    unsubscribe = onSnapshot(
+      doc(db, PROJECTS_COL, id),
+      (snap) => {
+        // Echo prevention: skip snapshots from our own pending writes
+        if (snap.metadata.hasPendingWrites) return;
+        callback(mapDocToProject(snap));
+      },
+      (err) => {
+        const code = (err as { code?: string }).code;
+        console.error('onProjectChange listener error:', code ?? err);
+        if (code === 'permission-denied') {
+          // Access to this project was revoked. Unsubscribe the failing
+          // listener and notify the UI to remove it from view.
+          // onProjectListChange self-recovers (revoked doc falls out of
+          // the membership query automatically).
+          unsubscribe?.();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('spert:project-access-revoked', {
+                detail: { id },
+              }),
+            );
+          }
+        }
+      },
+    );
+    return () => { unsubscribe?.(); };
   }
 
   /** Sort projects by saved order, with unordered projects at the end. */
@@ -254,7 +306,18 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     // ── Project CRUD ──────────────────────────────────────
 
     async loadProject(id: string): Promise<Project | null> {
-      const snap = await getDoc(doc(db, PROJECTS_COL, id));
+      const ref = doc(db, PROJECTS_COL, id);
+      const creating = inFlightCreates.get(id);
+      if (creating) {
+        try {
+          return mapDocToProject(await getDocFromCache(ref));
+        } catch {
+          // Not in the cache after all: wait for the create, then ask the
+          // server like any other read.
+          await creating.catch(() => {});
+        }
+      }
+      const snap = await getDoc(ref);
       return mapDocToProject(snap);
     },
 
@@ -283,7 +346,17 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
         _changeLog: appendChangeLogEntry(project._changeLog, changeLogEntry),
       });
 
-      await setDoc(doc(db, PROJECTS_COL, project.id), docData);
+      // Registered in the same synchronous run as the setDoc call, so a read
+      // issued straight after createProject() returns already sees it.
+      const written = setDoc(doc(db, PROJECTS_COL, project.id), docData);
+      inFlightCreates.set(project.id, written);
+      try {
+        await written;
+      } finally {
+        if (inFlightCreates.get(project.id) === written) {
+          inFlightCreates.delete(project.id);
+        }
+      }
 
       // Append to project order.
       //
@@ -401,36 +474,22 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       id: string,
       callback: (project: Project | null) => void,
     ): () => void {
-      // Capture unsubscribe synchronously (onSnapshot returns it before any
-      // async error callback can fire).
+      const creating = inFlightCreates.get(id);
+      if (!creating) return listenToProject(id, callback);
+
+      // A listen now would be denied — even one opened offline is denied on
+      // reconnect (10/10) — and read as a revoked share. Start once the
+      // create lands; never, if it fails.
+      let stopped = false;
       let unsubscribe: (() => void) | null = null;
-      unsubscribe = onSnapshot(
-        doc(db, PROJECTS_COL, id),
-        (snap) => {
-          // Echo prevention: skip snapshots from our own pending writes
-          if (snap.metadata.hasPendingWrites) return;
-          callback(mapDocToProject(snap));
-        },
-        (err) => {
-          const code = (err as { code?: string }).code;
-          console.error('onProjectChange listener error:', code ?? err);
-          if (code === 'permission-denied') {
-            // Access to this project was revoked. Unsubscribe the failing
-            // listener and notify the UI to remove it from view.
-            // onProjectListChange self-recovers (revoked doc falls out of
-            // the membership query automatically).
-            unsubscribe?.();
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(
-                new CustomEvent('spert:project-access-revoked', {
-                  detail: { id },
-                }),
-              );
-            }
-          }
-        },
+      creating.then(
+        () => { if (!stopped) unsubscribe = listenToProject(id, callback); },
+        () => {},
       );
-      return () => { unsubscribe?.(); };
+      return () => {
+        stopped = true;
+        unsubscribe?.();
+      };
     },
 
     onProjectListChange(
