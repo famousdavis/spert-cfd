@@ -263,6 +263,23 @@ Semver-based, matching the pattern from MyScrumBudget:
 - **Version constant** `APP_VERSION` in `constants.ts` — used by footer and migration system
 - **CFD band order**: Done on bottom, Backlog on top (bands rise as work flows through)
 
+## Test Tiers
+
+| Tier | Where | Runs with | Sees |
+|---|---|---|---|
+| Unit and provider | `src/**/__tests__/` | `npm test` (Java-free, a few seconds) | logic, the contexts over the real local driver, and the cloud driver over a **mocked** Firestore SDK |
+| Emulator (QC26 Q03) | `emulator-tests/` | `npm run test:emulator`, and as a ship-gate step | the **real** `createFirestoreDriver`, the real SDK and the real contexts against the Firestore emulator, under the **deployed** rules |
+
+**Why the emulator tier exists.** 517 green unit tests shipped two defects (fixed in v0.15.19 and v0.15.20). A mocked SDK has behaviour the real one lacks: in `firestore-driver.test.ts` a client's own write can come back to its own listener, and the real SDK never delivers it (`emulator-tests/sdk-facts.test.ts` pins this). And no unit test runs against the security rules, where the v0.15.19 defect lived.
+
+**The rules are pinned.** `emulator-tests/rules-pin.json` names the landing-page repo, a commit, the path and an md5. `scripts/run-emulator-tests.mjs` fetches the file at that commit, checks the md5 and caches it by md5 under `node_modules/.cache/spert-cfd-emulator`. `emulator-tests/global-setup.ts` checks the md5 again and PUTs those exact bytes into the emulator (an emulator given no rules allows everything). It prints the commit and md5, and writes them to the GitHub step summary in CI. `controls.test.ts` proves the rules are in force: a read that must be denied is denied, and one that must be allowed is allowed.
+
+**Whether the pin is still current** is a separate job. `scripts/check-rules-pin.mjs`, run by `.github/workflows/rules-pin.yml` (daily, on PRs, on demand), compares the pin with the landing page's `main`, which is what production enforces. It is never a required check, so a landing-page rules change shows as a red X on CFD without blocking a release. To bump the pin, change `commit` and `md5` together, in a PR of its own; its ship gate then runs the tier against the new rules.
+
+**Requirements.** A JDK 21+: CI uses the runner's `JAVA_HOME_21_X64`; on macOS, Homebrew `openjdk`. The network on the first run. `firebase-tools`, an exact devDependency. With none of these the launcher exits non-zero; it never skips. The emulator uses the demo project id `demo-spert-cfd`, so nothing can reach a real Firebase service. It listens on port 8180 (+1 to +3), or `SPERT_EMULATOR_PORT`.
+
+**Limits.** No Auth emulator: tests sign in through the emulator's mock token, and the provider tests hand the real contexts their driver in place of `StorageProvider`. The emulator's timing is not production's. Tests for open defects are not here: each arrives with its fix.
+
 ## Scripts
 
 ```bash
@@ -271,6 +288,7 @@ npm run build          # Production build
 npm test               # Run tests once (vitest run)
 npm run test:watch     # Watch mode
 npm run test:coverage  # Coverage report
+npm run test:emulator  # Emulator tier (needs a JDK 21+; see Test Tiers)
 npm run lint           # ESLint
 ```
 

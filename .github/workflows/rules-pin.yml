@@ -1,0 +1,41 @@
+# Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+# Licensed under the GNU General Public License v3.0.
+# See LICENSE file in the project root for full license text.
+
+# Is the emulator tier's rules pin still the ruleset production enforces?
+#
+# The ship gate runs the emulator tier against firestore.rules at the commit
+# pinned in emulator-tests/rules-pin.json, so a run is reproducible. A pin
+# that falls behind the landing page keeps passing, against rules production
+# no longer runs. This job turns that silence into a red X.
+#
+# ⚠️ NEVER make this a required check. A rules change in the landing page
+# should be seen here, not block an unrelated CFD fix. Bumping the pin is its
+# own pull request, and the ship gate on that PR runs the tier against the
+# new rules.
+
+name: Rules pin
+
+on:
+  schedule:
+    - cron: "41 7 * * *"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rules-pin:
+    name: rules-pin
+    runs-on: ubuntu-latest
+    steps:
+      # Pinned exactly as in shipgate.yml (the suite's 60-day soak).
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version-file: '.nvmrc'
+
+      # No `npm ci`: the script uses only Node built-ins.
+      - run: node scripts/check-rules-pin.mjs
