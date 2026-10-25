@@ -2,6 +2,10 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.22 — Signing out resets Terms acceptance (October 25, 2026)
+
+- **Signing out now resets Terms acceptance on this browser.** Each person who signs in is asked to accept the Terms. Before, after someone signed out, the next person to sign in on the same browser was treated as having already accepted, and was never shown the Terms. Nothing else about the app changes.
+
 ## v0.15.21 — Security hardening (October 25, 2026)
 
 - **Signing out now clears a leftover invitation token.** A pending "you've been added" invitation token is removed from this browser tab when you sign out, so the next person to use the same tab is not shown a banner meant for you. Nothing else about the app changes.

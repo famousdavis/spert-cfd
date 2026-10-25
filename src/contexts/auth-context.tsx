@@ -250,9 +250,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else {
             // Version mismatch or no record — sign out via centralized cleanup.
             // clearLocalConsent() must run BEFORE runSignOutCleanup — the
-            // centralized helper does NOT clear LS_TOS_ACCEPTED_VERSION
-            // (preserving it across user-initiated sign-out is intentional),
-            // but a ToS-version-mismatch sign-out explicitly must clear it.
+            // centralized helper does NOT clear LS_TOS_ACCEPTED_VERSION.
+            // handleSignOut clears it on the user-initiated path (B-10); this
+            // path does not go through handleSignOut, so it clears consent here.
             clearLocalConsent();
             // Path 2: run cleanup then explicitly revoke credentials.
             // Triggers onAuthStateChanged(null) → Path 3 (idempotent second run).
@@ -351,6 +351,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // sink — that sink also fires on a cold-load with a pending ?invite=,
     // where the token must survive until the user signs in.
     clearPendingInviteToken();
+    // B-10: reset Terms acceptance on this browser so the next person to sign
+    // in is shown the Terms and must accept them, rather than being treated as
+    // having accepted — and having a users/{uid} record written — because the
+    // previous user did. User-initiated sign-out only; the onAuthStateChanged(
+    // null) sink also fires on a cold load, where a returning user's cached
+    // acceptance must survive.
+    clearLocalConsent();
     // Path 1: run cleanup then explicitly revoke credentials.
     // firebaseSignOut triggers onAuthStateChanged(null) → Path 3 (idempotent).
     try {

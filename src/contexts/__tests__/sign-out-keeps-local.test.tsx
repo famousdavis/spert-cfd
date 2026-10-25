@@ -130,6 +130,7 @@ import {
   TOS_VERSION,
 } from '@/lib/constants';
 import { SESSION_KEY } from '@/lib/invite-capture';
+import { hasAcceptedCurrentTos } from '@/lib/consent';
 import type { Project } from '@/types';
 
 // ── The tree ──────────────────────────────────────────────────────────────────
@@ -483,5 +484,26 @@ describe('a pending invite token is cleared on sign-out (B-12)', () => {
     await signOutViaButton();
 
     expect(sessionStorage.getItem(SESSION_KEY)).toBeNull();
+  });
+});
+
+// ── The Terms-acceptance flag must not outlive a user-initiated sign-out ──────
+// LS_TOS_ACCEPTED_VERSION is a per-browser value the sign-in gate
+// (handleSignInRequest → hasAcceptedCurrentTos) trusts. Kept across sign-out,
+// it let the next person on a shared computer skip the Terms and have a
+// users/{uid} acceptance record written for them. A user-initiated sign-out
+// must reset it so the next person is re-prompted.
+describe('Terms acceptance is reset on sign-out (B-10)', () => {
+  it('Path 1 (the Sign out button) clears LS_TOS_ACCEPTED_VERSION', async () => {
+    await localUserSignsIn();
+    // Control: the signed-in user's acceptance is present before sign-out.
+    expect(localStorage.getItem(LS_TOS_ACCEPTED_VERSION)).toBe(TOS_VERSION);
+    expect(hasAcceptedCurrentTos()).toBe(true);
+
+    await signOutViaButton();
+
+    expect(localStorage.getItem(LS_TOS_ACCEPTED_VERSION)).toBeNull();
+    // The sign-in gate now re-prompts the next person for the Terms.
+    expect(hasAcceptedCurrentTos()).toBe(false);
   });
 });
