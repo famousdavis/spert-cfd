@@ -2,6 +2,11 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.21 — Security hardening (October 25, 2026)
+
+- **Signing out now clears a leftover invitation token.** A pending "you've been added" invitation token is removed from this browser tab when you sign out, so the next person to use the same tab is not shown a banner meant for you. Nothing else about the app changes.
+- **The release workflow declares least-privilege permissions.** Its automation can only read the repository.
+
 ## v0.15.20 — Signing out of cloud storage keeps your local projects (October 22, 2026)
 
 - **Signing out of Cloud Storage no longer deletes the projects you kept in this browser's local storage.** They stay on this device, as they already did when you signed out in local mode.

@@ -81,3 +81,19 @@ export function captureInviteTokenFromUrl(
     return null;
   }
 }
+
+/**
+ * Clear any pending invite token from sessionStorage. Called on a
+ * user-initiated sign-out so the next person on this tab is not shown a
+ * spurious "you've been added" banner — the token drives the banner state
+ * machine, and the invitation-landing lifecycle is the only other code that
+ * consumes it. Safe under SSR and when sessionStorage is unavailable.
+ */
+export function clearPendingInviteToken(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    // sessionStorage unavailable (e.g. private mode) — nothing to clear.
+  }
+}

@@ -41,6 +41,7 @@ import {
   clearLocalConsent,
 } from '@/lib/consent';
 import { runSignOutCleanup } from '@/lib/sign-out-cleanup-registry';
+import { clearPendingInviteToken } from '@/lib/invite-capture';
 import { ConsentModal } from '@/components/consent-modal';
 
 interface AuthContextValue {
@@ -344,6 +345,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleSignOut = useCallback(async () => {
     if (!isFirebaseConfigured || !auth) return;
+    // B-12: drop any pending invite token so the next user on this tab is not
+    // shown a spurious "you've been added" banner. Done here, on the
+    // user-initiated sign-out, rather than in the onAuthStateChanged(null)
+    // sink — that sink also fires on a cold-load with a pending ?invite=,
+    // where the token must survive until the user signs in.
+    clearPendingInviteToken();
     // Path 1: run cleanup then explicitly revoke credentials.
     // firebaseSignOut triggers onAuthStateChanged(null) → Path 3 (idempotent).
     try {
