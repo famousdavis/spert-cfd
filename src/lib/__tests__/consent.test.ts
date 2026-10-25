@@ -62,6 +62,19 @@ describe('consent utilities', () => {
       localStorage.setItem(LS_TOS_ACCEPTED_VERSION, '01-01-2020');
       expect(hasAcceptedCurrentTos()).toBe(false);
     });
+
+    // The sign-in gate (handleSignInRequest) shows the consent modal when this
+    // is false. The editions are named literally, so these fail if TOS_VERSION
+    // is left behind when a new edition is published.
+    it('asks a user who accepted the October 5, 2026 editions to accept again', () => {
+      localStorage.setItem(LS_TOS_ACCEPTED_VERSION, '10-05-2026');
+      expect(hasAcceptedCurrentTos()).toBe(false);
+    });
+
+    it('does not ask a user who accepted the October 26, 2026 editions', () => {
+      localStorage.setItem(LS_TOS_ACCEPTED_VERSION, '10-26-2026');
+      expect(hasAcceptedCurrentTos()).toBe(true);
+    });
   });
 
   describe('recordLocalAcceptance', () => {

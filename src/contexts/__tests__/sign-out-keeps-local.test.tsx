@@ -413,6 +413,33 @@ describe('Path 2 — ToS version mismatch at app load', () => {
       expect(shownNames()).toEqual(['Kept local one', 'Kept local two']);
     },
   );
+
+  describe('the October 26, 2026 editions', () => {
+    async function returningUserLoads(accepted: string) {
+      localStorage.setItem(LS_TOS_ACCEPTED_VERSION, accepted);
+      firestoreTos = accepted;
+      await mount();
+      await authResolves(userOf(ALICE));
+      await act(async () => {
+        await authSettled;
+      });
+      await settle();
+    }
+
+    it('signs out a returning user who accepted the October 5, 2026 editions, so they are asked again', async () => {
+      await returningUserLoads('10-05-2026');
+
+      expect(signOutCalls).toBe(1);
+      expect(localStorage.getItem(LS_TOS_ACCEPTED_VERSION)).toBeNull();
+    });
+
+    it('keeps a returning user who accepted the October 26, 2026 editions signed in', async () => {
+      await returningUserLoads('10-26-2026');
+
+      expect(signOutCalls).toBe(0);
+      expect(localStorage.getItem(LS_TOS_ACCEPTED_VERSION)).toBe('10-26-2026');
+    });
+  });
 });
 
 // ── What a cloud session writes to this browser ───────────────────────────────
