@@ -2,6 +2,12 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.23 — New Terms of Service and Privacy Policy (October 25, 2026)
+
+- **SPERT® CFD asks you to accept the new Terms of Service and Privacy Policy the next time you sign in.** Both have new editions — version 1.4 of each, effective October 26, 2026 — published at the same spertsuite.com addresses the app already links to. If you are signed in, SPERT® CFD signs you out the next time you open it, so that you can accept them. The acceptance it had recorded was for the October 5, 2026 editions (`TOS_VERSION` was `'10-05-2026'`); it is now `'10-26-2026'`, so the record names the edition you actually accept.
+- The new editions replace a personal contact address with the SPERT® Suite's own addresses (privacy@, security@ and contact@spertsuite.com), name Microsoft as the provider for email to those addresses, and clarify several disclosures.
+- The copies kept in this repository, `legal/TOS.pdf` and `legal/PRIVACY.pdf`, are now byte-identical to the October 26 editions on spertsuite.com.
+
 ## v0.15.22 — Signing out resets Terms acceptance (October 25, 2026)
 
 - **Signing out now resets Terms acceptance on this browser.** Each person who signs in is asked to accept the Terms. Before, after someone signed out, the next person to sign in on the same browser was treated as having already accepted, and was never shown the Terms. Nothing else about the app changes.
