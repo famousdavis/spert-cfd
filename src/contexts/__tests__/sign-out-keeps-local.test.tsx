@@ -129,6 +129,7 @@ import {
   LS_TOS_ACCEPTED_VERSION,
   TOS_VERSION,
 } from '@/lib/constants';
+import { SESSION_KEY } from '@/lib/invite-capture';
 import type { Project } from '@/types';
 
 // ── The tree ──────────────────────────────────────────────────────────────────
@@ -466,5 +467,21 @@ describe('the next person to sign in after a cloud sign-out', () => {
     expect(localStorage.getItem(LS_STORAGE_MODE)).toBe('cloud');
     expect(mode()).toBe('cloud');
     expect(screen.queryByText(/Upload to cloud\?/)).toBeNull();
+  });
+});
+
+// ── A pending invite token must not outlive a user-initiated sign-out ─────────
+// Otherwise the next person on this tab sees a stray "you've been added" banner.
+describe('a pending invite token is cleared on sign-out (B-12)', () => {
+  it('Path 1 (the Sign out button) removes it from sessionStorage', async () => {
+    await localUserSignsIn();
+    sessionStorage.setItem(SESSION_KEY, 'tok-stale');
+    // Control: it is present before sign-out (the invitation-landing flow did
+    // not consume it — e.g. the user signed out from the banner's pre-auth state).
+    expect(sessionStorage.getItem(SESSION_KEY)).toBe('tok-stale');
+
+    await signOutViaButton();
+
+    expect(sessionStorage.getItem(SESSION_KEY)).toBeNull();
   });
 });
