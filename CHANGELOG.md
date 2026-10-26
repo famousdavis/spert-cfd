@@ -2,6 +2,11 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.16.1 — Average WIP on the WIP card (October 26, 2026)
+
+- **The WIP card now shows the period's average work in progress**, the figure Cycle Time divides by Throughput, with today's count beneath it.
+- **The Lead Time card shows its own average** of backlog and active items, so both times can be checked against the cards.
+
 ## v0.16.0 — Cycle Time and Lead Time (October 26, 2026)
 
 - **Cycle Time and Lead Time are now separate.** Cycle Time runs from when work starts until it is done; Lead Time runs from when a request enters the backlog until it is done. What v0.15.25 called Lead Time is Cycle Time.

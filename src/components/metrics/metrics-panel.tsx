@@ -122,6 +122,8 @@ export function MetricsPanel() {
     [workflow, snapshots, settings.metricsPeriod],
   );
 
+  const hasSpan = metrics.spanDays > 0;
+
   if (snapshots.length === 0) {
     return (
       <section className="mt-6">
@@ -170,12 +172,14 @@ export function MetricsPanel() {
 
       {metrics.doneDecrease && <DoneDecreaseWarning {...metrics.doneDecrease} />}
 
-      {/* Left column: work started → done; right column: request → done */}
+      {/* Left column: work started → done; right column: request → done.
+          WIP is the period's average, the figure Cycle Time divides, with
+          today's count beneath; with no span there is nothing to average. */}
       <div className="grid grid-cols-2 gap-1.5">
         <MetricCard
           label="WIP"
-          value={String(metrics.totalWip)}
-          sublabel="active items"
+          value={hasSpan ? metrics.avgWip.toFixed(1) : String(metrics.totalWip)}
+          sublabel={hasSpan ? `avg · ${metrics.totalWip} now` : 'active items now'}
         />
         <MetricCard
           label="Throughput"
@@ -200,7 +204,7 @@ export function MetricsPanel() {
         <MetricCard
           label="Lead Time"
           value={metrics.avgLeadTime > 0 ? `${metrics.avgLeadTime.toFixed(1)}d` : '—'}
-          sublabel="Little's Law"
+          sublabel={hasSpan ? `Little's Law\navg ${metrics.avgLeadWip.toFixed(1)}` : "Little's Law"}
         />
       </div>
 
