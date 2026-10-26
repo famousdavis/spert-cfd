@@ -6,12 +6,69 @@
 
 import { useMemo } from 'react';
 import { useActiveProject } from '@/contexts/active-project-context';
-import { calculateMetrics } from '@/lib/calculations';
+import { calculateMetrics, normalizePeriod, type DoneDecrease } from '@/lib/calculations';
+import { formatDate, formatDateShort } from '@/lib/dates';
+import type { MetricsPeriod } from '@/types';
 import { MetricCard } from './metric-card';
 import { AlertTriangle } from 'lucide-react';
 
+const PERIOD_OPTIONS = [
+  { value: 'all', label: 'All data' },
+  { value: 'days-7', label: 'Last 7 days' },
+  { value: 'days-14', label: 'Last 14 days' },
+  { value: 'days-30', label: 'Last 30 days' },
+  { value: 'days-90', label: 'Last 90 days' },
+];
+
+function periodValue(period: MetricsPeriod): string {
+  switch (period.kind) {
+    case 'all':
+      return 'all';
+    case 'days':
+      return `days-${period.value}`;
+    case 'range':
+      return 'range';
+  }
+}
+
+/**
+ * A name for a period no option offers (it arrived by import or from a cloud
+ * document), so the select never says "All data" above metrics computed on
+ * another window.
+ */
+function periodLabel(period: MetricsPeriod): string {
+  if (period.kind === 'days') {
+    return `Last ${period.value} day${period.value === 1 ? '' : 's'}`;
+  }
+  if (period.kind === 'range') {
+    const sameYear = period.start.slice(0, 4) === period.end.slice(0, 4);
+    const start = sameYear ? formatDateShort(period.start) : formatDate(period.start);
+    return `Custom: ${start} – ${formatDate(period.end)}`;
+  }
+  return 'All data';
+}
+
+function DoneDecreaseWarning({ from, to }: DoneDecrease) {
+  return (
+    <div className="mb-2 rounded border border-amber-200 bg-amber-50 p-2">
+      <div className="flex items-center gap-1 text-xs font-medium text-amber-800 mb-1">
+        <AlertTriangle size={12} aria-hidden="true" />
+        Done count went down
+      </div>
+      <p className="text-xs text-amber-700">
+        Between {formatDate(from)} and {formatDate(to)}. A CFD needs cumulative
+        Done counts (every item finished so far), so Throughput and Lead Time
+        may be wrong.
+      </p>
+    </div>
+  );
+}
+
 export function MetricsPanel() {
   const { workflow, snapshots, settings, updateSettings } = useActiveProject();
+  const period = normalizePeriod(settings.metricsPeriod);
+  const selected = periodValue(period);
+  const isPreset = PERIOD_OPTIONS.some((o) => o.value === selected);
 
   const metrics = useMemo(
     () => calculateMetrics(workflow, snapshots, settings.metricsPeriod),
@@ -38,13 +95,7 @@ export function MetricsPanel() {
         <select
           id="metrics-period"
           name="metrics-period"
-          value={
-            settings.metricsPeriod.kind === 'all'
-              ? 'all'
-              : settings.metricsPeriod.kind === 'days'
-                ? `days-${settings.metricsPeriod.value}`
-                : 'all'
-          }
+          value={selected}
           onChange={(e) => {
             const val = e.target.value;
             if (val === 'all') {
@@ -57,13 +108,20 @@ export function MetricsPanel() {
           className="rounded border border-gray-300 px-1 py-0.5 text-xs"
           aria-label="Metrics period"
         >
-          <option value="all">All data</option>
-          <option value="days-7">Last 7 days</option>
-          <option value="days-14">Last 14 days</option>
-          <option value="days-30">Last 30 days</option>
-          <option value="days-90">Last 90 days</option>
+          {PERIOD_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+          {!isPreset && (
+            <option value={selected} disabled>
+              {periodLabel(period)}
+            </option>
+          )}
         </select>
       </div>
+
+      {metrics.doneDecrease && <DoneDecreaseWarning {...metrics.doneDecrease} />}
 
       <div className="space-y-1.5">
         <MetricCard

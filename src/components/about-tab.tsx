@@ -53,7 +53,9 @@ export function AboutTab() {
               In Dev, Done)
             </li>
             <li>
-              Record daily or periodic snapshots of item counts in each state
+              Record daily or periodic snapshots of item counts in each state.
+              Done counts are cumulative: each snapshot counts every item
+              finished so far, without resetting at the end of a sprint.
             </li>
             <li>
               View the stacked-area CFD chart that updates as you add data
@@ -72,8 +74,11 @@ export function AboutTab() {
           <p className="leading-relaxed text-gray-600">
             The metrics panel calculates Work in Progress (WIP), throughput
             (items completed per day), and approximate lead time using
-            Little&apos;s Law (WIP &divide; Throughput). Metrics can be filtered
-            by time period: all data, last N days, or a custom date range.
+            Little&apos;s Law (the period&apos;s average WIP &divide; its
+            throughput). Metrics can be filtered by time period: all data, or
+            the last 7, 14, 30 or 90 days. A project imported with another
+            period, such as a custom date range, keeps it, and the panel names
+            it. If a Done count goes down, the panel warns you.
           </p>
         </section>
 
