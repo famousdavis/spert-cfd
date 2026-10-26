@@ -63,13 +63,14 @@ export interface FlowMetrics {
 export const STABILITY_TOLERANCE = 0.2;
 
 /**
- * A pair of rates leans only when at least this many items came in and as
- * many finished over the period: a few items either way is a large share of
- * a small count. Of 10, 20 and 30, only 30 held false Lead Time warnings on
- * a simulated steady flow of about one item a day near 10 % of 30-day windows
- * (1–6 %, against 34–37 % at 20); fewer items than this never lean.
+ * Small counts are noisy, so a pair also leans only when the gap between the
+ * items that came in and those that finished exceeds this many times the
+ * square root of their sum — about what chance alone gives two steady counts.
+ * On a simulated steady flow of about one item a day it held false warnings
+ * to 0–5 % on every period, and unlike a minimum volume it still flags a flow
+ * where one side is near 0, such as requests that stopped arriving.
  */
-export const MIN_STABILITY_ITEMS = 30;
+export const STABILITY_NOISE_SIGMAS = 2;
 
 // ── Period Filtering ─────────────────────────────────────
 
@@ -160,9 +161,9 @@ function timeAverage(states: WorkflowState[], sorted: Snapshot[]): number {
 }
 
 /**
- * Null while the two rates are within STABILITY_TOLERANCE of the larger; when
- * fewer than MIN_STABILITY_ITEMS came in or finished; and when nothing
- * finished: the time they qualify then shows "—" anyway.
+ * Null while the two rates are within STABILITY_TOLERANCE of the larger; while
+ * the gap in items is within STABILITY_NOISE_SIGMAS·√(items in + items done);
+ * and when nothing finished: the time they qualify then shows "—" anyway.
  */
 function flowLean(
   inRate: number,
@@ -171,8 +172,10 @@ function flowLean(
   doneItems: number,
 ): FlowLean | null {
   if (throughput <= 0) return null;
-  if (Math.min(inItems, doneItems) < MIN_STABILITY_ITEMS) return null;
   if (Math.abs(inRate - throughput) <= STABILITY_TOLERANCE * Math.max(inRate, throughput)) {
+    return null;
+  }
+  if (Math.abs(inItems - doneItems) <= STABILITY_NOISE_SIGMAS * Math.sqrt(inItems + doneItems)) {
     return null;
   }
   return inRate > throughput ? 'in-faster' : 'out-faster';
@@ -227,10 +230,11 @@ export function calculateMetrics(
   // Arrival rate: new requests entering the backlog per day
   const arrivalRate = rateOfChange(everyState, sorted);
 
-  // Items behind each rate, for the minimum volume a lean needs
-  const doneItems = netGrowth(doneStates, sorted);
-  const startedItems = netGrowth([...activeStates, ...doneStates], sorted);
-  const arrivedItems = netGrowth(everyState, sorted);
+  // Items behind each rate (none when the total fell), for the noise test
+  const doneItems = Math.max(0, netGrowth(doneStates, sorted));
+  const startedItems = Math.max(0, netGrowth([...activeStates, ...doneStates], sorted));
+  const netArrived = netGrowth(everyState, sorted);
+  const arrivedItems = Math.max(0, netArrived);
 
   // Little's Law, average WIP / Throughput over the period. Cycle Time counts
   // the active states (work started → done); Lead Time adds the backlog
@@ -252,7 +256,7 @@ export function calculateMetrics(
     avgLeadTime,
     cycleTimeLean: flowLean(startRate, throughput, startedItems, doneItems),
     leadTimeLean: flowLean(arrivalRate, throughput, arrivedItems, doneItems),
-    totalFell: arrivedItems < 0,
+    totalFell: netArrived < 0,
     doneDecrease: findDoneDecrease(doneStates, sorted),
   };
 }

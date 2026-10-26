@@ -386,8 +386,8 @@ describe('Start Rate and Arrival Rate', () => {
     const result = calculateMetrics(workflow, cancelled, { kind: 'all' });
     expect(result.arrivalRate).toBe(0);
     expect(result.totalFell).toBe(true);
-    // Nothing arrived, below the minimum volume: the fall is reported, not a lean
-    expect(result.leadTimeLean).toBeNull();
+    // 0 arrived against 10 finished is wider than chance, so Lead Time leans too
+    expect(result.leadTimeLean).toBe('out-faster');
   });
 
   it('does not report a fall when the total holds or grows', () => {
@@ -398,7 +398,8 @@ describe('Start Rate and Arrival Rate', () => {
 
 // ── Little's Law assumes a steady flow ───────────────────
 // A pair of rates further apart than 20 % of the larger one leans. Ten days
-// between two snapshots, so each rate is its growth ÷ 10.
+// between two snapshots, so each rate is its growth ÷ 10. Counts run in the
+// hundreds, so every gap here clears the noise test and the 20 % edge decides.
 
 function tenDays(
   from: { backlog: number; dev: number; done: number },
@@ -417,71 +418,71 @@ function leans(series: Snapshot[]) {
 }
 
 describe('stability: Start Rate against Throughput (Cycle Time)', () => {
-  const from = { backlog: 100, dev: 20, done: 0 };
+  const from = { backlog: 1000, dev: 200, done: 0 };
 
   it('does not lean when work starts exactly 20 % slower than it finishes', () => {
-    expect(leans(tenDays(from, { backlog: 100, dev: 10, done: 50 }))).toEqual({
-      throughput: 5, startRate: 4, arrivalRate: 4, cycleTimeLean: null, leadTimeLean: null,
+    expect(leans(tenDays(from, { backlog: 1000, dev: 100, done: 500 }))).toEqual({
+      throughput: 50, startRate: 40, arrivalRate: 40, cycleTimeLean: null, leadTimeLean: null,
     });
   });
 
   it('leans out-faster just past it', () => {
-    const r = leans(tenDays(from, { backlog: 101, dev: 9, done: 50 }));
-    expect(r.startRate).toBeCloseTo(3.9, 10);
-    expect(r.arrivalRate).toBe(4); // the other pair stays at its edge
+    const r = leans(tenDays(from, { backlog: 1010, dev: 90, done: 500 }));
+    expect(r.startRate).toBe(39);
+    expect(r.arrivalRate).toBe(40); // the other pair stays at its edge
     expect(r.cycleTimeLean).toBe('out-faster');
     expect(r.leadTimeLean).toBeNull();
   });
 
   it('does not lean when work starts exactly 20 % faster than it finishes', () => {
-    const r = leans(tenDays(from, { backlog: 100, dev: 30, done: 40 }));
-    expect([r.throughput, r.startRate]).toEqual([4, 5]);
+    const r = leans(tenDays(from, { backlog: 1000, dev: 300, done: 400 }));
+    expect([r.throughput, r.startRate]).toEqual([40, 50]);
     expect(r.cycleTimeLean).toBeNull();
   });
 
   it('leans in-faster just past it', () => {
-    const r = leans(tenDays(from, { backlog: 99, dev: 31, done: 40 }));
-    expect(r.startRate).toBeCloseTo(5.1, 10);
-    expect(r.arrivalRate).toBe(5);
+    const r = leans(tenDays(from, { backlog: 990, dev: 310, done: 400 }));
+    expect(r.startRate).toBe(51);
+    expect(r.arrivalRate).toBe(50);
     expect(r.cycleTimeLean).toBe('in-faster');
     expect(r.leadTimeLean).toBeNull();
   });
 });
 
 describe('stability: Arrival Rate against Throughput (Lead Time)', () => {
-  const from = { backlog: 100, dev: 20, done: 0 };
+  const from = { backlog: 1000, dev: 200, done: 0 };
 
   it('leans out-faster when requests arrive just over 20 % slower than they finish', () => {
-    const r = leans(tenDays(from, { backlog: 99, dev: 10, done: 50 }));
-    expect([r.throughput, r.startRate]).toEqual([5, 4]);
-    expect(r.arrivalRate).toBeCloseTo(3.9, 10);
+    const r = leans(tenDays(from, { backlog: 990, dev: 100, done: 500 }));
+    expect([r.throughput, r.startRate]).toEqual([50, 40]);
+    expect(r.arrivalRate).toBe(39);
     expect(r.leadTimeLean).toBe('out-faster');
     expect(r.cycleTimeLean).toBeNull();
   });
 
   it('does not lean at exactly 20 % faster, and leans in-faster just past it', () => {
-    const edge = leans(tenDays(from, { backlog: 100, dev: 30, done: 40 }));
-    expect([edge.throughput, edge.arrivalRate]).toEqual([4, 5]);
+    const edge = leans(tenDays(from, { backlog: 1000, dev: 300, done: 400 }));
+    expect([edge.throughput, edge.arrivalRate]).toEqual([40, 50]);
     expect(edge.leadTimeLean).toBeNull();
-    const past = leans(tenDays(from, { backlog: 101, dev: 30, done: 40 }));
-    expect(past.arrivalRate).toBeCloseTo(5.1, 10);
+    const past = leans(tenDays(from, { backlog: 1010, dev: 300, done: 400 }));
+    expect(past.arrivalRate).toBe(51);
     expect(past.leadTimeLean).toBe('in-faster');
     expect(past.cycleTimeLean).toBeNull();
   });
 
   it('does not lean when nothing finished — both times already show "—"', () => {
-    const r = leans(tenDays(from, { backlog: 150, dev: 30, done: 0 }));
-    expect([r.throughput, r.startRate, r.arrivalRate]).toEqual([0, 1, 6]);
+    const r = leans(tenDays(from, { backlog: 1500, dev: 300, done: 0 }));
+    expect([r.throughput, r.startRate, r.arrivalRate]).toEqual([0, 10, 60]);
     expect(r.cycleTimeLean).toBeNull();
     expect(r.leadTimeLean).toBeNull();
   });
 });
 
-// ── A minimum volume before a pair of rates can lean ─────
-// A few items either way is a large share of a small count, so a pair leans
-// only when at least MIN_STABILITY_ITEMS (30) came in AND finished.
+// ── A gap wider than chance before a pair of rates can lean ─
+// A few items either way is a large share of a small count, so a pair also
+// needs |items in − items done| > 2·√(items in + items done).
 
-describe('stability: a minimum volume', () => {
+describe('stability: a gap wider than chance', () => {
   it('holds back a lean that 20 % alone would show when few items moved', () => {
     const r = leans(tenDays({ backlog: 100, dev: 20, done: 0 }, { backlog: 100, dev: 15, done: 10 }));
     expect([r.throughput, r.startRate, r.arrivalRate]).toEqual([1, 0.5, 0.5]); // 50 % apart
@@ -489,25 +490,41 @@ describe('stability: a minimum volume', () => {
     expect(r.leadTimeLean).toBeNull();
   });
 
-  it('lets Start Rate lean at exactly 30 started, not at 29', () => {
-    const from = { backlog: 100, dev: 50, done: 0 };
-    const at30 = leans(tenDays(from, { backlog: 130, dev: 20, done: 60 })); // 30 started, 60 done
-    expect([at30.startRate, at30.throughput]).toEqual([3, 6]);
-    expect(at30.cycleTimeLean).toBe('out-faster');
-    const at29 = leans(tenDays(from, { backlog: 129, dev: 21, done: 58 })); // 29 started, 58 done
-    expect(at29.startRate).toBeCloseTo(2.9, 10);
-    expect(at29.cycleTimeLean).toBeNull();
+  // Against 50 done: 31 in is a gap of 19 > 2·√81 = 18; 32 in is 18 ≤ 2·√82 ≈ 18.1.
+  // Both are well past 20 %, so only the noise test tells them apart.
+  const from = { backlog: 100, dev: 20, done: 0 };
+
+  it('lets Start Rate lean at 31 started against 50 done, not at 32', () => {
+    const at31 = leans(tenDays(from, { backlog: 119, dev: 1, done: 50 }));
+    expect([at31.startRate, at31.throughput, at31.arrivalRate]).toEqual([3.1, 5, 5]);
+    expect(at31.cycleTimeLean).toBe('out-faster');
+    const at32 = leans(tenDays(from, { backlog: 118, dev: 2, done: 50 }));
+    expect(at32.startRate).toBe(3.2);
+    expect(at32.cycleTimeLean).toBeNull();
   });
 
-  it('lets Arrival Rate lean at exactly 30 arrived, not at 29', () => {
-    const from = { backlog: 100, dev: 50, done: 0 };
-    const at30 = leans(tenDays(from, { backlog: 70, dev: 50, done: 60 })); // 30 arrived, 60 done
-    expect([at30.arrivalRate, at30.startRate, at30.throughput]).toEqual([3, 6, 6]);
-    expect(at30.leadTimeLean).toBe('out-faster');
-    expect(at30.cycleTimeLean).toBeNull();
-    const at29 = leans(tenDays(from, { backlog: 69, dev: 50, done: 60 }));
-    expect(at29.arrivalRate).toBeCloseTo(2.9, 10);
-    expect(at29.leadTimeLean).toBeNull();
+  it('lets Arrival Rate lean at 31 arrived against 50 done, not at 32', () => {
+    const at31 = leans(tenDays(from, { backlog: 81, dev: 20, done: 50 }));
+    expect([at31.arrivalRate, at31.startRate, at31.throughput]).toEqual([3.1, 5, 5]);
+    expect(at31.leadTimeLean).toBe('out-faster');
+    expect(at31.cycleTimeLean).toBeNull();
+    const at32 = leans(tenDays(from, { backlog: 82, dev: 20, done: 50 }));
+    expect(at32.arrivalRate).toBe(3.2);
+    expect(at32.leadTimeLean).toBeNull();
+  });
+
+  it('flags Lead Time when requests stop arriving: 0 arrived, 40 finished', () => {
+    const r = leans(tenDays(from, { backlog: 60, dev: 20, done: 40 }));
+    expect([r.arrivalRate, r.startRate, r.throughput]).toEqual([0, 4, 4]);
+    expect(r.leadTimeLean).toBe('out-faster');
+    expect(r.cycleTimeLean).toBeNull();
+  });
+
+  it('flags Cycle Time when work stops starting: 0 started, 40 finished', () => {
+    const r = leans(tenDays({ backlog: 100, dev: 50, done: 0 }, { backlog: 140, dev: 10, done: 40 }));
+    expect([r.startRate, r.arrivalRate, r.throughput]).toEqual([0, 4, 4]);
+    expect(r.cycleTimeLean).toBe('out-faster');
+    expect(r.leadTimeLean).toBeNull();
   });
 });
 

@@ -5,7 +5,7 @@
 "use client";
 
 import { APP_VERSION } from "@/lib/constants";
-import { MIN_STABILITY_ITEMS, STABILITY_TOLERANCE } from "@/lib/calculations";
+import { STABILITY_NOISE_SIGMAS, STABILITY_TOLERANCE } from "@/lib/calculations";
 
 const tolerancePercent = Math.round(STABILITY_TOLERANCE * 100);
 
@@ -108,10 +108,12 @@ export function AboutTab() {
             warns that cycle time will understate or overstate how long new
             work takes; when requests arrive more than {tolerancePercent}%
             faster or slower than they finish, it warns the same of lead time.
-            It warns only once at least {MIN_STABILITY_ITEMS} items started (or
-            arrived) and {MIN_STABILITY_ITEMS} finished in the period, because
-            a few items either way is a large share of a small count. If a
-            Done count goes down, the panel warns you of that instead.
+            Because a few items either way is a large share of a small count,
+            it also waits until the gap between the items that started (or
+            arrived) and those that finished is more than{" "}
+            {STABILITY_NOISE_SIGMAS} &times; the square root of their sum,
+            wider than chance alone usually explains. If a Done count goes
+            down, the panel warns you of that instead.
           </p>
           <p className="leading-relaxed text-gray-600">
             Metrics can be filtered by time period: all data, or the last 7,

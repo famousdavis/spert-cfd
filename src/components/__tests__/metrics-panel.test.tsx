@@ -94,9 +94,12 @@ const LEAD_SLOW = 'Requests are finishing faster than new ones arrive — Lead T
 const LEAD_FAST = 'Requests are arriving faster than they finish — Lead Time will understate how long new requests take.';
 const REMOVED = /Items were removed without being done/;
 
-/** Ten days from backlog 100, In Dev 20, Done 0, so each rate is its growth ÷ 10 */
+/**
+ * Ten days from backlog 1000, In Dev 200, Done 0, so each rate is its growth
+ * ÷ 10; counts in the hundreds clear the noise test, so 20 % decides
+ */
 function tenDaysTo(backlog: number, dev: number, done: number): Snapshot[] {
-  return [snap('2026-03-01', 20, 0, 100), snap('2026-03-11', dev, done, backlog)];
+  return [snap('2026-03-01', 200, 0, 1000), snap('2026-03-11', dev, done, backlog)];
 }
 
 function warningShown(text: string | RegExp): boolean {
@@ -122,28 +125,28 @@ describe('MetricsPanel — six cards', () => {
 
 describe('MetricsPanel — stability warnings at the 20 % edge', () => {
   it('shows neither when both pairs sit exactly at 20 %', () => {
-    renderPanel(tenDaysTo(100, 10, 50), { kind: 'all' });
-    expect(cardValue('Throughput')).toBe('5.0/d'); // control: the series is the edge
-    expect(cardValue('Start Rate')).toBe('4.0/d');
-    expect(cardValue('Arrival Rate')).toBe('4.0/d');
+    renderPanel(tenDaysTo(1000, 100, 500), { kind: 'all' });
+    expect(cardValue('Throughput')).toBe('50.0/d'); // control: the series is the edge
+    expect(cardValue('Start Rate')).toBe('40.0/d');
+    expect(cardValue('Arrival Rate')).toBe('40.0/d');
     expect(screen.queryByText('Flow is not steady')).toBeNull();
   });
 
   it('warns about Cycle Time alone just past the edge', () => {
-    renderPanel(tenDaysTo(101, 9, 50), { kind: 'all' });
+    renderPanel(tenDaysTo(1010, 90, 500), { kind: 'all' });
     expect(screen.getByText('Flow is not steady')).toBeTruthy();
     expect(warningShown(CYCLE_SLOW)).toBe(true);
     expect(warningShown(LEAD_SLOW)).toBe(false);
   });
 
   it('warns about Lead Time alone just past the edge', () => {
-    renderPanel(tenDaysTo(99, 10, 50), { kind: 'all' });
+    renderPanel(tenDaysTo(990, 100, 500), { kind: 'all' });
     expect(warningShown(LEAD_SLOW)).toBe(true);
     expect(warningShown(CYCLE_SLOW)).toBe(false);
   });
 
   it('names the other direction when work starts and arrives faster than it finishes', () => {
-    renderPanel(tenDaysTo(100, 31, 40), { kind: 'all' });
+    renderPanel(tenDaysTo(1000, 310, 400), { kind: 'all' });
     expect(warningShown(CYCLE_FAST)).toBe(true);
     expect(warningShown(LEAD_FAST)).toBe(true);
   });
@@ -151,13 +154,13 @@ describe('MetricsPanel — stability warnings at the 20 % edge', () => {
   it('says why Arrival Rate reads 0 when more items were removed than arrived', () => {
     renderPanel([snap('2026-03-01', 4, 0, 20), snap('2026-03-11', 4, 10, 5)], { kind: 'all' });
     expect(cardValue('Arrival Rate')).toBe('0.0/d');
-    // Nothing arrived, below the minimum volume, so no lean — but the fall is said
-    expect(warningShown(LEAD_SLOW)).toBe(false);
+    // 0 arrived against 10 finished is wider than chance: the lean and the fall
+    expect(warningShown(LEAD_SLOW)).toBe(true);
     expect(warningShown(REMOVED)).toBe(true);
   });
 
   it('holds back a warning when too few items moved for 20 % to mean much', () => {
-    renderPanel(tenDaysTo(100, 15, 10), { kind: 'all' });
+    renderPanel(tenDaysTo(1000, 195, 10), { kind: 'all' });
     expect(cardValue('Start Rate')).toBe('0.5/d'); // control: 50 % slower than
     expect(cardValue('Throughput')).toBe('1.0/d'); // it finishes, on 5 and 10 items
     expect(screen.queryByText('Flow is not steady')).toBeNull();
