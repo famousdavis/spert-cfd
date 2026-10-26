@@ -154,7 +154,7 @@ describe('MetricsPanel — the averages Little\'s Law divides', () => {
       [snap('2026-03-01', 4, 0, 10), snap('2026-03-02', 4, 2, 10), snap('2026-03-03', 4, 4, 10)],
       { kind: 'all' },
     );
-    expect(cardSublabel('Lead Time')).toBe("Little's Law\navg 14.0");
+    expect(cardSublabel('Lead Time')).toBe("Little's Law\navg 14.0 items"); // a count, not days
     expect(cardSublabel('Cycle Time')).toBe("Little's Law");
   });
 });
