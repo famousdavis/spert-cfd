@@ -80,13 +80,17 @@ const LEAD_TIME_LEAN: Record<FlowLean, string> = {
   'out-faster': 'Requests are finishing faster than new ones arrive — Lead Time will overstate how long new requests take.',
 };
 
-/** Cycle Time and Lead Time assume work starts and arrives about as fast as it finishes */
+/**
+ * Cycle Time and Lead Time assume work starts and arrives about as fast as it
+ * finishes. A fall in the total is said whatever the volume: it is why
+ * Arrival Rate reads 0.
+ */
 function FlowWarning({
   cycleTimeLean,
   leadTimeLean,
   totalFell,
 }: Pick<FlowMetrics, 'cycleTimeLean' | 'leadTimeLean' | 'totalFell'>) {
-  if (!cycleTimeLean && !leadTimeLean) return null;
+  if (!cycleTimeLean && !leadTimeLean && !totalFell) return null;
   return (
     <div className="mt-2 rounded border border-amber-200 bg-amber-50 p-2">
       <div className="flex items-center gap-1 text-xs font-medium text-amber-800 mb-1">
@@ -96,7 +100,7 @@ function FlowWarning({
       <div className="space-y-1 text-xs text-amber-700">
         {cycleTimeLean && <p>{CYCLE_TIME_LEAN[cycleTimeLean]}</p>}
         {leadTimeLean && <p>{LEAD_TIME_LEAN[leadTimeLean]}</p>}
-        {leadTimeLean && totalFell && (
+        {totalFell && (
           <p>
             Items were removed without being done (the total across all states
             went down), so Arrival Rate shows 0.

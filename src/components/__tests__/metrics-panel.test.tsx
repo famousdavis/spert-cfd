@@ -151,28 +151,36 @@ describe('MetricsPanel — stability warnings at the 20 % edge', () => {
   it('says why Arrival Rate reads 0 when more items were removed than arrived', () => {
     renderPanel([snap('2026-03-01', 4, 0, 20), snap('2026-03-11', 4, 10, 5)], { kind: 'all' });
     expect(cardValue('Arrival Rate')).toBe('0.0/d');
-    expect(warningShown(LEAD_SLOW)).toBe(true);
+    // Nothing arrived, below the minimum volume, so no lean — but the fall is said
+    expect(warningShown(LEAD_SLOW)).toBe(false);
     expect(warningShown(REMOVED)).toBe(true);
+  });
+
+  it('holds back a warning when too few items moved for 20 % to mean much', () => {
+    renderPanel(tenDaysTo(100, 15, 10), { kind: 'all' });
+    expect(cardValue('Start Rate')).toBe('0.5/d'); // control: 50 % slower than
+    expect(cardValue('Throughput')).toBe('1.0/d'); // it finishes, on 5 and 10 items
+    expect(screen.queryByText('Flow is not steady')).toBeNull();
   });
 });
 
 describe('MetricsPanel — a falling Done takes precedence', () => {
-  // Work starts far faster than it finishes over the period (50 vs 20 in
+  // Work starts far faster than it finishes over the period (100 vs 40 in
   // three days); the only difference between the two series is Done on day 3.
   const series = (doneOnDay3: number) => [
-    snap('2026-03-01', 0, 0, 50),
-    snap('2026-03-02', 5, 10, 40),
-    snap('2026-03-03', 5, doneOnDay3, 40),
-    snap('2026-03-04', 30, 20, 0),
+    snap('2026-03-01', 0, 0, 100),
+    snap('2026-03-02', 10, 20, 70),
+    snap('2026-03-03', 10, doneOnDay3, 70),
+    snap('2026-03-04', 60, 40, 0),
   ];
 
   it('shows the stability warning when Done is cumulative (control)', () => {
-    renderPanel(series(12), { kind: 'all' });
+    renderPanel(series(25), { kind: 'all' });
     expect(warningShown(CYCLE_FAST)).toBe(true);
   });
 
   it('shows only the Done warning when Done went down', () => {
-    renderPanel(series(8), { kind: 'all' });
+    renderPanel(series(15), { kind: 'all' });
     expect(screen.getByText('Done count went down')).toBeTruthy();
     expect(screen.queryByText('Flow is not steady')).toBeNull();
     expect(warningShown(CYCLE_FAST)).toBe(false);

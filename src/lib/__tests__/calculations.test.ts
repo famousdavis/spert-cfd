@@ -8,7 +8,9 @@ import {
   filterSnapshotsByPeriod,
   detectWipViolations,
   normalizePeriod,
+  STABILITY_TOLERANCE,
 } from '../calculations';
+import { createSampleProject } from '../sample-data';
 import type { WorkflowState, Snapshot, MetricsPeriod } from '@/types';
 
 const workflow: WorkflowState[] = [
@@ -384,7 +386,8 @@ describe('Start Rate and Arrival Rate', () => {
     const result = calculateMetrics(workflow, cancelled, { kind: 'all' });
     expect(result.arrivalRate).toBe(0);
     expect(result.totalFell).toBe(true);
-    expect(result.leadTimeLean).toBe('out-faster');
+    // Nothing arrived, below the minimum volume: the fall is reported, not a lean
+    expect(result.leadTimeLean).toBeNull();
   });
 
   it('does not report a fall when the total holds or grows', () => {
@@ -471,6 +474,64 @@ describe('stability: Arrival Rate against Throughput (Lead Time)', () => {
     expect([r.throughput, r.startRate, r.arrivalRate]).toEqual([0, 1, 6]);
     expect(r.cycleTimeLean).toBeNull();
     expect(r.leadTimeLean).toBeNull();
+  });
+});
+
+// ── A minimum volume before a pair of rates can lean ─────
+// A few items either way is a large share of a small count, so a pair leans
+// only when at least MIN_STABILITY_ITEMS (30) came in AND finished.
+
+describe('stability: a minimum volume', () => {
+  it('holds back a lean that 20 % alone would show when few items moved', () => {
+    const r = leans(tenDays({ backlog: 100, dev: 20, done: 0 }, { backlog: 100, dev: 15, done: 10 }));
+    expect([r.throughput, r.startRate, r.arrivalRate]).toEqual([1, 0.5, 0.5]); // 50 % apart
+    expect(r.cycleTimeLean).toBeNull();
+    expect(r.leadTimeLean).toBeNull();
+  });
+
+  it('lets Start Rate lean at exactly 30 started, not at 29', () => {
+    const from = { backlog: 100, dev: 50, done: 0 };
+    const at30 = leans(tenDays(from, { backlog: 130, dev: 20, done: 60 })); // 30 started, 60 done
+    expect([at30.startRate, at30.throughput]).toEqual([3, 6]);
+    expect(at30.cycleTimeLean).toBe('out-faster');
+    const at29 = leans(tenDays(from, { backlog: 129, dev: 21, done: 58 })); // 29 started, 58 done
+    expect(at29.startRate).toBeCloseTo(2.9, 10);
+    expect(at29.cycleTimeLean).toBeNull();
+  });
+
+  it('lets Arrival Rate lean at exactly 30 arrived, not at 29', () => {
+    const from = { backlog: 100, dev: 50, done: 0 };
+    const at30 = leans(tenDays(from, { backlog: 70, dev: 50, done: 60 })); // 30 arrived, 60 done
+    expect([at30.arrivalRate, at30.startRate, at30.throughput]).toEqual([3, 6, 6]);
+    expect(at30.leadTimeLean).toBe('out-faster');
+    expect(at30.cycleTimeLean).toBeNull();
+    const at29 = leans(tenDays(from, { backlog: 69, dev: 50, done: 60 }));
+    expect(at29.arrivalRate).toBeCloseTo(2.9, 10);
+    expect(at29.leadTimeLean).toBeNull();
+  });
+});
+
+// ── The sample project a new user sees ───────────────────
+
+describe('the sample project', () => {
+  const sample = createSampleProject();
+
+  it.each<[string, MetricsPeriod]>([
+    ['All data', { kind: 'all' }],
+    ['Last 7 days', { kind: 'days', value: 7 }],
+    ['Last 14 days', { kind: 'days', value: 14 }],
+    ['Last 30 days', { kind: 'days', value: 30 }],
+    ['Last 90 days', { kind: 'days', value: 90 }],
+  ])('flows steadily over %s: no stability warning, and not only for want of volume', (_, period) => {
+    const m = calculateMetrics(sample.workflow, sample.snapshots, period);
+    expect(m.throughput).toBeGreaterThan(0);
+    // Within the tolerance on its own, so the floor is not what keeps it quiet
+    const within = (rate: number) =>
+      Math.abs(rate - m.throughput) <= STABILITY_TOLERANCE * Math.max(rate, m.throughput);
+    expect(within(m.startRate)).toBe(true);
+    expect(within(m.arrivalRate)).toBe(true);
+    expect(m.cycleTimeLean).toBeNull();
+    expect(m.leadTimeLean).toBeNull();
   });
 });
 

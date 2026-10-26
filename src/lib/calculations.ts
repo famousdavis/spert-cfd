@@ -62,6 +62,15 @@ export interface FlowMetrics {
  */
 export const STABILITY_TOLERANCE = 0.2;
 
+/**
+ * A pair of rates leans only when at least this many items came in and as
+ * many finished over the period: a few items either way is a large share of
+ * a small count. Of 10, 20 and 30, only 30 held false Lead Time warnings on
+ * a simulated steady flow of about one item a day near 10 % of 30-day windows
+ * (1–6 %, against 34–37 % at 20); fewer items than this never lean.
+ */
+export const MIN_STABILITY_ITEMS = 30;
+
 // ── Period Filtering ─────────────────────────────────────
 
 /**
@@ -118,16 +127,17 @@ function sumCounts(states: WorkflowState[], snapshot: Snapshot): number {
   return states.reduce((sum, s) => sum + (snapshot.counts[s.id] ?? 0), 0);
 }
 
+/** Net change in a set of states' total across a snapshot window */
+function netGrowth(states: WorkflowState[], sorted: Snapshot[]): number {
+  if (sorted.length < 2) return 0;
+  return sumCounts(states, sorted[sorted.length - 1]) - sumCounts(states, sorted[0]);
+}
+
 /** Calculate rate of change (items/day) for a set of states across a snapshot window */
 function rateOfChange(states: WorkflowState[], sorted: Snapshot[]): number {
-  if (sorted.length < 2) return 0;
-
-  const earliest = sorted[0];
-  const latest = sorted[sorted.length - 1];
-  const growth = sumCounts(states, latest) - sumCounts(states, earliest);
-
+  const growth = netGrowth(states, sorted);
   if (growth <= 0) return 0;
-  return growth / daySpanBetween(earliest.date, latest.date);
+  return growth / daySpanBetween(sorted[0].date, sorted[sorted.length - 1].date);
 }
 
 /**
@@ -150,11 +160,18 @@ function timeAverage(states: WorkflowState[], sorted: Snapshot[]): number {
 }
 
 /**
- * Null while the two rates are within STABILITY_TOLERANCE of the larger, and
- * when nothing finished: the time they qualify then shows "—" anyway.
+ * Null while the two rates are within STABILITY_TOLERANCE of the larger; when
+ * fewer than MIN_STABILITY_ITEMS came in or finished; and when nothing
+ * finished: the time they qualify then shows "—" anyway.
  */
-function flowLean(inRate: number, throughput: number): FlowLean | null {
+function flowLean(
+  inRate: number,
+  throughput: number,
+  inItems: number,
+  doneItems: number,
+): FlowLean | null {
   if (throughput <= 0) return null;
+  if (Math.min(inItems, doneItems) < MIN_STABILITY_ITEMS) return null;
   if (Math.abs(inRate - throughput) <= STABILITY_TOLERANCE * Math.max(inRate, throughput)) {
     return null;
   }
@@ -210,6 +227,11 @@ export function calculateMetrics(
   // Arrival rate: new requests entering the backlog per day
   const arrivalRate = rateOfChange(everyState, sorted);
 
+  // Items behind each rate, for the minimum volume a lean needs
+  const doneItems = netGrowth(doneStates, sorted);
+  const startedItems = netGrowth([...activeStates, ...doneStates], sorted);
+  const arrivedItems = netGrowth(everyState, sorted);
+
   // Little's Law, average WIP / Throughput over the period. Cycle Time counts
   // the active states (work started → done); Lead Time adds the backlog
   // (request entered the backlog → done), so it includes the wait there.
@@ -228,9 +250,9 @@ export function calculateMetrics(
     arrivalRate,
     avgCycleTime,
     avgLeadTime,
-    cycleTimeLean: flowLean(startRate, throughput),
-    leadTimeLean: flowLean(arrivalRate, throughput),
-    totalFell: sumCounts(everyState, latest) < sumCounts(everyState, sorted[0]),
+    cycleTimeLean: flowLean(startRate, throughput, startedItems, doneItems),
+    leadTimeLean: flowLean(arrivalRate, throughput, arrivedItems, doneItems),
+    totalFell: arrivedItems < 0,
     doneDecrease: findDoneDecrease(doneStates, sorted),
   };
 }
