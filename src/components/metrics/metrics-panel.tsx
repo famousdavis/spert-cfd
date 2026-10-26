@@ -204,7 +204,7 @@ export function MetricsPanel() {
         <MetricCard
           label="Lead Time"
           value={metrics.avgLeadTime > 0 ? `${metrics.avgLeadTime.toFixed(1)}d` : '—'}
-          sublabel={hasSpan ? `Little's Law\navg ${metrics.avgLeadWip.toFixed(1)}` : "Little's Law"}
+          sublabel={hasSpan ? `Little's Law\navg ${metrics.avgLeadWip.toFixed(1)} items` : "Little's Law"}
         />
       </div>
 

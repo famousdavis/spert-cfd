@@ -2,6 +2,10 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.16.2 — Lead Time's average names its unit (October 26, 2026)
+
+- **The Lead Time card's average now says "items"**, so it no longer reads like a number of days.
+
 ## v0.16.1 — Average WIP on the WIP card (October 26, 2026)
 
 - **The WIP card now shows the period's average work in progress**, the figure Cycle Time divides by Throughput, with today's count beneath it.
