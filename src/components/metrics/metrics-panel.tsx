@@ -6,7 +6,13 @@
 
 import { useMemo } from 'react';
 import { useActiveProject } from '@/contexts/active-project-context';
-import { calculateMetrics, normalizePeriod, type DoneDecrease } from '@/lib/calculations';
+import {
+  calculateMetrics,
+  normalizePeriod,
+  type DoneDecrease,
+  type FlowLean,
+  type FlowMetrics,
+} from '@/lib/calculations';
 import { formatDate, formatDateShort } from '@/lib/dates';
 import type { MetricsPeriod } from '@/types';
 import { MetricCard } from './metric-card';
@@ -57,9 +63,50 @@ function DoneDecreaseWarning({ from, to }: DoneDecrease) {
       </div>
       <p className="text-xs text-amber-700">
         Between {formatDate(from)} and {formatDate(to)}. A CFD needs cumulative
-        Done counts (every item finished so far), so Throughput and Lead Time
+        Done counts (every item finished so far), so the rates and times below
         may be wrong.
       </p>
+    </div>
+  );
+}
+
+const CYCLE_TIME_LEAN: Record<FlowLean, string> = {
+  'in-faster': 'Work is starting faster than it finishes — Cycle Time will understate how long new work takes.',
+  'out-faster': 'Work is finishing faster than it starts — Cycle Time will overstate how long new work takes.',
+};
+
+const LEAD_TIME_LEAN: Record<FlowLean, string> = {
+  'in-faster': 'Requests are arriving faster than they finish — Lead Time will understate how long new requests take.',
+  'out-faster': 'Requests are finishing faster than new ones arrive — Lead Time will overstate how long new requests take.',
+};
+
+/**
+ * Cycle Time and Lead Time assume work starts and arrives about as fast as it
+ * finishes. A fall in the total is said whatever the volume: it is why
+ * Arrival Rate reads 0.
+ */
+function FlowWarning({
+  cycleTimeLean,
+  leadTimeLean,
+  totalFell,
+}: Pick<FlowMetrics, 'cycleTimeLean' | 'leadTimeLean' | 'totalFell'>) {
+  if (!cycleTimeLean && !leadTimeLean && !totalFell) return null;
+  return (
+    <div className="mt-2 rounded border border-amber-200 bg-amber-50 p-2">
+      <div className="flex items-center gap-1 text-xs font-medium text-amber-800 mb-1">
+        <AlertTriangle size={12} aria-hidden="true" />
+        Flow is not steady
+      </div>
+      <div className="space-y-1 text-xs text-amber-700">
+        {cycleTimeLean && <p>{CYCLE_TIME_LEAN[cycleTimeLean]}</p>}
+        {leadTimeLean && <p>{LEAD_TIME_LEAN[leadTimeLean]}</p>}
+        {totalFell && (
+          <p>
+            Items were removed without being done (the total across all states
+            went down), so Arrival Rate shows 0.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -123,7 +170,8 @@ export function MetricsPanel() {
 
       {metrics.doneDecrease && <DoneDecreaseWarning {...metrics.doneDecrease} />}
 
-      <div className="space-y-1.5">
+      {/* Left column: work started → done; right column: request → done */}
+      <div className="grid grid-cols-2 gap-1.5">
         <MetricCard
           label="WIP"
           value={String(metrics.totalWip)}
@@ -135,16 +183,29 @@ export function MetricsPanel() {
           sublabel="items completed"
         />
         <MetricCard
-          label="Lead Time"
-          value={metrics.avgLeadTime > 0 ? `${metrics.avgLeadTime.toFixed(1)}d` : '—'}
-          sublabel="Little's Law"
+          label="Start Rate"
+          value={`${metrics.startRate.toFixed(1)}/d`}
+          sublabel="items started"
         />
         <MetricCard
           label="Arrival Rate"
           value={`${metrics.arrivalRate.toFixed(1)}/d`}
-          sublabel="items entering"
+          sublabel="new requests"
+        />
+        <MetricCard
+          label="Cycle Time"
+          value={metrics.avgCycleTime > 0 ? `${metrics.avgCycleTime.toFixed(1)}d` : '—'}
+          sublabel="Little's Law"
+        />
+        <MetricCard
+          label="Lead Time"
+          value={metrics.avgLeadTime > 0 ? `${metrics.avgLeadTime.toFixed(1)}d` : '—'}
+          sublabel="Little's Law"
         />
       </div>
+
+      {/* A falling Done already says the rates and times may be wrong */}
+      {!metrics.doneDecrease && <FlowWarning {...metrics} />}
 
       {/* WIP Violations */}
       {metrics.wipViolations.length > 0 && (

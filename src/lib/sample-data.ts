@@ -24,21 +24,26 @@ function makeSnapshots(): Snapshot[] {
   const stateIds = ['backlog', 'analysis', 'dev', 'review', 'done'];
   const year = sampleYear();
 
+  // A steady flow: new requests arrive as work finishes, and work starts
+  // about as fast as it finishes, so Little's Law holds on every period and
+  // the panel shows no stability warning. (A closed backlog that only drains
+  // is not steady: Lead Time warned on every period.) Review ends above its
+  // WIP limit, to show that warning.
   const raw: Array<[string, number[]]> = [
-    [`${year}-01-01`, [24, 0, 0, 0, 0]],
-    [`${year}-01-02`, [22, 2, 0, 0, 0]],
-    [`${year}-01-03`, [20, 2, 2, 0, 0]],
-    [`${year}-01-04`, [18, 3, 2, 1, 0]],
-    [`${year}-01-05`, [17, 2, 3, 1, 1]],
-    [`${year}-01-08`, [15, 2, 4, 1, 2]],
-    [`${year}-01-09`, [13, 3, 3, 2, 3]],
-    [`${year}-01-10`, [11, 2, 4, 3, 4]],
-    [`${year}-01-11`, [9, 3, 4, 2, 6]],
-    [`${year}-01-12`, [7, 2, 5, 2, 8]],
-    [`${year}-01-15`, [5, 2, 4, 3, 10]],
-    [`${year}-01-16`, [3, 3, 3, 3, 12]],
-    [`${year}-01-17`, [2, 2, 4, 2, 14]],
-    [`${year}-01-18`, [0, 2, 3, 3, 16]],
+    [`${year}-01-01`, [10, 2, 3, 2, 0]],
+    [`${year}-01-02`, [9, 3, 3, 2, 1]],
+    [`${year}-01-03`, [9, 2, 3, 2, 3]],
+    [`${year}-01-04`, [9, 2, 4, 2, 4]],
+    [`${year}-01-05`, [10, 2, 3, 2, 6]],
+    [`${year}-01-08`, [10, 3, 2, 2, 7]],
+    [`${year}-01-09`, [9, 2, 3, 2, 9]],
+    [`${year}-01-10`, [9, 3, 3, 2, 10]],
+    [`${year}-01-11`, [10, 2, 3, 2, 12]],
+    [`${year}-01-12`, [9, 3, 3, 2, 13]],
+    [`${year}-01-15`, [10, 2, 3, 2, 15]],
+    [`${year}-01-16`, [10, 2, 4, 2, 16]],
+    [`${year}-01-17`, [10, 2, 2, 3, 18]],
+    [`${year}-01-18`, [10, 2, 2, 3, 20]],
   ];
 
   return raw.map(([date, counts]) => ({
