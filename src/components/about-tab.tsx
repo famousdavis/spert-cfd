@@ -96,6 +96,12 @@ export function AboutTab() {
             </li>
           </ul>
           <p className="leading-relaxed text-gray-600 mb-4">
+            The WIP card shows the period&apos;s average number of active
+            items, the figure cycle time divides by throughput, with
+            today&apos;s count beneath it. The lead time card notes its own
+            average, of backlog and active items.
+          </p>
+          <p className="leading-relaxed text-gray-600 mb-4">
             Keep the Backlog to real requests. Little&apos;s Law assumes every
             item is eventually finished, so a long tail of ideas that will
             never be done inflates lead time. Rates come from the change in

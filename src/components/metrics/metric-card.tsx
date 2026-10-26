@@ -16,7 +16,7 @@ export function MetricCard({ label, value, sublabel }: MetricCardProps) {
       <div className="text-xs text-gray-500">{label}</div>
       <div className="text-lg font-semibold text-gray-900">{value}</div>
       {sublabel && (
-        <div className="text-xs text-gray-400">{sublabel}</div>
+        <div className="whitespace-pre-line text-xs text-gray-400">{sublabel}</div>
       )}
     </div>
   );

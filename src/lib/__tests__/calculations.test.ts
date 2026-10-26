@@ -266,7 +266,7 @@ describe("Little's Law with the period's average WIP", () => {
     ]);
     const result = calculateMetrics(workflow, series, { kind: 'all' });
     expect(result.throughput).toBe(2);
-    expect(result.totalWip).toBe(40); // the WIP card still shows the latest day
+    expect(result.totalWip).toBe(40); // the latest day: the WIP card's "now"
     // Area: eight 1-day trapezoids of 10, then (10+40)/2 = 25 → 105 over 9 days.
     expect(result.avgWip).toBeCloseTo(105 / 9, 10);
     // ≈ 5.83 d. The latest WIP gave 20.0 d; a plain mean of snapshots, 6.5 d.
@@ -357,6 +357,26 @@ describe('Cycle Time and Lead Time', () => {
     expect(result.throughput).toBe(2);
     expect(result.avgCycleTime).toBe(2); // 4 in progress ÷ 2/d
     expect(result.avgLeadTime).toBe(7); // (10 waiting + 4 in progress) ÷ 2/d
+  });
+
+  it('averages backlog + active for Lead Time, over the span the averages use', () => {
+    const result = calculateMetrics(workflow, snapshots, { kind: 'all' });
+    expect(result.spanDays).toBe(14);
+    expect(result.avgLeadWip).toBeCloseTo(16, 10); // 224 over 14 days, as below
+    const steady = dailyWithBacklog([[10, 4, 0], [10, 4, 2], [10, 4, 4]]);
+    const s = calculateMetrics(workflow, steady, { kind: 'all' });
+    expect([s.spanDays, s.avgWip, s.avgLeadWip]).toEqual([2, 4, 14]);
+  });
+
+  it('has no span, and no averages, with one snapshot or two on the same date', () => {
+    const one = calculateMetrics(workflow, [snapshots[2]], { kind: 'all' });
+    expect([one.spanDays, one.avgWip, one.avgLeadWip]).toEqual([0, 0, 0]);
+    const sameDay: Snapshot[] = [
+      { date: '2026-02-01', counts: { backlog: 3, dev: 5, review: 0, done: 3 } },
+      { date: '2026-02-01', counts: { backlog: 3, dev: 5, review: 0, done: 7 } },
+    ];
+    const same = calculateMetrics(workflow, sameDay, { kind: 'all' });
+    expect([same.spanDays, same.avgWip, same.avgLeadWip]).toEqual([0, 0, 0]);
   });
 
   it("keeps v0.15.25's number as Cycle Time, and adds the backlog for Lead Time", () => {

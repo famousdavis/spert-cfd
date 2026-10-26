@@ -46,6 +46,10 @@ function cardValue(label: string): string | null | undefined {
   return screen.getByText(label).nextElementSibling?.textContent;
 }
 
+function cardSublabel(label: string): string | null | undefined {
+  return screen.getByText(label).nextElementSibling?.nextElementSibling?.textContent;
+}
+
 afterEach(cleanup);
 
 describe('MetricsPanel — a Done count that goes down', () => {
@@ -81,7 +85,9 @@ describe('MetricsPanel — the period it shows is the period it uses', () => {
   it('shows "All data" for a malformed period, and computes on all data', () => {
     const select = renderPanel(cumulative, { kind: 'days' } as unknown as MetricsPeriod);
     expect(select.selectedOptions[0].textContent).toBe('All data');
-    expect(cardValue('WIP')).toBe('5');
+    // WIP 3 → 4 → 5 at 7-day steps averages 4.0 over the 14 days; 5 is today
+    expect(cardValue('WIP')).toBe('4.0');
+    expect(cardSublabel('WIP')).toBe('avg · 5 now');
     expect(cardValue('Throughput')).toBe('1.0/d');
   });
 });
@@ -113,13 +119,43 @@ describe('MetricsPanel — six cards', () => {
       [snap('2026-03-01', 4, 0, 10), snap('2026-03-02', 4, 2, 10), snap('2026-03-03', 4, 4, 10)],
       { kind: 'all' },
     );
-    expect(cardValue('WIP')).toBe('4');
+    expect(cardValue('WIP')).toBe('4.0');
     expect(cardValue('Throughput')).toBe('2.0/d');
     expect(cardValue('Start Rate')).toBe('2.0/d');
     expect(cardValue('Arrival Rate')).toBe('2.0/d');
     expect(cardValue('Cycle Time')).toBe('2.0d');
     expect(cardValue('Lead Time')).toBe('7.0d');
     expect(screen.queryByText('Flow is not steady')).toBeNull();
+  });
+});
+
+describe('MetricsPanel — the averages Little\'s Law divides', () => {
+  it("shows the period's average WIP, with today's count beneath it", () => {
+    // WIP 10 for nine days, 40 on the tenth; Done +2 a day
+    const rows: Array<[number, number]> = [
+      [10, 0], [10, 2], [10, 4], [10, 6], [10, 8], [10, 10], [10, 12], [10, 14], [10, 16], [40, 18],
+    ];
+    renderPanel(rows.map(([dev, done], i) => snap(`2026-03-${String(i + 1).padStart(2, '0')}`, dev, done)), { kind: 'all' });
+    expect(cardValue('WIP')).toBe('11.7'); // 105 over 9 days
+    expect(cardSublabel('WIP')).toBe('avg · 40 now');
+    expect(cardValue('Cycle Time')).toBe('5.8d'); // 11.7 ÷ 2/d, readable off the cards
+  });
+
+  it("shows today's count when the period has no span to average over", () => {
+    renderPanel([snap('2026-03-01', 5, 3)], { kind: 'all' });
+    expect(cardValue('WIP')).toBe('5');
+    expect(cardSublabel('WIP')).toBe('active items now');
+    expect(cardSublabel('Lead Time')).toBe("Little's Law");
+  });
+
+  it('notes the backlog + active average that Lead Time divides', () => {
+    // 10 waiting + 4 in progress, steady; Lead Time 14 ÷ 2/d = 7.0d
+    renderPanel(
+      [snap('2026-03-01', 4, 0, 10), snap('2026-03-02', 4, 2, 10), snap('2026-03-03', 4, 4, 10)],
+      { kind: 'all' },
+    );
+    expect(cardSublabel('Lead Time')).toBe("Little's Law\navg 14.0");
+    expect(cardSublabel('Cycle Time')).toBe("Little's Law");
   });
 });
 

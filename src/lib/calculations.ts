@@ -33,6 +33,10 @@ export interface FlowMetrics {
   totalWip: number;
   /** Active items averaged over the period's span (time-weighted) */
   avgWip: number;
+  /** Backlog + active items averaged the same way — the WIP Lead Time divides */
+  avgLeadWip: number;
+  /** Calendar days from the period's first snapshot to its last; 0 leaves nothing to average */
+  spanDays: number;
   wipViolations: WipViolation[];
   throughput: number;
   /** Items starting work per day: the growth of active + done */
@@ -241,13 +245,15 @@ export function calculateMetrics(
   // (request entered the backlog → done), so it includes the wait there.
   const avgWip = timeAverage(activeStates, sorted);
   const avgCycleTime = throughput > 0 ? avgWip / throughput : 0;
-  const avgLeadTime =
-    throughput > 0 ? timeAverage([...backlogStates, ...activeStates], sorted) / throughput : 0;
+  const avgLeadWip = timeAverage([...backlogStates, ...activeStates], sorted);
+  const avgLeadTime = throughput > 0 ? avgLeadWip / throughput : 0;
 
   return {
     wipByState,
     totalWip,
     avgWip,
+    avgLeadWip,
+    spanDays: calendarDaysBetween(sorted[0].date, latest.date),
     wipViolations,
     throughput,
     startRate,
@@ -284,6 +290,8 @@ function emptyMetrics(): FlowMetrics {
     wipByState: {},
     totalWip: 0,
     avgWip: 0,
+    avgLeadWip: 0,
+    spanDays: 0,
     wipViolations: [],
     throughput: 0,
     startRate: 0,
