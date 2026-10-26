@@ -2,6 +2,11 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.24 — A security.txt file (October 25, 2026)
+
+- **SPERT® CFD now publishes a security.txt file (RFC 9116)**, so a security researcher can find where to report a vulnerability: by email to security@spertsuite.com, or privately through SPERT® CFD’s GitHub repository. Nothing about how the app works, looks or stores data changed.
+- A new test checks the file on every release, and fails a month before the file expires, as a reminder to renew it.
+
 ## v0.15.23 — New Terms of Service and Privacy Policy (October 25, 2026)
 
 - **SPERT® CFD asks you to accept the new Terms of Service and Privacy Policy the next time you sign in.** Both have new editions — version 1.4 of each, effective October 26, 2026 — published at the same spertsuite.com addresses the app already links to. If you are signed in, SPERT® CFD signs you out the next time you open it, so that you can accept them. The acceptance it had recorded was for the October 5, 2026 editions (`TOS_VERSION` was `'10-05-2026'`); it is now `'10-26-2026'`, so the record names the edition you actually accept.
