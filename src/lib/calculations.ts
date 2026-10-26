@@ -21,6 +21,12 @@ export interface DoneDecrease {
   to: string;
 }
 
+/**
+ * Which way a rate into the system leans against Throughput, once they differ
+ * by more than STABILITY_TOLERANCE: more coming in than finishing, or fewer.
+ */
+export type FlowLean = 'in-faster' | 'out-faster';
+
 export interface FlowMetrics {
   wipByState: Record<string, number>;
   /** Active items in the latest snapshot */
@@ -29,11 +35,32 @@ export interface FlowMetrics {
   avgWip: number;
   wipViolations: WipViolation[];
   throughput: number;
+  /** Items starting work per day: the growth of active + done */
+  startRate: number;
+  /** New requests per day: the growth of backlog + active + done */
   arrivalRate: number;
+  /** From when work starts until it is done: average active WIP ÷ throughput */
+  avgCycleTime: number;
+  /** From when a request enters the backlog until it is done: average backlog + active WIP ÷ throughput */
   avgLeadTime: number;
+  /** Start Rate against Throughput — what Cycle Time assumes is steady */
+  cycleTimeLean: FlowLean | null;
+  /** Arrival Rate against Throughput — what Lead Time assumes is steady */
+  leadTimeLean: FlowLean | null;
+  /**
+   * The period ended with fewer items across every state than it began, so
+   * more left without being done than arrived, and Arrival Rate reads 0
+   */
+  totalFell: boolean;
   /** The first place in the period where Done fell, or null */
   doneDecrease: DoneDecrease | null;
 }
+
+/**
+ * Little's Law assumes a steady flow. A rate into the system further from
+ * Throughput than this share of the larger of the two is flagged.
+ */
+export const STABILITY_TOLERANCE = 0.2;
 
 // ── Period Filtering ─────────────────────────────────────
 
@@ -122,6 +149,18 @@ function timeAverage(states: WorkflowState[], sorted: Snapshot[]): number {
   return area / daySpanBetween(sorted[0].date, sorted[sorted.length - 1].date);
 }
 
+/**
+ * Null while the two rates are within STABILITY_TOLERANCE of the larger, and
+ * when nothing finished: the time they qualify then shows "—" anyway.
+ */
+function flowLean(inRate: number, throughput: number): FlowLean | null {
+  if (throughput <= 0) return null;
+  if (Math.abs(inRate - throughput) <= STABILITY_TOLERANCE * Math.max(inRate, throughput)) {
+    return null;
+  }
+  return inRate > throughput ? 'in-faster' : 'out-faster';
+}
+
 /** The first consecutive pair whose done total fell — a CFD needs cumulative Done */
 function findDoneDecrease(doneStates: WorkflowState[], sorted: Snapshot[]): DoneDecrease | null {
   for (let i = 1; i < sorted.length; i++) {
@@ -148,8 +187,10 @@ export function calculateMetrics(
   const sorted = sortSnapshots(filtered);
   const latest = sorted[sorted.length - 1];
 
+  const backlogStates = workflow.filter((s) => s.category === 'backlog');
   const activeStates = workflow.filter((s) => s.category === 'active');
   const doneStates = workflow.filter((s) => s.category === 'done');
+  const everyState = [...backlogStates, ...activeStates, ...doneStates];
 
   // WIP: sum of active state counts from latest snapshot
   const wipByState = Object.fromEntries(
@@ -163,12 +204,19 @@ export function calculateMetrics(
   // Throughput: items completed per day
   const throughput = rateOfChange(doneStates, sorted);
 
-  // Arrival rate: items entering the system per day
-  const arrivalRate = rateOfChange([...activeStates, ...doneStates], sorted);
+  // Start rate: items starting work per day
+  const startRate = rateOfChange([...activeStates, ...doneStates], sorted);
 
-  // Little's Law: Lead Time = average WIP / Throughput, both over the period
+  // Arrival rate: new requests entering the backlog per day
+  const arrivalRate = rateOfChange(everyState, sorted);
+
+  // Little's Law, average WIP / Throughput over the period. Cycle Time counts
+  // the active states (work started → done); Lead Time adds the backlog
+  // (request entered the backlog → done), so it includes the wait there.
   const avgWip = timeAverage(activeStates, sorted);
-  const avgLeadTime = throughput > 0 ? avgWip / throughput : 0;
+  const avgCycleTime = throughput > 0 ? avgWip / throughput : 0;
+  const avgLeadTime =
+    throughput > 0 ? timeAverage([...backlogStates, ...activeStates], sorted) / throughput : 0;
 
   return {
     wipByState,
@@ -176,8 +224,13 @@ export function calculateMetrics(
     avgWip,
     wipViolations,
     throughput,
+    startRate,
     arrivalRate,
+    avgCycleTime,
     avgLeadTime,
+    cycleTimeLean: flowLean(startRate, throughput),
+    leadTimeLean: flowLean(arrivalRate, throughput),
+    totalFell: sumCounts(everyState, latest) < sumCounts(everyState, sorted[0]),
     doneDecrease: findDoneDecrease(doneStates, sorted),
   };
 }
@@ -207,8 +260,13 @@ function emptyMetrics(): FlowMetrics {
     avgWip: 0,
     wipViolations: [],
     throughput: 0,
+    startRate: 0,
     arrivalRate: 0,
+    avgCycleTime: 0,
     avgLeadTime: 0,
+    cycleTimeLean: null,
+    leadTimeLean: null,
+    totalFell: false,
     doneDecrease: null,
   };
 }

@@ -2,6 +2,12 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.16.0 — Cycle Time and Lead Time (October 26, 2026)
+
+- **Cycle Time and Lead Time are now separate.** Cycle Time runs from when work starts until it is done; Lead Time runs from when a request enters the backlog until it is done. What v0.15.25 called Lead Time is Cycle Time.
+- **Arrival Rate now counts new requests entering the backlog.** The figure it showed before counted work starting, and is now Start Rate.
+- **The metrics panel warns when work starts or arrives much faster or slower than it finishes**, because Cycle Time and Lead Time assume a steady flow.
+
 ## v0.15.25 — Lead Time follows Little's Law (October 26, 2026)
 
 - **Lead Time now follows Little's Law:** the period's average work in progress divided by its throughput. It used the latest day's work in progress, so it jumped whenever work was pulled in.

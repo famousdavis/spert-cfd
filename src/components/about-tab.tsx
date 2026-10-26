@@ -5,6 +5,9 @@
 "use client";
 
 import { APP_VERSION } from "@/lib/constants";
+import { STABILITY_TOLERANCE } from "@/lib/calculations";
+
+const tolerancePercent = Math.round(STABILITY_TOLERANCE * 100);
 
 function TrademarkedName({
   name,
@@ -61,7 +64,8 @@ export function AboutTab() {
               View the stacked-area CFD chart that updates as you add data
             </li>
             <li>
-              Monitor flow metrics: WIP, throughput, and approximate lead time
+              Monitor flow metrics: WIP, throughput, start and arrival rates,
+              and approximate cycle time and lead time
             </li>
             <li>
               Set WIP limits and get visual warnings when they are exceeded
@@ -71,14 +75,47 @@ export function AboutTab() {
 
         <section className="mb-8">
           <h3 className="text-xl mb-3 text-blue-600">Flow Metrics</h3>
-          <p className="leading-relaxed text-gray-600">
+          <p className="leading-relaxed text-gray-600 mb-4">
             The metrics panel calculates Work in Progress (WIP), throughput
-            (items completed per day), and approximate lead time using
-            Little&apos;s Law (the period&apos;s average WIP &divide; its
-            throughput). Metrics can be filtered by time period: all data, or
-            the last 7, 14, 30 or 90 days. A project imported with another
-            period, such as a custom date range, keeps it, and the panel names
-            it. If a Done count goes down, the panel warns you.
+            (items completed per day), start rate (items starting work per
+            day) and arrival rate (new requests entering the backlog per day).
+            It estimates two times with Little&apos;s Law, each the
+            period&apos;s average number of items &divide; its throughput:
+          </p>
+          <ul className="pl-8 leading-loose text-gray-600 list-disc mb-4">
+            <li>
+              <strong>Cycle time</strong> runs from when work on an item
+              first starts until it is done. It averages the items in your
+              active states.
+            </li>
+            <li>
+              <strong>Lead time</strong> runs from when a request enters the
+              backlog until it is done, so it includes all the time the
+              request sits in the backlog. It averages the items in your
+              backlog and active states.
+            </li>
+          </ul>
+          <p className="leading-relaxed text-gray-600 mb-4">
+            Keep the Backlog to real requests. Little&apos;s Law assumes every
+            item is eventually finished, so a long tail of ideas that will
+            never be done inflates lead time. Rates come from the change in
+            counts, so a request removed without being done cancels out a new
+            one, and if more are removed than arrive, arrival rate shows 0.
+          </p>
+          <p className="leading-relaxed text-gray-600 mb-4">
+            Both times assume a steady flow. When work starts more than{" "}
+            {tolerancePercent}% faster or slower than it finishes, the panel
+            warns that cycle time will understate or overstate how long new
+            work takes; when requests arrive more than {tolerancePercent}%
+            faster or slower than they finish, it warns the same of lead time.
+            Short periods and low volumes trip these warnings more often,
+            because a few items either way is a large share. If a Done count
+            goes down, the panel warns you of that instead.
+          </p>
+          <p className="leading-relaxed text-gray-600">
+            Metrics can be filtered by time period: all data, or the last 7,
+            14, 30 or 90 days. A project imported with another period, such as
+            a custom date range, keeps it, and the panel names it.
           </p>
         </section>
 

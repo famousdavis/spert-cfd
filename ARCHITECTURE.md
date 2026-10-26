@@ -88,7 +88,7 @@ src/
 │   ├── storage-health.ts         # Usage monitoring (3MB warning, 4.5MB critical)
 │   ├── migrations.ts             # Semver-based migration framework
 │   ├── sample-data.ts            # Sample project factory (14 snapshots, 5 states)
-│   ├── calculations.ts           # Flow metrics: WIP, throughput, lead time, violations
+│   ├── calculations.ts           # Flow metrics: WIP, rates, cycle and lead time, violations
 │   ├── csv.ts                    # CSV parse (RFC 4180), export, column mapping, import (dates normalized to ISO)
 │   ├── colors.ts                 # 12 preset colors + W3C contrast calculation
 │   ├── dates.ts                  # Date formatting + collection helpers (sort, merge)

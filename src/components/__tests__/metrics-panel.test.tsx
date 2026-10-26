@@ -25,8 +25,8 @@ const workflow: WorkflowState[] = [
   { id: 'done', name: 'Done', color: '#22c55e', category: 'done', order: 2 },
 ];
 
-function snap(date: string, dev: number, done: number): Snapshot {
-  return { date, counts: { backlog: 0, dev, done } };
+function snap(date: string, dev: number, done: number, backlog = 0): Snapshot {
+  return { date, counts: { backlog, dev, done } };
 }
 
 const cumulative = [snap('2026-03-01', 3, 0), snap('2026-03-08', 4, 7), snap('2026-03-15', 5, 14)];
@@ -83,5 +83,98 @@ describe('MetricsPanel — the period it shows is the period it uses', () => {
     expect(select.selectedOptions[0].textContent).toBe('All data');
     expect(cardValue('WIP')).toBe('5');
     expect(cardValue('Throughput')).toBe('1.0/d');
+  });
+});
+
+// ── Cycle Time and Lead Time, and when they can be trusted ──
+
+const CYCLE_SLOW = 'Work is finishing faster than it starts — Cycle Time will overstate how long new work takes.';
+const CYCLE_FAST = 'Work is starting faster than it finishes — Cycle Time will understate how long new work takes.';
+const LEAD_SLOW = 'Requests are finishing faster than new ones arrive — Lead Time will overstate how long new requests take.';
+const LEAD_FAST = 'Requests are arriving faster than they finish — Lead Time will understate how long new requests take.';
+const REMOVED = /Items were removed without being done/;
+
+/** Ten days from backlog 100, In Dev 20, Done 0, so each rate is its growth ÷ 10 */
+function tenDaysTo(backlog: number, dev: number, done: number): Snapshot[] {
+  return [snap('2026-03-01', 20, 0, 100), snap('2026-03-11', dev, done, backlog)];
+}
+
+function warningShown(text: string | RegExp): boolean {
+  return screen.queryByText(text) !== null;
+}
+
+describe('MetricsPanel — six cards', () => {
+  it('shows WIP, Throughput, Start Rate, Arrival Rate, Cycle Time and Lead Time', () => {
+    // Steady: 2 arrive, 2 start and 2 finish a day; 10 wait, 4 in progress.
+    renderPanel(
+      [snap('2026-03-01', 4, 0, 10), snap('2026-03-02', 4, 2, 10), snap('2026-03-03', 4, 4, 10)],
+      { kind: 'all' },
+    );
+    expect(cardValue('WIP')).toBe('4');
+    expect(cardValue('Throughput')).toBe('2.0/d');
+    expect(cardValue('Start Rate')).toBe('2.0/d');
+    expect(cardValue('Arrival Rate')).toBe('2.0/d');
+    expect(cardValue('Cycle Time')).toBe('2.0d');
+    expect(cardValue('Lead Time')).toBe('7.0d');
+    expect(screen.queryByText('Flow is not steady')).toBeNull();
+  });
+});
+
+describe('MetricsPanel — stability warnings at the 20 % edge', () => {
+  it('shows neither when both pairs sit exactly at 20 %', () => {
+    renderPanel(tenDaysTo(100, 10, 50), { kind: 'all' });
+    expect(cardValue('Throughput')).toBe('5.0/d'); // control: the series is the edge
+    expect(cardValue('Start Rate')).toBe('4.0/d');
+    expect(cardValue('Arrival Rate')).toBe('4.0/d');
+    expect(screen.queryByText('Flow is not steady')).toBeNull();
+  });
+
+  it('warns about Cycle Time alone just past the edge', () => {
+    renderPanel(tenDaysTo(101, 9, 50), { kind: 'all' });
+    expect(screen.getByText('Flow is not steady')).toBeTruthy();
+    expect(warningShown(CYCLE_SLOW)).toBe(true);
+    expect(warningShown(LEAD_SLOW)).toBe(false);
+  });
+
+  it('warns about Lead Time alone just past the edge', () => {
+    renderPanel(tenDaysTo(99, 10, 50), { kind: 'all' });
+    expect(warningShown(LEAD_SLOW)).toBe(true);
+    expect(warningShown(CYCLE_SLOW)).toBe(false);
+  });
+
+  it('names the other direction when work starts and arrives faster than it finishes', () => {
+    renderPanel(tenDaysTo(100, 31, 40), { kind: 'all' });
+    expect(warningShown(CYCLE_FAST)).toBe(true);
+    expect(warningShown(LEAD_FAST)).toBe(true);
+  });
+
+  it('says why Arrival Rate reads 0 when more items were removed than arrived', () => {
+    renderPanel([snap('2026-03-01', 4, 0, 20), snap('2026-03-11', 4, 10, 5)], { kind: 'all' });
+    expect(cardValue('Arrival Rate')).toBe('0.0/d');
+    expect(warningShown(LEAD_SLOW)).toBe(true);
+    expect(warningShown(REMOVED)).toBe(true);
+  });
+});
+
+describe('MetricsPanel — a falling Done takes precedence', () => {
+  // Work starts far faster than it finishes over the period (50 vs 20 in
+  // three days); the only difference between the two series is Done on day 3.
+  const series = (doneOnDay3: number) => [
+    snap('2026-03-01', 0, 0, 50),
+    snap('2026-03-02', 5, 10, 40),
+    snap('2026-03-03', 5, doneOnDay3, 40),
+    snap('2026-03-04', 30, 20, 0),
+  ];
+
+  it('shows the stability warning when Done is cumulative (control)', () => {
+    renderPanel(series(12), { kind: 'all' });
+    expect(warningShown(CYCLE_FAST)).toBe(true);
+  });
+
+  it('shows only the Done warning when Done went down', () => {
+    renderPanel(series(8), { kind: 'all' });
+    expect(screen.getByText('Done count went down')).toBeTruthy();
+    expect(screen.queryByText('Flow is not steady')).toBeNull();
+    expect(warningShown(CYCLE_FAST)).toBe(false);
   });
 });
