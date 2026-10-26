@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { format, parseISO, isValid } from 'date-fns';
+import { format, parseISO, isValid, differenceInCalendarDays } from 'date-fns';
 import type { Snapshot, WorkflowState } from '@/types';
 
 /** Format an ISO date string for display: "Jan 15, 2024" */
@@ -20,12 +20,18 @@ export function todayISO(): string {
   return format(new Date(), 'yyyy-MM-dd');
 }
 
-/** Day span between two ISO date strings as a float, floored to 1 */
+/**
+ * Calendar days from `a` to `b` (ISO date strings). Counting calendar days,
+ * not milliseconds / 86,400,000, keeps a span across a daylight-saving change
+ * whole: local midnights there are 23 or 25 hours apart.
+ */
+export function calendarDaysBetween(a: string, b: string): number {
+  return differenceInCalendarDays(parseISO(b), parseISO(a));
+}
+
+/** Day span between two ISO date strings in calendar days, floored to 1 */
 export function daySpanBetween(a: string, b: string): number {
-  return Math.max(
-    1,
-    (parseISO(b).getTime() - parseISO(a).getTime()) / (1000 * 60 * 60 * 24),
-  );
+  return Math.max(1, calendarDaysBetween(a, b));
 }
 
 /** Validate that a string is a valid ISO date */

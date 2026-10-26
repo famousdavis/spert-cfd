@@ -2,11 +2,12 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   calculateMetrics,
   filterSnapshotsByPeriod,
   detectWipViolations,
+  normalizePeriod,
 } from '../calculations';
 import type { WorkflowState, Snapshot, MetricsPeriod } from '@/types';
 
@@ -111,8 +112,10 @@ describe('calculateMetrics', () => {
 
   it('calculates lead time via Little\'s Law', () => {
     const result = calculateMetrics(workflow, snapshots, { kind: 'all' });
-    // Lead Time = WIP / Throughput = 5 / (10/14) = 7
-    expect(result.avgLeadTime).toBeCloseTo(7, 0);
+    // Lead Time = average WIP / Throughput. WIP 0 → 5 → 5 at 7-day steps:
+    // area (0+5)/2·7 + (5+5)/2·7 = 52.5 over 14 days = 3.75, and
+    // 3.75 / (10/14) = 5.25. (Was 7 — the latest WIP, 5, not the average.)
+    expect(result.avgLeadTime).toBeCloseTo(5.25, 10);
   });
 
   it('detects WIP violations in latest snapshot', () => {
@@ -236,5 +239,159 @@ describe('a workflow state missing from a snapshot', () => {
     // `state.wipLimit !== undefined &&` short-circuits first.
     const snapshot: Snapshot = { date: '2024-03-08', counts: { backlog: 8, done: 4 } };
     expect(detectWipViolations(workflow, snapshot)).toHaveLength(0);
+  });
+});
+
+// ── Little's Law uses the period's average WIP ──────────
+// Every earlier lead-time case used a series whose latest WIP could not be
+// told apart from its average, so dividing the LATEST WIP by the period's
+// throughput passed at 100 % line coverage.
+
+/** Daily snapshots from 2026-02-01 (no daylight-saving change in any common zone) */
+function daily(rows: Array<[dev: number, done: number]>): Snapshot[] {
+  return rows.map(([dev, done], i) => ({
+    date: `2026-02-${String(i + 1).padStart(2, '0')}`,
+    counts: { backlog: 0, dev, review: 0, done },
+  }));
+}
+
+describe("Little's Law with the period's average WIP", () => {
+  it('uses the time-averaged WIP, not the latest day (Opus-1-2 series)', () => {
+    // WIP 10 for nine days, 40 on the tenth; Done +2/day → throughput 2/d.
+    const series = daily([
+      [10, 0], [10, 2], [10, 4], [10, 6], [10, 8],
+      [10, 10], [10, 12], [10, 14], [10, 16], [40, 18],
+    ]);
+    const result = calculateMetrics(workflow, series, { kind: 'all' });
+    expect(result.throughput).toBe(2);
+    expect(result.totalWip).toBe(40); // the WIP card still shows the latest day
+    // Area: eight 1-day trapezoids of 10, then (10+40)/2 = 25 → 105 over 9 days.
+    expect(result.avgWip).toBeCloseTo(105 / 9, 10);
+    // ≈ 5.83 d. The latest WIP gave 20.0 d; a plain mean of snapshots, 6.5 d.
+    expect(result.avgLeadTime).toBeCloseTo(105 / 18, 10);
+  });
+
+  it('weights WIP by time between snapshots, not by snapshot count', () => {
+    // Three snapshots a day apart, then one eight days later.
+    const irregular: Snapshot[] = [
+      { date: '2026-02-01', counts: { backlog: 0, dev: 20, review: 0, done: 0 } },
+      { date: '2026-02-02', counts: { backlog: 0, dev: 20, review: 0, done: 1 } },
+      { date: '2026-02-03', counts: { backlog: 0, dev: 20, review: 0, done: 2 } },
+      { date: '2026-02-11', counts: { backlog: 0, dev: 4, review: 0, done: 10 } },
+    ];
+    const result = calculateMetrics(workflow, irregular, { kind: 'all' });
+    expect(result.throughput).toBe(1);
+    // Area 20 + 20 + (20+4)/2·8 = 136 over 10 days = 13.6. The plain mean of
+    // the four snapshots is 16; the latest WIP is 4.
+    expect(result.avgWip).toBeCloseTo(13.6, 10);
+    expect(result.avgLeadTime).toBeCloseTo(13.6, 10);
+  });
+
+  it('has no span with one snapshot, so Lead Time stays 0 ("—")', () => {
+    const result = calculateMetrics(workflow, [snapshots[2]], { kind: 'all' });
+    expect(result.avgWip).toBe(0);
+    expect(result.avgLeadTime).toBe(0);
+  });
+
+  it('does not invent a span from two snapshots on the same date', () => {
+    // The 1-day floor keeps throughput finite here, but no time passed, so
+    // there is no average WIP to divide.
+    const sameDay: Snapshot[] = [
+      { date: '2026-02-01', counts: { backlog: 0, dev: 5, review: 0, done: 3 } },
+      { date: '2026-02-01', counts: { backlog: 0, dev: 5, review: 0, done: 7 } },
+    ];
+    const result = calculateMetrics(workflow, sameDay, { kind: 'all' });
+    expect(result.throughput).toBe(4);
+    expect(result.avgWip).toBe(0);
+    expect(result.avgLeadTime).toBe(0);
+  });
+});
+
+// ── A falling Done is reported, not repaired ─────────────
+
+describe('a done total that goes down', () => {
+  it('names the first pair of dates where it fell, and keeps today\'s rates', () => {
+    // Done 12 → 20 → 3 (column cleared) → 5 → 4.
+    const cleared = daily([[2, 12], [2, 20], [2, 3], [2, 5], [2, 4]]);
+    const result = calculateMetrics(workflow, cleared, { kind: 'all' });
+    expect(result.doneDecrease).toEqual({ from: '2026-02-02', to: '2026-02-03' });
+    expect(result.throughput).toBe(0);
+    expect(result.avgLeadTime).toBe(0);
+  });
+
+  it('sums every done state, so items moving Done → Released are not a decrease', () => {
+    const twoDone: WorkflowState[] = [
+      ...workflow,
+      { id: 'released', name: 'Released', color: '#16a34a', category: 'done', order: 4 },
+    ];
+    const moved: Snapshot[] = [
+      { date: '2026-02-01', counts: { backlog: 0, dev: 2, review: 0, done: 5, released: 0 } },
+      { date: '2026-02-02', counts: { backlog: 0, dev: 2, review: 0, done: 2, released: 4 } },
+    ];
+    const result = calculateMetrics(twoDone, moved, { kind: 'all' });
+    expect(result.doneDecrease).toBeNull();
+    expect(result.throughput).toBe(1);
+  });
+});
+
+// ── Day spans across daylight saving ─────────────────────
+// The suite never crossed a DST change before. TZ is forced here so this
+// runs in a DST zone wherever the suite runs, CI's UTC included.
+
+describe('rates across a daylight-saving change (America/New_York)', () => {
+  const savedTz = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = 'America/New_York';
+  });
+  afterAll(() => {
+    if (savedTz === undefined) delete process.env.TZ;
+    else process.env.TZ = savedTz;
+  });
+
+  it('reports 18 items over 1–10 March 2026 as exactly 2.0/day', () => {
+    // Control: the zone must really change offset inside the window
+    // (DST began 8 March), or this test would pass for the wrong reason.
+    expect(new Date(2026, 2, 1).getTimezoneOffset()).not.toBe(
+      new Date(2026, 2, 10).getTimezoneOffset(),
+    );
+    const march: Snapshot[] = [
+      { date: '2026-03-01', counts: { backlog: 18, dev: 0, review: 0, done: 0 } },
+      { date: '2026-03-10', counts: { backlog: 0, dev: 0, review: 0, done: 18 } },
+    ];
+    // A millisecond span here is 8 days 23 hours, which gave 2.0093/day.
+    expect(calculateMetrics(workflow, march, { kind: 'all' }).throughput).toBe(2);
+  });
+});
+
+// ── Malformed periods are read as 'all' ──────────────────
+// No UI creates these; they arrive by import or from an unvalidated cloud
+// document. Each was computed as an empty window: WIP 0 on a full project.
+
+describe('a period the metrics cannot use', () => {
+  const malformed: Array<[string, unknown]> = [
+    ['days with no value', { kind: 'days' }],
+    ["days with value 'abc'", { kind: 'days', value: 'abc' }],
+    ['days with value 0', { kind: 'days', value: 0 }],
+    ['range with no bounds', { kind: 'range' }],
+    ['range with an invalid start', { kind: 'range', start: 'not-a-date', end: '2024-01-10' }],
+    ['range whose start is after its end', { kind: 'range', start: '2024-01-15', end: '2024-01-01' }],
+    ['no period at all', undefined],
+    ['an unknown kind', { kind: 'weeks', value: 2 }],
+  ];
+
+  it.each(malformed)('treats %s as all data', (_name, period) => {
+    const all = calculateMetrics(workflow, snapshots, { kind: 'all' });
+    expect(all.totalWip).toBe(5); // control: all data is not itself empty
+    expect(calculateMetrics(workflow, snapshots, period as MetricsPeriod)).toEqual(all);
+  });
+
+  it('keeps a valid days period, including one the selector does not offer', () => {
+    expect(normalizePeriod({ kind: 'days', value: 60 })).toEqual({ kind: 'days', value: 60 });
+  });
+
+  it('keeps a valid range', () => {
+    const range: MetricsPeriod = { kind: 'range', start: '2024-01-05', end: '2024-01-10' };
+    expect(normalizePeriod(range)).toEqual(range);
+    expect(filterSnapshotsByPeriod(snapshots, range).map((s) => s.date)).toEqual(['2024-01-08']);
   });
 });

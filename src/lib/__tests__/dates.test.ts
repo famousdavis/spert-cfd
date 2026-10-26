@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   formatDate,
   formatDateShort,
@@ -65,6 +65,34 @@ describe('daySpanBetween', () => {
 
   it('handles longer spans', () => {
     expect(daySpanBetween('2024-01-01', '2024-01-15')).toBe(14);
+  });
+});
+
+// Forced into a DST zone so this runs wherever the suite runs, CI's UTC
+// included: local midnights across a change are 23 or 25 hours apart.
+describe('daySpanBetween across a daylight-saving change (America/New_York)', () => {
+  const savedTz = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = 'America/New_York';
+  });
+  afterAll(() => {
+    if (savedTz === undefined) delete process.env.TZ;
+    else process.env.TZ = savedTz;
+  });
+
+  it('counts 9 whole days from 1 to 10 March 2026 (clocks went forward on the 8th)', () => {
+    // Control: the zone must really change offset inside the window.
+    expect(new Date(2026, 2, 1).getTimezoneOffset()).not.toBe(
+      new Date(2026, 2, 10).getTimezoneOffset(),
+    );
+    expect(daySpanBetween('2026-03-01', '2026-03-10')).toBe(9);
+  });
+
+  it('counts 2 whole days from 31 October to 2 November 2026 (clocks went back on the 1st)', () => {
+    expect(new Date(2026, 9, 31).getTimezoneOffset()).not.toBe(
+      new Date(2026, 10, 2).getTimezoneOffset(),
+    );
+    expect(daySpanBetween('2026-10-31', '2026-11-02')).toBe(2);
   });
 });
 

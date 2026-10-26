@@ -2,6 +2,12 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.15.25 — Lead Time follows Little's Law (October 26, 2026)
+
+- **Lead Time now follows Little's Law:** the period's average work in progress divided by its throughput. It used the latest day's work in progress, so it jumped whenever work was pulled in.
+- **The metrics panel warns when a Done count goes down**, because a CFD needs cumulative Done.
+- A metrics period the selector does not offer, such as a custom date range in an imported project, is now named in the selector instead of showing "All data"; a malformed one is read as all data. Rates across a daylight-saving change no longer gain or lose an hour.
+
 ## v0.15.24 — A security.txt file (October 25, 2026)
 
 - **SPERT® CFD now publishes a security.txt file (RFC 9116)**, so a security researcher can find where to report a vulnerability: by email to security@spertsuite.com, or privately through SPERT® CFD’s GitHub repository. Nothing about how the app works, looks or stores data changed.
