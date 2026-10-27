@@ -11,6 +11,7 @@ import {
   STABILITY_TOLERANCE,
 } from '../calculations';
 import { createSampleProject } from '../sample-data';
+import { parseISO } from 'date-fns';
 import type { WorkflowState, Snapshot, MetricsPeriod } from '@/types';
 
 const workflow: WorkflowState[] = [
@@ -552,6 +553,21 @@ describe('stability: a gap wider than chance', () => {
 
 describe('the sample project', () => {
   const sample = createSampleProject();
+
+  it('is recorded Monday to Friday, June 1-18, 2026, so the days it skips are weekends', () => {
+    const dates = sample.snapshots.map((s) => s.date);
+    expect(dates).toEqual([
+      '2026-06-01', '2026-06-02', '2026-06-03', '2026-06-04', '2026-06-05',
+      '2026-06-08', '2026-06-09', '2026-06-10', '2026-06-11', '2026-06-12',
+      '2026-06-15', '2026-06-16', '2026-06-17', '2026-06-18',
+    ]);
+    // getDay(): 0 is Sunday, 6 Saturday. Every snapshot on a weekday, every
+    // skipped day a weekend, whatever year it is when the sample is created.
+    expect(dates.every((d) => parseISO(d).getDay() >= 1 && parseISO(d).getDay() <= 5)).toBe(true);
+    expect(['2026-06-06', '2026-06-07', '2026-06-13', '2026-06-14'].map((d) => parseISO(d).getDay()))
+      .toEqual([6, 0, 6, 0]);
+    expect(sample.createdAt).toBe('2026-06-01T00:00:00.000Z');
+  });
 
   it.each<[string, MetricsPeriod]>([
     ['All data', { kind: 'all' }],

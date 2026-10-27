@@ -2,6 +2,10 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.16.3 — The sample runs Monday to Friday (October 27, 2026)
+
+- **The sample project now runs Monday to Friday, June 1–18, 2026**, so the days it skips are weekends. Its dates had been laid out for 2024 and moved into the current year, where they fell on Saturdays and Sundays. Samples already saved keep their dates.
+
 ## v0.16.2 — Lead Time's average names its unit (October 26, 2026)
 
 - **The Lead Time card's average now says "items"**, so it no longer reads like a number of days.
