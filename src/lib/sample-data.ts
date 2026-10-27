@@ -16,34 +16,34 @@ function makeWorkflow(): WorkflowState[] {
   ];
 }
 
-function sampleYear(): number {
-  return Math.max(new Date().getFullYear(), 2026);
-}
-
 function makeSnapshots(): Snapshot[] {
   const stateIds = ['backlog', 'analysis', 'dev', 'review', 'done'];
-  const year = sampleYear();
 
   // A steady flow: new requests arrive as work finishes, and work starts
   // about as fast as it finishes, so Little's Law holds on every period and
   // the panel shows no stability warning. (A closed backlog that only drains
   // is not steady: Lead Time warned on every period.) Review ends above its
   // WIP limit, to show that warning.
+  //
+  // Recorded Monday to Friday over three working weeks, June 1-18, 2026, with
+  // no US federal holiday in them, so the days it skips (6-7, 13-14) are
+  // weekends. The year is pinned: one computed from today would move every
+  // date to another weekday (June 1, 2027 is a Tuesday).
   const raw: Array<[string, number[]]> = [
-    [`${year}-01-01`, [10, 2, 3, 2, 0]],
-    [`${year}-01-02`, [9, 3, 3, 2, 1]],
-    [`${year}-01-03`, [9, 2, 3, 2, 3]],
-    [`${year}-01-04`, [9, 2, 4, 2, 4]],
-    [`${year}-01-05`, [10, 2, 3, 2, 6]],
-    [`${year}-01-08`, [10, 3, 2, 2, 7]],
-    [`${year}-01-09`, [9, 2, 3, 2, 9]],
-    [`${year}-01-10`, [9, 3, 3, 2, 10]],
-    [`${year}-01-11`, [10, 2, 3, 2, 12]],
-    [`${year}-01-12`, [9, 3, 3, 2, 13]],
-    [`${year}-01-15`, [10, 2, 3, 2, 15]],
-    [`${year}-01-16`, [10, 2, 4, 2, 16]],
-    [`${year}-01-17`, [10, 2, 2, 3, 18]],
-    [`${year}-01-18`, [10, 2, 2, 3, 20]],
+    ['2026-06-01', [10, 2, 3, 2, 0]],
+    ['2026-06-02', [9, 3, 3, 2, 1]],
+    ['2026-06-03', [9, 2, 3, 2, 3]],
+    ['2026-06-04', [9, 2, 4, 2, 4]],
+    ['2026-06-05', [10, 2, 3, 2, 6]],
+    ['2026-06-08', [10, 3, 2, 2, 7]],
+    ['2026-06-09', [9, 2, 3, 2, 9]],
+    ['2026-06-10', [9, 3, 3, 2, 10]],
+    ['2026-06-11', [10, 2, 3, 2, 12]],
+    ['2026-06-12', [9, 3, 3, 2, 13]],
+    ['2026-06-15', [10, 2, 3, 2, 15]],
+    ['2026-06-16', [10, 2, 4, 2, 16]],
+    ['2026-06-17', [10, 2, 2, 3, 18]],
+    ['2026-06-18', [10, 2, 2, 3, 20]],
   ];
 
   return raw.map(([date, counts]) => ({
@@ -60,7 +60,7 @@ export function createSampleProject(): Project {
   return {
     id: nanoid(8),
     name: 'Sample: 2-Week Sprint',
-    createdAt: `${sampleYear()}-01-01T00:00:00.000Z`,
+    createdAt: '2026-06-01T00:00:00.000Z',
     updatedAt: now,
     workflow: makeWorkflow(),
     snapshots: makeSnapshots(),
