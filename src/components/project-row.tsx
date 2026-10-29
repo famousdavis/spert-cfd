@@ -10,6 +10,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Trash2 } from 'lucide-react';
 import { MAX_NAME_LENGTH } from '@/lib/constants';
+import { UNNAMED_PROJECT } from '@/lib/cloud-load-guards';
 
 /** Rendered in place of a date when no instant is recoverable. Owner-chosen. */
 const UPDATED_AT_FALLBACK = '\u2014';
@@ -137,7 +138,7 @@ export function ProjectCard({
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <span className="font-medium text-sm truncate">{name}</span>
+              <span className="font-medium text-sm truncate">{name || UNNAMED_PROJECT}</span>
               {isActive && (
                 <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
                   Active
@@ -197,7 +198,7 @@ export function ProjectCard({
           onClick={() => onDelete(id)}
           className="flex h-8 w-8 items-center justify-center rounded text-zinc-400 hover:bg-red-50 hover:text-red-600 transition-colors"
           title="Delete project"
-          aria-label={`Delete ${name}`}
+          aria-label={`Delete ${name || UNNAMED_PROJECT}`}
         >
           <Trash2 className="h-4 w-4" />
         </button>

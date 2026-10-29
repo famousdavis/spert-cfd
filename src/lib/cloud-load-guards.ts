@@ -62,6 +62,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Shown, never saved, for a project whose name is empty: one read from the
+ * cloud as '' because it was not text. The app never writes an empty name
+ * (create and rename both refuse one), so this keeps such a project
+ * reachable rather than standing in for a real name.
+ */
+export const UNNAMED_PROJECT = 'Untitled project';
+
 /** Text as written, or '' (reported) when it is not text. Absent reads as ''. */
 export function cloudText(
   value: unknown,

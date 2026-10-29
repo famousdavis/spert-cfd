@@ -12,6 +12,7 @@ import {
   getNoCloudSetAsideProjects,
   subscribeCloudSetAsideNotices,
 } from '@/lib/cloud-load-notices';
+import { UNNAMED_PROJECT } from '@/lib/cloud-load-guards';
 
 /**
  * v0.16.4: names the projects in which a cloud-load check left something
@@ -30,7 +31,7 @@ export function CloudLoadNoticeBanner() {
   const names = projectIds
     .map((id) => projects.find((p) => p.id === id))
     .filter((p): p is NonNullable<typeof p> => p !== undefined)
-    .map((p) => (p.name ? `“${p.name}”` : 'a project with no readable name'));
+    .map((p) => `“${p.name || UNNAMED_PROJECT}”`);
   if (names.length === 0) return null;
 
   return (

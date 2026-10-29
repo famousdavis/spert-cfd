@@ -40,10 +40,10 @@ describe('CloudLoadNoticeBanner', () => {
     expect(notice.textContent).not.toContain('snapshot');
   });
 
-  it('describes a project whose name itself could not be read', () => {
+  it('names a project whose name itself could not be read by the placeholder', () => {
     render(<CloudLoadNoticeBanner />);
     act(() => noteCloudSetAside('p2', 'project-name'));
-    expect(screen.getByRole('status').textContent).toContain('in project a project with no readable name');
+    expect(screen.getByRole('status').textContent).toContain('in project “Untitled project”.');
   });
 
   it('logs the rule only', () => {
