@@ -2,6 +2,12 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.16.4 — Projects from the cloud are checked before they are shown (October 29, 2026)
+
+- **Projects loaded from cloud storage are now checked before they are shown.** A snapshot or workflow state that SPERT CFD itself could not have saved is left out, a setting of the wrong kind falls back to its default, and the rest of the project loads normally. A notice names the project when this happens. Loading a project changes nothing in the cloud, and projects saved by SPERT CFD load exactly as before.
+- **An error in one tab no longer replaces the whole app.** That tab shows a message, and the header, the other tabs and sign-out keep working.
+- **A snapshot date that is not a real calendar date is shown as written** instead of stopping the grid and the chart.
+
 ## v0.16.3 — The sample runs Monday to Friday (October 27, 2026)
 
 - **The sample project now runs Monday to Friday, June 1–18, 2026**, so the days it skips are weekends. Its dates had been laid out for 2024 and moved into the current year, where they fell on Saturdays and Sundays. Samples already saved keep their dates.

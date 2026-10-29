@@ -69,8 +69,13 @@ export function useMemberProfiles(uids: string[]): Record<string, MemberProfile>
               snap = await getDoc(doc(database, SUITE_PROFILES_COL, uid));
             }
             if (!snap.exists()) return null;
-            const data = snap.data() as { displayName?: string; email?: string };
-            return [uid, { displayName: data.displayName ?? '', email: data.email ?? '' }];
+            // v0.16.4: each member writes their own profile, so its fields
+            // are read as text only; the sharing list renders them.
+            const data = snap.data() as { displayName?: unknown; email?: unknown };
+            return [uid, {
+              displayName: typeof data.displayName === 'string' ? data.displayName : '',
+              email: typeof data.email === 'string' ? data.email : '',
+            }];
           } catch {
             // Transient permission/network failure — caller shows the fallback.
             return null;

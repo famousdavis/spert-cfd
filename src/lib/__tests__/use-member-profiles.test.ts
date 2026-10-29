@@ -116,4 +116,16 @@ describe('useMemberProfiles', () => {
     // Self short-circuits; only MEMBER hits Firestore, and only tier 1.
     expect(h.state.reads).toEqual([`spertcfd_profiles/${MEMBER}`]);
   });
+
+  // v0.16.4: each member writes their own profile, and the sharing list
+  // renders it. Before v0.16.4 an object here reached the list as is.
+  it('reads profile fields that are not text as empty', async () => {
+    h.state.docs[`spertcfd_profiles/${MEMBER}`] = { displayName: { first: 'x' }, email: ['a@example.com'] };
+
+    const { result } = renderHook(() => useMemberProfiles([MEMBER]));
+
+    await waitFor(() => {
+      expect(result.current[MEMBER]).toEqual({ displayName: '', email: '' });
+    });
+  });
 });

@@ -15,6 +15,7 @@ import { useStorage } from '@/contexts/storage-context';
 import { useEscapeKey } from '@/lib/use-dismiss';
 import { PROJECTS_COL } from '@/lib/firestore-helpers';
 import { useMemberProfiles } from '@/lib/use-member-profiles';
+import { UNNAMED_PROJECT } from '@/lib/cloud-load-guards';
 import { INVITATIONS_ENABLED } from '@/lib/feature-flags';
 import { parseBulkEmails } from '@/lib/parse-bulk-emails';
 import { mapInvitationError } from '@/lib/invitation-errors';
@@ -218,7 +219,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
           <h2 id="sharing-modal-title" className="text-sm font-semibold">
-            Share — {project.name}
+            Share — {project.name || UNNAMED_PROJECT}
           </h2>
           <button
             onClick={onClose}

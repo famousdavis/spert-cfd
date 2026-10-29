@@ -94,7 +94,8 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     (async () => {
       const map = new Map<string, ProjectStats>();
       for (const p of projects) {
-        const full = await driver.loadProject(p.id);
+        // v0.16.4: one project that cannot be read leaves the others' stats.
+        const full = await driver.loadProject(p.id).catch(() => null);
         if (full) {
           map.set(p.id, {
             snapshotCount: full.snapshots.length,

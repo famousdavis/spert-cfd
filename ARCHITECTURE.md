@@ -82,6 +82,8 @@ src/
 │   ├── storage-driver.ts          # StorageDriver interface + StorageMode + ProjectListItem
 │   ├── local-storage-driver.ts    # createLocalStorageDriver() — async wrapper over storage.ts
 │   ├── firestore-driver.ts       # createFirestoreDriver(uid, db) — Firestore StorageDriver
+│   ├── cloud-load-guards.ts      # Shape checks on project documents read from the cloud (v0.16.4)
+│   ├── cloud-load-notices.ts     # Projects in which a cloud-load check set something aside (v0.16.4)
 │   ├── firestore-helpers.ts      # Collection constants, stripUndefined, appendChangeLogEntry
 │   ├── cloud-migration.ts        # Local → cloud upload with collision detection
 │   ├── storage.ts                # Low-level localStorage CRUD (consumed by local driver)
@@ -179,6 +181,13 @@ MetricsPeriod (discriminated union, uses `kind` not `type`)
 - `spertcfd_projects/{projectId}` — monolithic project documents with `owner`, `members`, fingerprinting fields
 - `spertcfd_profiles/{uid}` — user profiles for sharing UI email lookups
 - `spertcfd_settings/{uid}` — per-user preferences (`projectOrder`)
+
+**Cloud reads are checked, not trusted (v0.16.4).** Any editor of a shared project can write its document, so `mapDocToProject` and both project-list paths read it through `cloud-load-guards.ts`:
+- a snapshot or workflow state that cannot be read is set aside, a field of the wrong type takes its default, and the rest loads;
+- a name that is not text reads as empty;
+- the checks never throw and never write.
+
+They do **not** reuse `validateProjectData`, which rejects a whole document. `saveProject` writes name, workflow, snapshots and settings back whole, so every check accepts everything the app's own writers produce. `CloudLoadNoticeBanner` names each project in which something was set aside. An `ErrorBoundary` with a `fallback` wraps the current tab in `app-shell.tsx`, inside the app-wide one.
 
 All storage functions include `typeof window === 'undefined'` guards for SSR safety. Contexts use deferred async loading (`useEffect` → `await driver.loadProjectList()` → `isLoaded` flag gates rendering).
 
