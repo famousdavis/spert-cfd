@@ -854,3 +854,119 @@ describe('creates in flight (QC26 Q01)', () => {
     errors.mockRestore();
   });
 });
+
+// ── v0.16.4: project documents read from the cloud ──────
+//
+// Any editor of a shared project can write its document. Before v0.16.4 a
+// name that was not text reached the Projects tab as is (React threw, and the
+// app-wide boundary replaced the whole app on every load), and a snapshot or
+// state that could not be read reached the chart as is.
+
+describe('cloud reads (v0.16.4)', () => {
+  const hostileDoc = () => ({
+    name: { evil: 1 },
+    createdAt: 5,
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    workflow: [
+      { id: 'backlog', name: 'Backlog', color: '#64748b', category: 'backlog', order: 0 },
+      { id: 'bad', name: ['x'], color: '#64748b', category: 'active', order: 1 },
+      { id: 'done', name: 'Done', color: '#22c55e', category: 'done', order: 2 },
+    ],
+    snapshots: [
+      { date: '2026-01-01', counts: { backlog: 3, done: 0 } },
+      { date: 20260102, counts: {} },
+      { date: '2026-01-03', counts: { backlog: 'many', done: 2 } },
+    ],
+    settings: 'all of them',
+    _changeLog: 'none',
+    owner: 7,
+  });
+
+  let warn: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
+  function expectGuarded(project: Project | null) {
+    expect(project).not.toBeNull();
+    expect(project!.name).toBe('');
+    expect(project!.createdAt).toBe('');
+    expect(project!.workflow.map((s) => s.id)).toEqual(['backlog', 'done']);
+    expect(project!.snapshots).toEqual([
+      { date: '2026-01-01', counts: { backlog: 3, done: 0 } },
+      { date: '2026-01-03', counts: { done: 2 } },
+    ]);
+    expect(project!.settings).toEqual({ gridSortNewestFirst: true, showWipWarnings: true, metricsPeriod: { kind: 'all' } });
+    expect(project).not.toHaveProperty('_changeLog');
+    expect(project).not.toHaveProperty('owner');
+  }
+
+  it('loadProjectList reads a name that is not text as empty, and lists the other projects', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    mockGetDocs.mockResolvedValue({
+      forEach: (cb: (doc: { id: string; data: () => Record<string, unknown> }) => void) => {
+        cb({ id: 'p1', data: () => ({ name: 'Real', owner: TEST_UID }) });
+        cb({ id: 'p2', data: () => ({ name: { evil: 1 }, owner: { uid: 'x' } }) });
+      },
+    });
+
+    const list = await driver.loadProjectList();
+
+    expect(list).toEqual([{ id: 'p1', name: 'Real', owner: TEST_UID }, { id: 'p2', name: '', owner: undefined }]);
+    expect(warn).toHaveBeenCalledWith('[SPERT CFD] cloud-load-guard: project-name');
+  });
+
+  it('onProjectListChange does the same for the live list', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const callback = vi.fn();
+    let deliver!: (snap: unknown) => Promise<void>;
+    mockOnSnapshot.mockImplementation((_query, cb) => {
+      deliver = cb;
+      return () => {};
+    });
+    driver.onProjectListChange(callback);
+
+    await deliver({
+      metadata: { hasPendingWrites: false },
+      forEach: (cb: (doc: { id: string; data: () => Record<string, unknown> }) => void) => {
+        cb({ id: 'p2', data: () => ({ name: 12 }) });
+      },
+    });
+
+    expect(callback).toHaveBeenCalledWith([{ id: 'p2', name: '', owner: undefined }]);
+  });
+
+  it('loadProject loads a project with the parts it cannot read set aside', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    mockGetDoc.mockResolvedValue({ exists: () => true, id: 'p2', data: hostileDoc });
+
+    expectGuarded(await driver.loadProject('p2'));
+  });
+
+  it('the project listener delivers the same', () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const callback = vi.fn();
+    mockOnSnapshot.mockImplementation((_ref, cb) => {
+      cb({ exists: () => true, metadata: { hasPendingWrites: false }, id: 'p2', data: hostileDoc });
+      return () => {};
+    });
+
+    driver.onProjectChange('p2', callback);
+
+    expectGuarded(callback.mock.calls[0][0]);
+  });
+
+  it('loads a project the app wrote exactly as stored', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const stored = { ...sampleProject({ snapshots: [{ date: '2026-01-01', counts: { backlog: 2, done: 1 } }] }), owner: TEST_UID, members: { [TEST_UID]: 'owner' } };
+    mockGetDoc.mockResolvedValue({ exists: () => true, id: 'proj-1', data: () => JSON.parse(JSON.stringify(stored)) });
+
+    const loaded = await driver.loadProject('proj-1');
+
+    expect(loaded).toEqual({ ...stored, _version: expect.any(String) });
+    expect(warn).not.toHaveBeenCalled();
+  });
+});

@@ -8,6 +8,12 @@ import { Component, type ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
+  /**
+   * v0.16.4: shown instead of the full-screen message, for a boundary
+   * around one part of the app. Give the boundary a `key` that changes when
+   * the user moves on (the tab, say), so the part is tried again then.
+   */
+  fallback?: ReactNode;
 }
 
 interface State {
@@ -23,6 +29,9 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   render() {
+    if (this.state.hasError && this.props.fallback !== undefined) {
+      return this.props.fallback;
+    }
     if (this.state.hasError) {
       return (
         <div className="flex h-screen flex-col items-center justify-center p-8 text-center">

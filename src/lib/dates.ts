@@ -5,14 +5,25 @@
 import { format, parseISO, isValid, differenceInCalendarDays } from 'date-fns';
 import type { Snapshot, WorkflowState } from '@/types';
 
+/**
+ * Format with date-fns, or return the text as it is when it is not a real
+ * date. date-fns `format` throws on an Invalid Date, and v0.16.4 reads a
+ * `YYYY-MM-DD` that is not a calendar date (2026-02-30, say, which JSON
+ * import accepts) as a date to show, not a reason to crash the grid.
+ */
+function formatOrAsIs(iso: string, pattern: string): string {
+  const date = parseISO(iso);
+  return isValid(date) ? format(date, pattern) : iso;
+}
+
 /** Format an ISO date string for display: "Jan 15, 2024" */
 export function formatDate(iso: string): string {
-  return format(parseISO(iso), 'MMM d, yyyy');
+  return formatOrAsIs(iso, 'MMM d, yyyy');
 }
 
 /** Format an ISO date string for short display: "Jan 15" */
 export function formatDateShort(iso: string): string {
-  return format(parseISO(iso), 'MMM d');
+  return formatOrAsIs(iso, 'MMM d');
 }
 
 /** Get today as YYYY-MM-DD */

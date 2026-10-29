@@ -223,3 +223,18 @@ describe('mergeSnapshots', () => {
     expect(result).toHaveLength(2);
   });
 });
+
+// v0.16.4: a YYYY-MM-DD that is not a calendar date (JSON import accepts
+// 2026-02-30) is shown as written. date-fns `format` threw on it before, which
+// crashed the grid and the chart.
+describe('formatDate / formatDateShort with a date that is not a calendar date', () => {
+  it('returns the text as written', () => {
+    expect(formatDate('2026-02-30')).toBe('2026-02-30');
+    expect(formatDateShort('2026-13-01')).toBe('2026-13-01');
+  });
+
+  it('still formats a real date', () => {
+    expect(formatDate('2024-02-29')).toBe('Feb 29, 2024');
+    expect(formatDateShort('2024-02-29')).toBe('Feb 29');
+  });
+});

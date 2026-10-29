@@ -35,6 +35,8 @@ import { LS_ACTIVE_PROJECT, DEBOUNCE_CLOUD_MS, SCHEMA_VERSION } from './constant
 import { DATA_VERSION } from './migrations';
 import { callRevokeInvite, callResendInvite } from './callables';
 import { normalizeUpdatedAt } from './updated-at';
+import { cloudProjectData, cloudText, type CloudSetAsideReport } from './cloud-load-guards';
+import { noteCloudSetAside } from './cloud-load-notices';
 
 // ── Invitation helpers ──────────────────────────────────
 
@@ -100,14 +102,19 @@ function mapToPendingInvite(
 /**
  * Extract a Project from a Firestore document snapshot.
  * Strips cloud-only fields so consumers see the same shape as local mode.
+ *
+ * v0.16.4: another editor of a shared project can write this document, so
+ * name, workflow, snapshots and settings are read through the checks in
+ * `cloud-load-guards.ts`, and each metadata field keeps only its own type.
+ * A value set aside is passed to `report`; the rest of the project loads.
  */
-function mapDocToProject(snap: DocumentSnapshot): Project | null {
+function mapDocToProject(snap: DocumentSnapshot, report: CloudSetAsideReport = noteCloudSetAside): Project | null {
   if (!snap.exists()) return null;
   const data = snap.data()!;
   return {
     id: snap.id,
-    name: data.name,
-    createdAt: data.createdAt,
+    ...cloudProjectData(snap.id, data, report),
+    createdAt: typeof data.createdAt === 'string' ? data.createdAt : '',
     // NO LOG HERE, DELIBERATELY — and this is the one respect in which this file
     // differs from spert-forecaster's `src/shared/firebase/firestore-converters.ts`,
     // which console.warns at its equivalent call site.
@@ -125,21 +132,27 @@ function mapDocToProject(snap: DocumentSnapshot): Project | null {
     // near-identical files differing in one respect for a stated reason is a better
     // outcome than two files that match by accident.
     updatedAt: normalizeUpdatedAt(data.updatedAt),
-    workflow: data.workflow ?? [],
-    snapshots: data.snapshots ?? [],
-    settings: data.settings ?? {
-      gridSortNewestFirst: true,
-      showWipWarnings: true,
-      metricsPeriod: { kind: 'all' },
-    },
-    _version: data._version ?? DATA_VERSION,
+    _version: typeof data._version === 'string' ? data._version : DATA_VERSION,
     // Preserve fingerprinting fields if present
-    ...(data._originRef !== undefined && { _originRef: data._originRef }),
-    ...(data._changeLog !== undefined && { _changeLog: data._changeLog }),
+    ...(typeof data._originRef === 'string' && { _originRef: data._originRef }),
+    ...(Array.isArray(data._changeLog) && { _changeLog: data._changeLog }),
     // Preserve cloud metadata for internal use
-    ...(data.owner !== undefined && { owner: data.owner }),
-    ...(data.members !== undefined && { members: data.members }),
+    ...(typeof data.owner === 'string' && { owner: data.owner }),
+    ...(typeof data.members === 'object' && data.members !== null && !Array.isArray(data.members) && { members: data.members }),
     ...(data.schemaVersion !== undefined && { schemaVersion: data.schemaVersion }),
+  };
+}
+
+/**
+ * One project-list entry. v0.16.4: a name that is not text reads as '' and
+ * is reported, so one project cannot take the list down for everyone it
+ * names; an owner that is not text reads as none.
+ */
+function toListItem(id: string, data: Record<string, unknown>): ProjectListItem {
+  return {
+    id,
+    name: cloudText(data.name, id, 'project-name', noteCloudSetAside),
+    owner: typeof data.owner === 'string' ? data.owner : undefined,
   };
 }
 
@@ -293,11 +306,7 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
         // Re-attach owner from the raw doc so list consumers can
         // compute isOwner without an N+1 round-trip per project
         // (Lessons 38, 49).
-        projects.push({
-          id: d.id,
-          name: data.name as string,
-          owner: data.owner as string | undefined,
-        });
+        projects.push(toListItem(d.id, data));
       });
       const order = await loadProjectOrder();
       return sortByOrder(projects, order);
@@ -529,11 +538,7 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
             // Re-attach owner so the spert:models-changed downstream
             // listeners (and any other list-snapshot consumer) get
             // ownership metadata without a follow-up read (Lesson 49).
-            projects.push({
-              id: d.id,
-              name: data.name as string,
-              owner: data.owner as string | undefined,
-            });
+            projects.push(toListItem(d.id, data));
           });
           const order = await loadProjectOrder();
           callback(sortByOrder(projects, order));
