@@ -31,6 +31,7 @@ src/
 │
 ├── components/
 │   ├── app-shell.tsx             # Top-level provider wiring + tab state + loading gate + CloudStorageModal mount
+│   ├── page-column.ts            # PAGE_COLUMN: the one centred 1200px column shared by header, tabs, notices and every tab (v0.17.1)
 │   ├── app-header.tsx            # Header: branding + Option C split pill auth chip — opens CloudStorageModal
 │   ├── cloud-storage-modal.tsx   # Three-state Cloud Storage modal + Notifications toggle (auth-chip target)
 │   ├── cloud-migration-flow.tsx  # Shared local→cloud migration UX (consumed by StorageSection + modal; see JSDoc re intentional cloud→local duplication)
@@ -52,7 +53,7 @@ src/
 │   ├── first-run-banner.tsx      # First-run informational banner
 │   ├── local-storage-warning-banner.tsx  # Data persistence caution; "Got it" hides it until the next page load (v0.4.7; card, v0.17.0)
 │   ├── footer.tsx                # App footer (version, copyright, license, legal links)
-│   ├── project-dashboard.tsx     # CFD tab layout: sidebar + chart + grid
+│   ├── project-dashboard.tsx     # CFD tab layout: sidebar + chart + grid, a bordered panel in the page column
 │   ├── chart/
 │   │   ├── cfd-chart.tsx         # Memo'd Recharts AreaChart (Done bottom, Backlog top)
 │   │   ├── chart-controls.tsx    # Toggleable legend

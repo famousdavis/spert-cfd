@@ -12,6 +12,7 @@ import { WorkflowEditor } from './workflow/workflow-editor';
 import { DataGrid } from './grid/data-grid';
 import { CFDChart } from './chart/cfd-chart';
 import { MetricsPanel } from './metrics/metrics-panel';
+import { PAGE_COLUMN } from './page-column';
 
 interface ProjectDashboardProps {
   onGoToProjects?: () => void;
@@ -44,8 +45,9 @@ export function ProjectDashboard({ onGoToProjects }: ProjectDashboardProps) {
   }
 
   return (
-    <div className="flex flex-1 overflow-hidden justify-center bg-gray-50">
-      <div className="flex w-full max-w-7xl bg-white border-x border-gray-200 overflow-hidden">
+    // A bordered panel in the page's column, under the header and the tabs.
+    <div className={`${PAGE_COLUMN} flex flex-1 overflow-hidden py-4`}>
+      <div className="flex w-full overflow-hidden rounded-lg border border-gray-200 bg-white">
         {/* Left sidebar */}
         <aside className="w-64 border-r border-gray-200 bg-gray-50 p-4 overflow-y-auto">
           <WorkflowEditor />

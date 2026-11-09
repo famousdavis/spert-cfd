@@ -13,6 +13,7 @@ import {
   subscribeCloudSetAsideNotices,
 } from '@/lib/cloud-load-notices';
 import { UNNAMED_PROJECT } from '@/lib/cloud-load-guards';
+import { PAGE_COLUMN } from './page-column';
 
 /**
  * v0.16.4: names the projects in which a cloud-load check left something
@@ -35,8 +36,9 @@ export function CloudLoadNoticeBanner() {
   if (names.length === 0) return null;
 
   return (
-    <div role="status" className="border-b border-amber-200 bg-amber-50 py-3 text-sm text-amber-800">
-      <div className="mx-auto flex w-full max-w-7xl items-center gap-4 px-4">
+    // A card in the page's column, like the other app notices.
+    <div role="status" className={`${PAGE_COLUMN} pt-3`}>
+      <div className="flex items-center gap-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
         <p className="flex-1">
           <strong>Some saved data could not be read</strong> in{' '}
           {names.length === 1 ? 'project' : 'projects'} {names.join(', ')}. It is not shown; the
@@ -45,7 +47,7 @@ export function CloudLoadNoticeBanner() {
         <button
           type="button"
           onClick={dismissCloudSetAsideNotices}
-          className="shrink-0 rounded bg-amber-600 px-3 py-1 text-xs text-white hover:bg-amber-700"
+          className="shrink-0 rounded border border-amber-600 px-3 py-1 text-xs text-amber-700 hover:bg-amber-100"
         >
           Got it
         </button>

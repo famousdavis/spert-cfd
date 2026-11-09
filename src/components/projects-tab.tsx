@@ -32,6 +32,7 @@ import { TOOLBAR_ICON_PATHS } from './icons/toolbar-icon-paths';
 import { ImportPreviewSection } from './import-preview-section';
 import { SharingModal } from './sharing-modal';
 import { SortableProjectCard, type ProjectStats } from './project-row';
+import { PAGE_COLUMN } from './page-column';
 
 interface ProjectsTabProps {
   onOpenInCfd: (id: string) => void;
@@ -181,195 +182,199 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     projects.find((p) => p.id === deleteConfirmId)?.name ?? '';
 
   return (
-    <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 mx-auto w-full max-w-4xl">
-      {/* Heading and toolbar row (v0.17.0): the dashboard's first row, the
-          same order as across the SPERT suite. Every button is always
-          rendered; none moves with the project count or a load. */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-          Projects ({projects.length})
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleExportAll}
-            disabled={projects.length === 0}
-            aria-label="Export all projects as JSON"
-            className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-          >
-            <ToolbarIcon d={TOOLBAR_ICON_PATHS.export} />
-            Export All
-          </button>
-          <button
-            type="button"
-            onClick={onImportClick}
-            disabled={driverLoading}
-            aria-label="Import projects from JSON"
-            className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-          >
-            <ToolbarIcon d={TOOLBAR_ICON_PATHS.import} />
-            Import
-          </button>
-          <button
-            type="button"
-            onClick={handleLoadSample}
-            className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-          >
-            <ToolbarIcon d={TOOLBAR_ICON_PATHS.sample} />
-            Load Sample
-          </button>
-          <button
-            ref={newProjectButtonRef}
-            type="button"
-            onClick={() => setNewProjectOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700"
-          >
-            <ToolbarIcon d={TOOLBAR_ICON_PATHS.plus} />
-            New Project
-          </button>
+    // The scroll area spans the window, so its scrollbar is at the edge; the
+    // content sits in the page's column, under the header and the tabs.
+    <div className="flex-1 overflow-y-auto py-4">
+      <div className={`${PAGE_COLUMN} flex flex-col gap-4`}>
+        {/* Heading and toolbar row (v0.17.0): the dashboard's first row, the
+            same order as across the SPERT suite. Every button is always
+            rendered; none moves with the project count or a load. */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+            Projects ({projects.length})
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleExportAll}
+              disabled={projects.length === 0}
+              aria-label="Export all projects as JSON"
+              className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+            >
+              <ToolbarIcon d={TOOLBAR_ICON_PATHS.export} />
+              Export All
+            </button>
+            <button
+              type="button"
+              onClick={onImportClick}
+              disabled={driverLoading}
+              aria-label="Import projects from JSON"
+              className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+            >
+              <ToolbarIcon d={TOOLBAR_ICON_PATHS.import} />
+              Import
+            </button>
+            <button
+              type="button"
+              onClick={handleLoadSample}
+              className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+            >
+              <ToolbarIcon d={TOOLBAR_ICON_PATHS.sample} />
+              Load Sample
+            </button>
+            <button
+              ref={newProjectButtonRef}
+              type="button"
+              onClick={() => setNewProjectOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700"
+            >
+              <ToolbarIcon d={TOOLBAR_ICON_PATHS.plus} />
+              New Project
+            </button>
+          </div>
+          <input
+            id="import-project-file"
+            name="import-project-file"
+            ref={importInputRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={onImportFileChange}
+            className="hidden"
+            aria-label="Import project file"
+          />
         </div>
-        <input
-          id="import-project-file"
-          name="import-project-file"
-          ref={importInputRef}
-          type="file"
-          accept=".json,application/json"
-          onChange={onImportFileChange}
-          className="hidden"
-          aria-label="Import project file"
-        />
-      </div>
 
-      {/* Non-import UI error (e.g. last-project delete) */}
-      {uiError && (
-        <div role="alert" className="flex items-center justify-between rounded bg-red-50 px-4 py-2 text-sm text-red-700">
-          <span>{uiError}</span>
-          <button
-            onClick={() => setUiError(null)}
-            className="ml-4 text-red-500 hover:text-red-700"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {/* Import error phase */}
-      {importFlowPhase.phase === 'error' && (
-        <div
-          role="alert"
-          className="flex items-center justify-between rounded bg-red-50 px-4 py-2 text-sm text-red-700"
-        >
-          <span>{importFlowPhase.message}</span>
-          <button
-            onClick={onDismissImportBanner}
-            className="ml-4 text-red-500 hover:text-red-700"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {/* Import success banner */}
-      {importFlowPhase.phase === 'banner' && (
-        <div
-          role="status"
-          className="flex items-center justify-between rounded bg-green-50 px-4 py-2 text-sm text-green-700"
-        >
-          <span>{buildBannerText(importFlowPhase.outcome)}</span>
-          <button
-            onClick={onDismissImportBanner}
-            className="ml-4 text-green-600 hover:text-green-800"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {/* Import preview */}
-      {importFlowPhase.phase === 'preview' && (
-        <ImportPreviewSection
-          incoming={importFlowPhase.incoming}
-          conflicts={importFlowPhase.conflicts}
-          decisions={importFlowPhase.decisions}
-          applying={importApplying}
-          driverLoading={driverLoading}
-          existingCount={projects.length}
-          onSetDecision={setImportDecision}
-          onConfirm={onConfirmImport}
-          onCancel={onCancelImport}
-        />
-      )}
-
-      {/* Project list */}
-      <section aria-label="Projects">
-        {projects.length === 0 ? (
-          <p className="text-sm text-gray-400">
-            No projects yet. Use New Project, Load Sample or Import.
-          </p>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext items={projectIds} strategy={rectSortingStrategy}>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                {projects.map((p) => (
-                  <SortableProjectCard
-                    key={p.id}
-                    id={p.id}
-                    name={p.name}
-                    stats={projectStats.get(p.id)}
-                    isActive={p.id === activeProjectId}
-                    onOpen={onOpenInCfd}
-                    onExport={handleExport}
-                    onShare={driver.mode === 'cloud' && projectStats.get(p.id)?.isOwner ? (id: string) => setSharingProjectId(id) : undefined}
-                    onDelete={handleDeleteClick}
-                    onRename={renameProject}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+        {/* Non-import UI error (e.g. last-project delete) */}
+        {uiError && (
+          <div role="alert" className="flex items-center justify-between rounded bg-red-50 px-4 py-2 text-sm text-red-700">
+            <span>{uiError}</span>
+            <button
+              onClick={() => setUiError(null)}
+              className="ml-4 text-red-500 hover:text-red-700"
+            >
+              Dismiss
+            </button>
+          </div>
         )}
-      </section>
 
-      {/* New project name */}
-      {newProjectOpen && (
-        <NewProjectDialog onCreate={handleCreate} onCancel={closeNewProject} />
-      )}
+        {/* Import error phase */}
+        {importFlowPhase.phase === 'error' && (
+          <div
+            role="alert"
+            className="flex items-center justify-between rounded bg-red-50 px-4 py-2 text-sm text-red-700"
+          >
+            <span>{importFlowPhase.message}</span>
+            <button
+              onClick={onDismissImportBanner}
+              className="ml-4 text-red-500 hover:text-red-700"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
-      {/* Sharing modal */}
-      {sharingProjectId && (
-        <SharingModal
-          projectId={sharingProjectId}
-          onClose={() => setSharingProjectId(null)}
-        />
-      )}
+        {/* Import success banner */}
+        {importFlowPhase.phase === 'banner' && (
+          <div
+            role="status"
+            className="flex items-center justify-between rounded bg-green-50 px-4 py-2 text-sm text-green-700"
+          >
+            <span>{buildBannerText(importFlowPhase.outcome)}</span>
+            <button
+              onClick={onDismissImportBanner}
+              className="ml-4 text-green-600 hover:text-green-800"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
-      {/* Delete confirmation */}
-      {deleteConfirmId && (
-        <ConfirmDialog
-          title="Delete Project"
-          message={`Delete "${deleteTargetName}"? This cannot be undone.`}
-          confirmLabel="Delete"
-          variant="danger"
-          onConfirm={handleConfirmDelete}
-          onCancel={() => setDeleteConfirmId(null)}
-        />
-      )}
+        {/* Import preview */}
+        {importFlowPhase.phase === 'preview' && (
+          <ImportPreviewSection
+            incoming={importFlowPhase.incoming}
+            conflicts={importFlowPhase.conflicts}
+            decisions={importFlowPhase.decisions}
+            applying={importApplying}
+            driverLoading={driverLoading}
+            existingCount={projects.length}
+            onSetDecision={setImportDecision}
+            onConfirm={onConfirmImport}
+            onCancel={onCancelImport}
+          />
+        )}
 
-      {/* Replace-confirm gate for imports */}
-      {importFlowPhase.phase === 'replace-confirm' && (
-        <ConfirmDialog
-          title="Replace projects?"
-          message="One or more projects in your workspace will be overwritten by the import. This cannot be undone."
-          confirmLabel="Replace"
-          variant="danger"
-          onConfirm={onReplaceConfirmed}
-          onCancel={onDismissReplaceConfirm}
-        />
-      )}
+        {/* Project list */}
+        <section aria-label="Projects">
+          {projects.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              No projects yet. Use New Project, Load Sample or Import.
+            </p>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={projectIds} strategy={rectSortingStrategy}>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {projects.map((p) => (
+                    <SortableProjectCard
+                      key={p.id}
+                      id={p.id}
+                      name={p.name}
+                      stats={projectStats.get(p.id)}
+                      isActive={p.id === activeProjectId}
+                      onOpen={onOpenInCfd}
+                      onExport={handleExport}
+                      onShare={driver.mode === 'cloud' && projectStats.get(p.id)?.isOwner ? (id: string) => setSharingProjectId(id) : undefined}
+                      onDelete={handleDeleteClick}
+                      onRename={renameProject}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
+        </section>
+
+        {/* New project name */}
+        {newProjectOpen && (
+          <NewProjectDialog onCreate={handleCreate} onCancel={closeNewProject} />
+        )}
+
+        {/* Sharing modal */}
+        {sharingProjectId && (
+          <SharingModal
+            projectId={sharingProjectId}
+            onClose={() => setSharingProjectId(null)}
+          />
+        )}
+
+        {/* Delete confirmation */}
+        {deleteConfirmId && (
+          <ConfirmDialog
+            title="Delete Project"
+            message={`Delete "${deleteTargetName}"? This cannot be undone.`}
+            confirmLabel="Delete"
+            variant="danger"
+            onConfirm={handleConfirmDelete}
+            onCancel={() => setDeleteConfirmId(null)}
+          />
+        )}
+
+        {/* Replace-confirm gate for imports */}
+        {importFlowPhase.phase === 'replace-confirm' && (
+          <ConfirmDialog
+            title="Replace projects?"
+            message="One or more projects in your workspace will be overwritten by the import. This cannot be undone."
+            confirmLabel="Replace"
+            variant="danger"
+            onConfirm={onReplaceConfirmed}
+            onCancel={onDismissReplaceConfirm}
+          />
+        )}
+      </div>
     </div>
   );
 }

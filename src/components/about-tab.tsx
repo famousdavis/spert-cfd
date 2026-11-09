@@ -6,6 +6,7 @@
 
 import { APP_VERSION } from "@/lib/constants";
 import { STABILITY_NOISE_SIGMAS, STABILITY_TOLERANCE } from "@/lib/calculations";
+import { PAGE_COLUMN } from "./page-column";
 
 const tolerancePercent = Math.round(STABILITY_TOLERANCE * 100);
 
@@ -26,8 +27,10 @@ function TrademarkedName({
 
 export function AboutTab() {
   return (
-    <div className="flex-1 overflow-y-auto p-4">
-      <div className="mx-auto max-w-4xl">
+    // Left-aligned in the page's column under the tabs; each block keeps a
+    // reading width.
+    <div className="flex-1 overflow-y-auto py-4">
+      <div className={`${PAGE_COLUMN} *:max-w-4xl`}>
         <h2 className="text-2xl mb-2 text-gray-900">
           About <TrademarkedName name="SPERT" /> CFD
         </h2>

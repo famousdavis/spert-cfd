@@ -7,6 +7,7 @@
 import { useStorage } from '@/contexts/storage-context';
 import { useAuth } from '@/contexts/auth-context';
 import { getFirstName } from '@/lib/user-display';
+import { PAGE_COLUMN } from './page-column';
 
 interface AppHeaderProps {
   onOpenModal: () => void;
@@ -46,8 +47,9 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
   const dividerStyle = { width: '0.5px', backgroundColor: '#D1D5DB' } as const;
 
   return (
-    <header className="border-b border-gray-200 bg-white px-4 py-2">
-      <div className="mx-auto w-full max-w-7xl flex items-center justify-between">
+    // In the page's column with the tabs, not a full-width bar (as in GanttApp).
+    <header className={PAGE_COLUMN}>
+      <div className="flex items-center justify-between py-3">
       <div className="flex items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
