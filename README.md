@@ -5,7 +5,7 @@ A Cumulative Flow Diagram tool for agile teams. Part of the SPERT® Suite. Core 
 ## Features
 
 - **Tab-based navigation** — Projects (default), CFD, and About tabs
-- **Projects tab** — tile-style project cards with drag-to-reorder, inline add form, per-project export, and Export All
+- **Projects tab** — tile-style project cards with drag-to-reorder and per-project export, under a toolbar of Export All, Import, Load Sample and New Project
 - **Multi-project support** with localStorage persistence
 - **Customizable workflow states** — drag-to-reorder, color picker, category assignment (backlog/active/done)
 - **WIP limits** on active states with visual warnings

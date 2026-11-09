@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -23,10 +23,12 @@ import { useProjectList } from '@/contexts/project-list-context';
 import { useStorage } from '@/contexts/storage-context';
 import { useAuth } from '@/contexts/auth-context';
 import { exportFilename, exportAllFilename, downloadFile } from '@/lib/download';
-import { MAX_NAME_LENGTH } from '@/lib/constants';
 import { buildBannerText } from '@/lib/import-utils';
 import { useImportState } from '@/hooks/use-import-state';
 import { ConfirmDialog } from './confirm-dialog';
+import { NewProjectDialog } from './new-project-dialog';
+import { ToolbarIcon } from './icons/toolbar-icon';
+import { TOOLBAR_ICON_PATHS } from './icons/toolbar-icon-paths';
 import { ImportPreviewSection } from './import-preview-section';
 import { SharingModal } from './sharing-modal';
 import { SortableProjectCard, type ProjectStats } from './project-row';
@@ -41,6 +43,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     activeProjectId,
     driverLoading,
     createProject,
+    loadSampleProject,
     deleteProject,
     renameProject,
     reorderProjects,
@@ -48,7 +51,8 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
   const { driver } = useStorage();
   const { user } = useAuth();
 
-  const [newName, setNewName] = useState('');
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const newProjectButtonRef = useRef<HTMLButtonElement>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [sharingProjectId, setSharingProjectId] = useState<string | null>(null);
   const [projectStats, setProjectStats] = useState<Map<string, ProjectStats>>(new Map());
@@ -111,18 +115,26 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     return () => { cancelled = true; };
   }, [projects, driver, user]);
 
-  const handleCreate = useCallback(() => {
-    const name = newName.trim();
-    if (!name) return;
+  // The New Project button is always rendered, so focus can go back to it.
+  const closeNewProject = useCallback(() => {
+    setNewProjectOpen(false);
+    newProjectButtonRef.current?.focus();
+  }, []);
+
+  const handleCreate = useCallback((name: string) => {
+    closeNewProject();
     createProject(name).catch(() => {
       setUiError(`Couldn't create "${name}" — it wasn't saved. Please try again.`);
     });
-    setNewName('');
-  }, [newName, createProject]);
+  }, [createProject, closeNewProject]);
 
-  const handleCreateKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleCreate();
-  };
+  // v0.17.0: a fresh sample, in either storage mode, opened the way a card's
+  // Open opens a project once it is saved.
+  const handleLoadSample = useCallback(() => {
+    loadSampleProject().then(onOpenInCfd, () => {
+      setUiError("Couldn't load the sample project — it wasn't saved. Please try again.");
+    });
+  }, [loadSampleProject, onOpenInCfd]);
 
   const handleExport = useCallback(async (id: string) => {
     const project = await driver.loadProject(id);
@@ -170,22 +182,52 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
 
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 mx-auto w-full max-w-4xl">
-      {/* Top action row */}
-      <div className="flex justify-end gap-2">
-        <button
-          onClick={handleExportAll}
-          disabled={projects.length === 0}
-          className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-        >
-          Export All
-        </button>
-        <button
-          onClick={onImportClick}
-          disabled={driverLoading}
-          className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-        >
-          Import
-        </button>
+      {/* Heading and toolbar row (v0.17.0): the dashboard's first row, the
+          same order as across the SPERT suite. Every button is always
+          rendered; none moves with the project count or a load. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+          Projects ({projects.length})
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleExportAll}
+            disabled={projects.length === 0}
+            aria-label="Export all projects as JSON"
+            className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+          >
+            <ToolbarIcon d={TOOLBAR_ICON_PATHS.export} />
+            Export All
+          </button>
+          <button
+            type="button"
+            onClick={onImportClick}
+            disabled={driverLoading}
+            aria-label="Import projects from JSON"
+            className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+          >
+            <ToolbarIcon d={TOOLBAR_ICON_PATHS.import} />
+            Import
+          </button>
+          <button
+            type="button"
+            onClick={handleLoadSample}
+            className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+          >
+            <ToolbarIcon d={TOOLBAR_ICON_PATHS.sample} />
+            Load Sample
+          </button>
+          <button
+            ref={newProjectButtonRef}
+            type="button"
+            onClick={() => setNewProjectOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700"
+          >
+            <ToolbarIcon d={TOOLBAR_ICON_PATHS.plus} />
+            New Project
+          </button>
+        </div>
         <input
           id="import-project-file"
           name="import-project-file"
@@ -258,43 +300,11 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
         />
       )}
 
-      {/* New project form */}
-      <section>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
-          New Project
-        </h2>
-        <div className="flex gap-2">
-          <input
-            id="new-project-name"
-            name="new-project-name"
-            type="text"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={handleCreateKeyDown}
-            maxLength={MAX_NAME_LENGTH}
-            placeholder="Project name"
-            aria-label="New project name"
-            autoComplete="off"
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm flex-1 min-w-0 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-          <button
-            onClick={handleCreate}
-            disabled={!newName.trim()}
-            className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            Create
-          </button>
-        </div>
-      </section>
-
       {/* Project list */}
-      <section>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
-          Projects ({projects.length})
-        </h2>
+      <section aria-label="Projects">
         {projects.length === 0 ? (
           <p className="text-sm text-gray-400">
-            No projects yet. Create one above or import a JSON file.
+            No projects yet. Use New Project, Load Sample or Import.
           </p>
         ) : (
           <DndContext
@@ -323,6 +333,11 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
           </DndContext>
         )}
       </section>
+
+      {/* New project name */}
+      {newProjectOpen && (
+        <NewProjectDialog onCreate={handleCreate} onCancel={closeNewProject} />
+      )}
 
       {/* Sharing modal */}
       {sharingProjectId && (

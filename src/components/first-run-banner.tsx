@@ -25,8 +25,10 @@ export function FirstRunBanner() {
   if (!visible) return null;
 
   return (
-    <div className="border-b border-blue-200 bg-blue-50 py-3 text-sm text-blue-800">
-      <div className="mx-auto flex w-full max-w-7xl items-center gap-4 px-4">
+    // v0.17.0: a card, not a full-width strip, with an outlined "Got it" —
+    // the look of the suite's app-wide notices.
+    <div className="mx-auto w-full max-w-7xl px-4 pt-3">
+      <div className="flex items-center gap-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
         <p className="flex-1">
           SPERT&reg; Suite web apps are free to use. No account is required to
           use them. By accessing or using this app, you agree to our{' '}
@@ -51,8 +53,9 @@ export function FirstRunBanner() {
           asked to explicitly confirm your agreement.
         </p>
         <button
+          type="button"
           onClick={handleDismiss}
-          className="shrink-0 rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
+          className="shrink-0 rounded border border-blue-600 px-3 py-1 text-xs text-blue-700 hover:bg-blue-100"
         >
           Got it
         </button>

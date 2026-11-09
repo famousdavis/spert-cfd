@@ -36,10 +36,13 @@ src/
 │   ├── cloud-migration-flow.tsx  # Shared local→cloud migration UX (consumed by StorageSection + modal; see JSDoc re intentional cloud→local duplication)
 │   ├── icons/google-logo.tsx     # Inline native-color Google G mark
 │   ├── icons/microsoft-logo.tsx  # Inline native-color Microsoft four-square mark
+│   ├── icons/toolbar-icon.tsx    # Dashboard toolbar icon (v0.17.0; paths in toolbar-icon-paths.ts, copied from GanttApp)
 │   ├── tab-navigation.tsx        # Pill-style tab bar (Projects | CFD | Settings | About)
-│   ├── projects-tab.tsx          # Projects landing tab: card grid, add form, import/export
+│   ├── projects-tab.tsx          # Projects landing tab: heading + toolbar row (Export All · Import · Load Sample · New Project), card grid
+│   ├── new-project-dialog.tsx    # Asks for a new project's name (v0.17.0)
 │   ├── project-row.tsx           # SortableProjectCard: draggable tile with stats + actions
-│   ├── settings-tab.tsx          # Settings tab: StorageSection + SharingSection
+│   ├── settings-tab.tsx          # Settings tab: StorageSection + ProjectExportSection + LocalWarningSetting
+│   ├── local-warning-setting.tsx # Settings switch for the local-storage caution (v0.17.0)
 │   ├── storage-section.tsx       # Storage mode toggle, auth UI; consumes CloudMigrationFlow
 │   ├── sharing-modal.tsx          # Per-project sharing modal (cloud, owner manages)
 │   ├── about-tab.tsx             # About page (Forecaster pattern)
@@ -47,7 +50,7 @@ src/
 │   ├── confirm-dialog.tsx        # Custom confirmation modal (replaces browser confirm())
 │   ├── consent-modal.tsx         # Clickwrap consent modal for Cloud Storage
 │   ├── first-run-banner.tsx      # First-run informational banner
-│   ├── local-storage-warning-banner.tsx  # Data persistence warning (v0.4.7)
+│   ├── local-storage-warning-banner.tsx  # Data persistence caution; "Got it" hides it until the next page load (v0.4.7; card, v0.17.0)
 │   ├── footer.tsx                # App footer (version, copyright, license, legal links)
 │   ├── project-dashboard.tsx     # CFD tab layout: sidebar + chart + grid
 │   ├── chart/
@@ -197,7 +200,7 @@ Four contexts with intentional nesting order:
 
 1. **AuthContext** — Firebase Auth state, sign-in/out methods, consent modal orchestration. Wraps the entire app.
 2. **StorageContext** — provides the active `StorageDriver` via `useStorage()`. Switches between `LocalStorageDriver` and `FirestoreDriver` based on auth state and user preference. Blocks children until driver is ready.
-3. **ProjectListContext** — project list, active project ID, CRUD operations via driver, `reorderProjects()` for persistent drag order. Sample project seeding gated on `driver.mode === 'local'`.
+3. **ProjectListContext** — project list, active project ID, CRUD operations via driver, `reorderProjects()` for persistent drag order. Sample project seeding gated on `driver.mode === 'local'`; `loadSampleProject()` (v0.17.0, the Load Sample button) adds a fresh sample in either mode through the same add path as `createProject()`.
 4. **ActiveProjectContext** — workflow, snapshots, settings for the active project. Provides `updateWorkflow`, `updateSnapshots`, `updateSettings` with driver-managed persistence. Includes `beforeunload` flush handler.
 
 `AppShell` nests them: `ErrorBoundary > AuthProvider > StorageProvider > ProjectListProvider > AppContent (tab state + ActiveProjectProvider) > UI`.
