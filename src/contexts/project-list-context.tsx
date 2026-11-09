@@ -56,6 +56,13 @@ interface ProjectListContextValue {
    * restoring the previously active project.
    */
   createProject: (name: string) => Promise<string>;
+  /**
+   * Adds a fresh copy of the sample project, in either storage mode, with
+   * the same add-and-activate behaviour and rollback as createProject.
+   * Repeated loads add several projects of the same name, as createProject
+   * does: no create path checks names (only import does).
+   */
+  loadSampleProject: () => Promise<string>;
   deleteProject: (id: string) => void;
   switchProject: (id: string) => void;
   renameProject: (id: string, name: string) => void;
@@ -165,29 +172,11 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const createProject = useCallback(
-    (name: string): Promise<string> => {
-      const safeName = name.slice(0, MAX_NAME_LENGTH);
-      const id = nanoid(8);
-      const now = new Date().toISOString();
-      const project = {
-        id,
-        name: safeName,
-        createdAt: now,
-        updatedAt: now,
-        workflow: [
-          { id: 'backlog', name: 'Backlog', color: '#64748b', category: 'backlog' as const, order: 0 },
-          { id: 'dev', name: 'In Dev', color: '#3b82f6', category: 'active' as const, order: 1 },
-          { id: 'done', name: 'Done', color: '#22c55e', category: 'done' as const, order: 2 },
-        ],
-        snapshots: [],
-        settings: {
-          gridSortNewestFirst: true,
-          showWipWarnings: true,
-          metricsPeriod: { kind: 'all' as const },
-        },
-      };
-
+  // Adds a whole project and makes it active at once (createProject and
+  // loadSampleProject both come here).
+  const addProject = useCallback(
+    (project: Project): Promise<string> => {
+      const { id, name } = project;
       // Called synchronously, BEFORE the new id becomes active: the cloud
       // driver must see this create as in flight by the time the active-
       // project effects read the id. Not Promise.resolve().then(...) as in
@@ -203,7 +192,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
       }
       const previousActiveId = activeProjectId;
       driver.setActiveProjectId(id);
-      setProjects((prev) => [...prev, { id, name: safeName }]);
+      setProjects((prev) => [...prev, { id, name }]);
       setActiveProjectId(id);
 
       return saved.then(
@@ -223,6 +212,36 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
       );
     },
     [driver, activeProjectId]
+  );
+
+  const createProject = useCallback(
+    (name: string): Promise<string> => {
+      const safeName = name.slice(0, MAX_NAME_LENGTH);
+      const now = new Date().toISOString();
+      return addProject({
+        id: nanoid(8),
+        name: safeName,
+        createdAt: now,
+        updatedAt: now,
+        workflow: [
+          { id: 'backlog', name: 'Backlog', color: '#64748b', category: 'backlog' as const, order: 0 },
+          { id: 'dev', name: 'In Dev', color: '#3b82f6', category: 'active' as const, order: 1 },
+          { id: 'done', name: 'Done', color: '#22c55e', category: 'done' as const, order: 2 },
+        ],
+        snapshots: [],
+        settings: {
+          gridSortNewestFirst: true,
+          showWipWarnings: true,
+          metricsPeriod: { kind: 'all' as const },
+        },
+      });
+    },
+    [addProject]
+  );
+
+  const loadSampleProject = useCallback(
+    (): Promise<string> => addProject(createSampleProject()),
+    [addProject]
   );
 
   const deleteProject = useCallback(
@@ -425,6 +444,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
         driverLoading,
         projectUpdateKey,
         createProject,
+        loadSampleProject,
         deleteProject,
         switchProject,
         renameProject,

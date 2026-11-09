@@ -94,6 +94,7 @@ function makeContextValue(applyFn: (args: unknown) => Promise<ImportMergeOutcome
     activeProjectId: 'existing-1',
     projectUpdateKey: 0,
     createProject: vi.fn(),
+    loadSampleProject: vi.fn(),
     deleteProject: vi.fn(),
     switchProject: vi.fn(),
     renameProject: vi.fn(),

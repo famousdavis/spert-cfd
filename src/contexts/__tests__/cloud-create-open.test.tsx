@@ -307,3 +307,55 @@ describe('a create that fails in either storage mode', () => {
     expect.soft(result.current.active.project?.id).toBe('A');
   });
 });
+
+// v0.17.0: Load Sample adds a whole project through the same create path, in
+// cloud mode as in local, so it inherits Q01's create→open behaviour.
+describe('cloud mode: Load Sample', () => {
+  function loadSample(result: Awaited<ReturnType<typeof mountWithProjectA>>['result']) {
+    let outcome: Promise<string> = Promise.resolve('not called');
+    act(() => {
+      outcome = result.current.list.loadSampleProject().then(
+        (id) => 'resolved:' + id,
+        (e: { code?: string }) => 'rejected:' + e.code,
+      );
+    });
+    return outcome;
+  }
+
+  it('adds the sample, makes it active, and resolves with its id once saved', async () => {
+    const { result } = await mountWithProjectA();
+    const outcome = loadSample(result);
+    const sample = result.current.list.projects.find((p) => p.name === 'Sample: 2-Week Sprint');
+    expect(sample).toBeDefined();
+    expect(result.current.list.activeProjectId).toBe(sample?.id);
+    await settle();
+    act(() => { land(); });
+    await settle();
+    expect(await outcome).toBe('resolved:' + sample?.id);
+    expect(result.current.active.project?.id).toBe(sample?.id);
+    expect(result.current.active.project?.snapshots).toHaveLength(14);
+  });
+
+  it('a second load adds a second card of the same name, as creating does', async () => {
+    landInstantly = true;
+    const { result } = await mountWithProjectA();
+    await loadSample(result);
+    await loadSample(result);
+    await settle();
+    const samples = result.current.list.projects.filter((p) => p.name === 'Sample: 2-Week Sprint');
+    expect(samples).toHaveLength(2);
+    expect(samples[0].id).not.toBe(samples[1].id);
+  });
+
+  it('a sample the server rejects removes its card and restores the previous project', async () => {
+    rejectCreates = true;
+    const { result } = await mountWithProjectA();
+    const outcome = loadSample(result);
+    await settle();
+    act(() => { land(); });
+    await settle();
+    expect.soft(await outcome).toBe('rejected:permission-denied');
+    expect.soft(result.current.list.projects.map((p) => p.id)).toEqual(['A']);
+    expect.soft(result.current.list.activeProjectId).toBe('A');
+  });
+});

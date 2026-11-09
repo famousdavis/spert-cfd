@@ -74,8 +74,12 @@ function AppContent() {
         />
         <div className="flex flex-1 overflow-hidden">
           {/* v0.16.4: an error in one tab leaves the header, the tabs and
-              sign-out up, so the user can move on. */}
-          <ErrorBoundary key={`${activeTab}:${activeProjectId}`} fallback={<ViewErrorNotice />}>
+              sign-out up, so the user can move on. v0.17.0: keyed by the
+              project only on the CFD tab, which shows one project. On the
+              Projects tab a create makes the new project active at once, and
+              a key change there remounted the tab, losing its "Couldn't
+              create" alert and the New Project button's focus. */}
+          <ErrorBoundary key={activeTab === 'cfd' ? `cfd:${activeProjectId}` : activeTab} fallback={<ViewErrorNotice />}>
             {activeTab === 'projects' && (
               <ProjectsTab onOpenInCfd={handleOpenInCfd} />
             )}

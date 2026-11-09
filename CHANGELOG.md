@@ -2,6 +2,15 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.17.0 — The Projects toolbar and the app notices (November 8, 2026)
+
+- **The Projects tab now opens with one row: its heading on the left and Export All, Import, Load Sample and New Project on the right**, in the same order, words and icons as the other SPERT® apps. Every button is always there; Export All is disabled while there are no projects.
+- **New Project asks for the name in a small window.** Enter creates the project and Escape cancels. The New Project field below the toolbar is gone.
+- **Load Sample adds a fresh copy of the sample project and opens it**, in local and cloud storage alike. A new local workspace still gets the sample automatically.
+- **The terms notice and the local-storage caution are now cards with an outlined "Got it"**, like the other SPERT® apps.
+- **The caution no longer has a "Don't show again" box.** "Got it" hides it until the app is next opened. To stop it for good, clear "Warn me on startup when using local storage", now also in Settings.
+- **Fixed: a project that could not be saved now says so again.** Since v0.16.4, a new project that failed to save disappeared from the list without the "wasn't saved" message. The message is back, and the same holds for Load Sample.
+
 ## v0.16.4 — Projects from the cloud are checked before they are shown (October 29, 2026)
 
 - **Projects loaded from cloud storage are now checked before they are shown.** A snapshot or workflow state that SPERT CFD itself could not have saved is left out, a setting of the wrong kind falls back to its default, and the rest of the project loads normally. A notice names the project when this happens. Loading a project changes nothing in the cloud, and projects saved by SPERT CFD load exactly as before.

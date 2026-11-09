@@ -6,6 +6,7 @@
 
 import { StorageSection } from './storage-section';
 import { ProjectExportSection } from './project-export-section';
+import { LocalWarningSetting } from './local-warning-setting';
 
 export function SettingsTab() {
   return (
@@ -15,6 +16,7 @@ export function SettingsTab() {
 
         <StorageSection />
         <ProjectExportSection />
+        <LocalWarningSetting />
       </div>
     </div>
   );

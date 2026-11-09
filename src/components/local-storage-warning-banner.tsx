@@ -8,6 +8,13 @@ import { useState, useEffect } from 'react';
 import { useStorage } from '@/contexts/storage-context';
 import { LS_SUPPRESS_LS_WARNING } from '@/lib/constants';
 
+/**
+ * The local-storage caution. Shown on each page load while storage is local,
+ * unless the user turned it off. "Got it" hides it until the next page load.
+ * v0.17.0: the only permanent off-switch is "Warn me on startup when using
+ * local storage" (Settings, and the Cloud Storage window); the inline
+ * "Don't show again" checkbox is gone.
+ */
 export function LocalStorageWarningBanner() {
   const { driver } = useStorage();
   const [visible, setVisible] = useState(false);
@@ -25,36 +32,20 @@ export function LocalStorageWarningBanner() {
 
   const handleDismiss = () => setVisible(false);
 
-  const handleSuppress = () => {
-    localStorage.setItem(LS_SUPPRESS_LS_WARNING, 'true');
-    setVisible(false);
-  };
-
   return (
-    <div className="border-b border-amber-200 bg-amber-50 py-3 text-sm text-amber-800">
-      <div className="mx-auto flex w-full max-w-7xl items-center gap-4 px-4">
+    <div className="mx-auto w-full max-w-7xl px-4 pt-3">
+      <div className="flex items-center gap-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
         <p className="flex-1">
           <strong>Your data exists only in this browser</strong> and can be lost
           without warning. Export at the end of every session to protect your work.
         </p>
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-xs text-amber-700">
-            <input
-              id="ls-warning-suppress"
-              name="ls-warning-suppress"
-              type="checkbox"
-              checked={false}
-              onChange={handleSuppress}
-            />
-            Don&apos;t show again
-          </label>
-          <button
-            onClick={handleDismiss}
-            className="shrink-0 rounded bg-amber-600 px-3 py-1 text-xs text-white hover:bg-amber-700"
-          >
-            Got it
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleDismiss}
+          className="shrink-0 rounded border border-amber-600 px-3 py-1 text-xs text-amber-700 hover:bg-amber-100"
+        >
+          Got it
+        </button>
       </div>
     </div>
   );
