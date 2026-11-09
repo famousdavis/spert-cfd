@@ -55,7 +55,9 @@ function AppContent() {
 
   return (
     <ActiveProjectProvider>
-      <div className="flex h-screen flex-col">
+      {/* White, as in GanttApp: the header, the tabs, the notices and each
+          tab share one column (see page-column.ts), with no full-width bars. */}
+      <div className="flex h-screen flex-col bg-white">
         <AppHeader onOpenModal={() => setCloudModalOpen(true)} />
         <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
         {/* InvitationBanner uses next/navigation hooks (useSearchParams)

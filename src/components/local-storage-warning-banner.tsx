@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { useStorage } from '@/contexts/storage-context';
 import { LS_SUPPRESS_LS_WARNING } from '@/lib/constants';
+import { PAGE_COLUMN } from './page-column';
 
 /**
  * The local-storage caution. Shown on each page load while storage is local,
@@ -33,7 +34,7 @@ export function LocalStorageWarningBanner() {
   const handleDismiss = () => setVisible(false);
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 pt-3">
+    <div className={`${PAGE_COLUMN} pt-3`}>
       <div className="flex items-center gap-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
         <p className="flex-1">
           <strong>Your data exists only in this browser</strong> and can be lost

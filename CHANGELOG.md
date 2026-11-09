@@ -2,6 +2,14 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.17.1 — One column for the header and every tab (November 9, 2026)
+
+- **The header, the tabs, the notices and each tab now line up in one centred column**, as in GanttApp and SPERT® Forecaster. The header and the tab bar are no longer full-width bars, and the line under the tabs spans the column.
+- **The Projects tab fills that column**, with its toolbar under the sign-in button and up to three project cards across on a wide screen.
+- **Settings and About start at the left edge of the tabs** and keep a comfortable reading width.
+- **The CFD tab's workflow, metrics, chart and data sit in a bordered panel in the same column.**
+- **The "Some saved data could not be read" notice is now a card with an outlined "Got it"**, like the other notices.
+
 ## v0.17.0 — The Projects toolbar and the app notices (November 8, 2026)
 
 - **The Projects tab now opens with one row: its heading on the left and Export All, Import, Load Sample and New Project on the right**, in the same order, words and icons as the other SPERT® apps. Every button is always there; Export All is disabled while there are no projects.

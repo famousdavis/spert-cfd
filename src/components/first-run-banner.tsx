@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { LS_FIRST_RUN_SEEN, TOS_URL, PRIVACY_URL } from '@/lib/constants';
+import { PAGE_COLUMN } from './page-column';
 
 export function FirstRunBanner() {
   const [visible, setVisible] = useState(false);
@@ -27,7 +28,7 @@ export function FirstRunBanner() {
   return (
     // v0.17.0: a card, not a full-width strip, with an outlined "Got it" —
     // the look of the suite's app-wide notices.
-    <div className="mx-auto w-full max-w-7xl px-4 pt-3">
+    <div className={`${PAGE_COLUMN} pt-3`}>
       <div className="flex items-center gap-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
         <p className="flex-1">
           SPERT&reg; Suite web apps are free to use. No account is required to

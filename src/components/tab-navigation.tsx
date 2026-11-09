@@ -4,6 +4,8 @@
 
 'use client';
 
+import { PAGE_COLUMN } from './page-column';
+
 export type TabId = 'projects' | 'cfd' | 'settings' | 'about';
 
 interface TabNavigationProps {
@@ -20,8 +22,9 @@ const TABS: { id: TabId; label: string }[] = [
 
 export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
   return (
-    <nav className="border-b border-gray-200 bg-white px-4">
-      <div className="mx-auto flex max-w-7xl gap-1 py-2">
+    // The rule under the tabs spans the page's column, not the window.
+    <nav className={PAGE_COLUMN}>
+      <div className="flex gap-1 border-b border-gray-200 pb-2">
         {TABS.map((tab) => (
           <button
             key={tab.id}
