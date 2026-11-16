@@ -2,6 +2,13 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.17.7 — An import over the open project is kept (November 16, 2026)
+
+- **Fixed: in cloud storage, importing a file over the project you have open, and then changing it, no longer undoes the import.** After you chose Replace, the open project went on showing its old workflow and snapshots. The next change, such as adding a row, a setting such as the grid's sort order, or a workflow edit, saved them back over the imported ones. The open project now shows the import at once, and later changes keep it.
+- **An import that was already undone is not restored.** Import the file again to bring it back.
+- **Nothing else changes.** Local storage was not affected. Importing over a project that is not open, and adding new projects by import, work as before.
+- **A note from v0.13.0 was wrong.** It said the open project would show the import "shortly after". It never did: the app does not hear its own saves back from the cloud, so nothing brought the import to the open project.
+
 ## v0.17.6 — A renamed project keeps its new name (November 16, 2026)
 
 - **Fixed: renaming the open project and then changing it no longer brings back the old name.** Adding a row, changing a setting such as the grid's sort order, or editing the workflow saved the project under the name it had when it was opened. The new name was lost, and the card showed the old one after the app was reloaded. This happened in local and cloud storage alike.
@@ -494,7 +501,7 @@ Replaces the single-project import primitive with a multi-project workflow that 
 - **Concurrent-add gap** — React's `setState` does not expose a compare-and-set primitive, so a peer adding a same-named project between preview-open and Confirm-click is handled by Layer 1 only (not Layer 2). The window is milliseconds; accepted for this release. Switching this slice from Context to Zustand would close the gap.
 - **`projectOrder` race** — Parallel `createProject` calls for multi-project imports race on `spertcfd_settings/{uid}.projectOrder` in cloud mode. Display order may reflect only the last-completing add; data is correct. Pre-existing driver bug newly exposed by multi-project import. Re-drag to reorder. Deferred to follow-up.
 - **Replace writes are best-effort** — `driver.saveProject` is debounced 500 ms in cloud mode and fire-and-forget here; the banner's `replaced` count is optimistic. Firestore's `onSnapshot` reconciles cloud truth on commit.
-- **Cloud-replace stale-data window** — Replacing the currently-active project in cloud mode briefly shows the pre-replace view (~500 ms + round-trip) until the Firestore snapshot listener delivers fresh data. The banner is accurate; the view catches up shortly after. `shouldIncrementProjectKey` deliberately returns false in cloud mode to avoid racing the debounce.
+- **Cloud-replace stale-data window** — Replacing the currently-active project in cloud mode briefly shows the pre-replace view (~500 ms + round-trip) until the Firestore snapshot listener delivers fresh data. The banner is accurate; the view catches up shortly after. `shouldIncrementProjectKey` deliberately returns false in cloud mode to avoid racing the debounce. Corrected in v0.17.7: the view never caught up, because the listener never hears this device's own save, and the next edit wrote the pre-import data back over the import.
 - **`_changeLog` provenance** — Cloud adds appear as `'created'` (set by `driver.createProject`); cloud replaces preserve existing entries (`merge:true` + `buildSavePayload` exclusion); local adds have no `_changeLog` entry (storage.ts does not set one); local replaces silently wipe the existing `_changeLog` (`saveProject` writes the full object, overwriting localStorage with an undefined field that JSON.stringify omits). A dedicated `'imported'` action and local-replace preservation require driver changes; deferred to follow-up.
 - **Concurrent delete during preview review** — If a peer deletes the replace target while the user is reviewing, Layer 2 drops the replace from the UI silently. In cloud mode the upsert from `saveProject` would still fire and create a malformed document (no owner/members); the rules-layer field allowlist (v0.12.2 M-2) rejects this, so the write fails cleanly. Accepted edge case.
 

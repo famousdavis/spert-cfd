@@ -477,9 +477,9 @@ export function shouldAutoSwitch(
  * True when the active project was replaced in LOCAL mode — signals
  * ActiveProjectContext to reload from storage via projectUpdateKey bump.
  *
- * Cloud mode uses the onProjectChange listener; incrementing the key there
- * would race the 200ms saveProject debounce and load pre-write data.
- * See the cloud-replace stale-data window in Known Limitations.
+ * Cloud mode hands the replaced project over instead (replacedActiveInCloud):
+ * incrementing the key there would race the 200ms saveProject debounce and
+ * load pre-write data.
  */
 export function shouldIncrementProjectKey(
   driverMode: 'local' | 'cloud',
@@ -491,6 +491,25 @@ export function shouldIncrementProjectKey(
     activeProjectId !== null &&
     replaced.some((p) => p.id === activeProjectId)
   );
+}
+
+/**
+ * The project replacing the active one in CLOUD mode, or null —
+ * ActiveProjectContext takes it into its in-memory copy (v0.17.7).
+ *
+ * Not the onProjectChange listener: the listener never hears this device's
+ * own save (the driver skips hasPendingWrites, and the acknowledgement alone
+ * fires no event; emulator-tests/sdk-facts.test.ts pins the result). Before v0.17.7
+ * the copy kept the pre-import data and the next edit wrote it back over the
+ * import (emulator-tests/import-replace-open.test.tsx).
+ */
+export function replacedActiveInCloud(
+  driverMode: 'local' | 'cloud',
+  activeProjectId: string | null,
+  replaced: Project[],
+): Project | null {
+  if (driverMode !== 'cloud' || activeProjectId === null) return null;
+  return replaced.find((p) => p.id === activeProjectId) ?? null;
 }
 
 /**

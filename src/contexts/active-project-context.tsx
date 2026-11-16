@@ -44,15 +44,15 @@ export function useActiveProject() {
 }
 
 export function ActiveProjectProvider({ children }: { children: ReactNode }) {
-  const { activeProjectId, projectUpdateKey, projects } = useProjectList();
+  const { activeProjectId, projectUpdateKey, projects, importedActiveProject } = useProjectList();
   const { driver } = useStorage();
   const [project, setProject] = useState<Project | null>(null);
   const listedName = projects.find((p) => p.id === activeProjectId)?.name;
 
   // Load project when activeProjectId changes — async with cancellation.
   // projectUpdateKey is bumped by applyImportMerge after a local-mode replace
-  // of the active project, forcing a fresh read from storage. Cloud mode uses
-  // onProjectChange and never increments the key.
+  // of the active project, forcing a fresh read from storage. Cloud mode never
+  // increments the key; it sets importedActiveProject (below).
   useEffect(() => {
     if (!activeProjectId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale project when ID is removed
@@ -88,6 +88,22 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
         : prev,
     );
   }, [listedName, activeProjectId]);
+
+  // v0.17.7: take a cloud-mode import that replaced the open project into
+  // this copy. applyImportMerge saves the import and never sees this copy,
+  // and the doc listener below never hears this device's own save, so before
+  // this the copy kept the pre-import data and the next edit wrote it back
+  // over the import. Only the fields the save writes are taken; owner,
+  // members and the change log stay as loaded, as they do in the stored
+  // project. Nothing is saved here; the import's own save is in flight.
+  useEffect(() => {
+    if (!importedActiveProject) return;
+    const { id, name, workflow, snapshots, settings } = importedActiveProject;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- adopt an import saved by ProjectListContext (v0.17.7)
+    setProject((prev) =>
+      prev && prev.id === id ? { ...prev, name, workflow, snapshots, settings } : prev,
+    );
+  }, [importedActiveProject]);
 
   // Subscribe to remote changes in cloud mode
   useEffect(() => {

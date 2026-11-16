@@ -16,6 +16,7 @@ import {
   computeWriteRollback,
   shouldAutoSwitch,
   shouldIncrementProjectKey,
+  replacedActiveInCloud,
   buildBannerText,
   processImportData,
   type ImportConflict,
@@ -863,6 +864,27 @@ describe('shouldIncrementProjectKey', () => {
 
   it('returns false when activeProjectId is null', () => {
     expect(shouldIncrementProjectKey('local', null, [makeProject('a', 'A')])).toBe(false);
+  });
+});
+
+// ── replacedActiveInCloud ─────────────────────────────────
+
+describe('replacedActiveInCloud', () => {
+  it('returns the replacing project in cloud mode when activeProjectId is replaced', () => {
+    const a = makeProject('a', 'A');
+    expect(replacedActiveInCloud('cloud', 'a', [makeProject('b', 'B'), a])).toBe(a);
+  });
+
+  it('returns null in local mode even when activeProjectId is replaced', () => {
+    expect(replacedActiveInCloud('local', 'a', [makeProject('a', 'A')])).toBeNull();
+  });
+
+  it('returns null in cloud mode when activeProjectId is not in replaced', () => {
+    expect(replacedActiveInCloud('cloud', 'a', [makeProject('b', 'B')])).toBeNull();
+  });
+
+  it('returns null when activeProjectId is null', () => {
+    expect(replacedActiveInCloud('cloud', null, [makeProject('a', 'A')])).toBeNull();
   });
 });
 
