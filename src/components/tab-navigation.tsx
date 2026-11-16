@@ -4,6 +4,7 @@
 
 'use client';
 
+import { HELP_CENTER_URL } from '@/lib/constants';
 import { PAGE_COLUMN } from './page-column';
 
 export type TabId = 'projects' | 'cfd' | 'settings' | 'about';
@@ -39,6 +40,22 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
             {tab.label}
           </button>
         ))}
+        {/* Help Center (v0.17.8): a LINK that leaves the app, never a tab. So
+            it is not in TABS, not a <button>, has no pill and no aria-current.
+            It sits after About at the bar's right-hand end, in the inactive
+            tabs' grey, underlined on hover. The arrow is hidden from assistive
+            technology and the sr-only text completes the accessible name,
+            "Help Center (opens in a new tab)". ⚠️ The spaces are their own text
+            nodes, outside the spans: a space inside a span is trimmed by the
+            accessible-name computation, giving "Help Center(opens in a new tab)". */}
+        <a
+          href={HELP_CENTER_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-auto self-center whitespace-nowrap text-sm font-medium text-gray-600 underline-offset-2 hover:underline"
+        >
+          Help Center{' '}<span aria-hidden="true">↗</span>{' '}<span className="sr-only">(opens in a new tab)</span>
+        </a>
       </div>
     </nav>
   );

@@ -38,7 +38,7 @@ src/
 │   ├── icons/google-logo.tsx     # Inline native-color Google G mark
 │   ├── icons/microsoft-logo.tsx  # Inline native-color Microsoft four-square mark
 │   ├── icons/toolbar-icon.tsx    # Dashboard toolbar icon (v0.17.0; paths in toolbar-icon-paths.ts, copied from GanttApp)
-│   ├── tab-navigation.tsx        # Pill-style tab bar (Projects | CFD | Settings | About)
+│   ├── tab-navigation.tsx        # Pill-style tab bar (Projects | CFD | Settings | About) + Help Center link
 │   ├── projects-tab.tsx          # Projects landing tab: heading + toolbar row (Export All · Import · Load Sample · New Project), card grid
 │   ├── new-project-dialog.tsx    # Asks for a new project's name (v0.17.0)
 │   ├── project-row.tsx           # SortableProjectCard: draggable tile with stats + actions

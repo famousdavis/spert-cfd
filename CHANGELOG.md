@@ -2,6 +2,15 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.17.8 — A link to the Help Center (November 16, 2026)
+
+- **A Help Center link at the end of the tab bar opens the SPERT® Suite Help Center in a new tab.** It sits after About, at the right-hand end of the bar, and opens CFD's page, https://spertsuite.com/help/cfd. That page points to the About tab for how CFD works, links to the terms and privacy policy, and says how to get help if you are still stuck. CFD stays open in the tab you were using.
+- **It is a link, not a fifth tab.** The four tabs (Projects, CFD, Settings, About) are unchanged. The link is grey text with a small ↗ arrow, underlined when you point at it. It never takes the blue fill of the active tab, and it stays in the same place whichever tab is open. Pressing Tab moves through the four tabs and then to the link.
+- **Screen readers announce it as "Help Center (opens in a new tab)".** The arrow is hidden from them, and the words "(opens in a new tab)" are read aloud but not shown. The link opens with `rel="noopener noreferrer"`, so the Help Center page gets no hold on the CFD tab and is not told which page you came from.
+- **New tests** in `tab-navigation-help-center.test.tsx` (11) check the exact address, the new tab, the screen-reader name, and that the link comes directly after About as the bar's last item, with each tab active in turn. They also check that the link is not a tab: the bar holds exactly four buttons, the four tabs in order, and only the active tab is marked as current. Each test was seen to fail on purpose first, against a wrong address, a missing new-tab setting, a weakened `rel`, missing or visible screen-reader text, an arrow left audible, the link on the wrong side of About, the link made a tab, and an extra tab beside it.
+- **A note for whoever adds a guide.** A comment at the top of the new test file, and of `static-assets.test.ts`, says to add any new guide in `public/` to the Help Center's guide list too (`src/data/help.ts` in the spert-landing-page repository).
+- **Nothing else changes.** No dependency, Firestore or legal-document change.
+
 ## v0.17.7 — An import over the open project is kept (November 16, 2026)
 
 - **Fixed: in cloud storage, importing a file over the project you have open, and then changing it, no longer undoes the import.** After you chose Replace, the open project went on showing its old workflow and snapshots. The next change, such as adding a row, a setting such as the grid's sort order, or a workflow edit, saved them back over the imported ones. The open project now shows the import at once, and later changes keep it.
