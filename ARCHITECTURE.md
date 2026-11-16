@@ -202,7 +202,7 @@ Four contexts with intentional nesting order:
 1. **AuthContext** — Firebase Auth state, sign-in/out methods, consent modal orchestration. Wraps the entire app.
 2. **StorageContext** — provides the active `StorageDriver` via `useStorage()`. Switches between `LocalStorageDriver` and `FirestoreDriver` based on auth state and user preference. Blocks children until driver is ready.
 3. **ProjectListContext** — project list, active project ID, CRUD operations via driver, `reorderProjects()` for persistent drag order. Sample project seeding gated on `driver.mode === 'local'`; `loadSampleProject()` (v0.17.0, the Load Sample button) adds a fresh sample in either mode through the same add path as `createProject()`.
-4. **ActiveProjectContext** — workflow, snapshots, settings for the active project. Provides `updateWorkflow`, `updateSnapshots`, `updateSettings` with driver-managed persistence. Includes `beforeunload` flush handler.
+4. **ActiveProjectContext** — workflow, snapshots, settings for the active project. Provides `updateWorkflow`, `updateSnapshots`, `updateSettings` with driver-managed persistence. Includes `beforeunload` flush handler. Each save writes its in-memory copy whole, name included, while a rename is saved by `ProjectListContext.renameProject`; so when the list's name for the open project changes, the copy takes it (v0.17.6), and only then: in cloud mode another editor's rename can reach the copy before the list (`rename-open-project.test.tsx`).
 
 `AppShell` nests them: `ErrorBoundary > AuthProvider > StorageProvider > ProjectListProvider > AppContent (tab state + ActiveProjectProvider) > UI`.
 

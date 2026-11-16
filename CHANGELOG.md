@@ -2,6 +2,12 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.17.6 — A renamed project keeps its new name (November 16, 2026)
+
+- **Fixed: renaming the open project and then changing it no longer brings back the old name.** Adding a row, changing a setting such as the grid's sort order, or editing the workflow saved the project under the name it had when it was opened. The new name was lost, and the card showed the old one after the app was reloaded. This happened in local and cloud storage alike.
+- **A rename that was already lost is not restored.** The project keeps the name it shows now. Rename it again and the new name stays.
+- **Nothing else changes.** Renaming a project that is not open, and every other edit, is saved as before.
+
 ## v0.17.5 — The workflow color picker shows every color again (November 16, 2026)
 
 - **Fixed: the color picker for a workflow state lays out its twelve colors as a 4 × 3 grid again.** Opened from Edit workflow on the CFD tab, the picker had squeezed them into a strip one square wide, where they overlapped and most could not be clicked. Each color now has its own square, and every one can be picked.

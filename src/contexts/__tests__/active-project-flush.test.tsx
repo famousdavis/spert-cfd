@@ -33,7 +33,7 @@ const mockDriver = {
 
 // ── Context mocks ─────────────────────────────────────────────────────────────
 vi.mock('@/contexts/project-list-context', () => ({
-  useProjectList: vi.fn(() => ({ activeProjectId: null, projectUpdateKey: 0 })),
+  useProjectList: vi.fn(() => ({ activeProjectId: null, projectUpdateKey: 0, projects: [] })),
 }));
 vi.mock('@/contexts/storage-context', () => ({
   useStorage: vi.fn(() => ({ driver: mockDriver, mode: 'local' })),
