@@ -44,9 +44,10 @@ export function useActiveProject() {
 }
 
 export function ActiveProjectProvider({ children }: { children: ReactNode }) {
-  const { activeProjectId, projectUpdateKey } = useProjectList();
+  const { activeProjectId, projectUpdateKey, projects } = useProjectList();
   const { driver } = useStorage();
   const [project, setProject] = useState<Project | null>(null);
+  const listedName = projects.find((p) => p.id === activeProjectId)?.name;
 
   // Load project when activeProjectId changes — async with cancellation.
   // projectUpdateKey is bumped by applyImportMerge after a local-mode replace
@@ -68,6 +69,25 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
     });
     return () => { cancelled = true; };
   }, [activeProjectId, driver, projectUpdateKey]);
+
+  // v0.17.6: take a rename of the open project into this copy. renameProject
+  // (ProjectListContext) saves the stored project under the new name and
+  // never sees this copy, and every save below writes this copy whole, name
+  // included: without this, the next edit (Add Row, a settings toggle, a
+  // workflow change) wrote the old name back over the rename, in both modes.
+  // Only when the list's name CHANGES, never whenever the two differ: in
+  // cloud mode the doc listener can deliver another editor's rename before
+  // the list listener does, and the list's older name must not replace it.
+  // Nothing is saved here; the next edit saves the name with it.
+  useEffect(() => {
+    if (listedName === undefined) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- adopt a rename saved by ProjectListContext (v0.17.6)
+    setProject((prev) =>
+      prev && prev.id === activeProjectId && prev.name !== listedName
+        ? { ...prev, name: listedName }
+        : prev,
+    );
+  }, [listedName, activeProjectId]);
 
   // Subscribe to remote changes in cloud mode
   useEffect(() => {
