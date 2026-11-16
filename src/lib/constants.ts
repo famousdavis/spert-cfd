@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-export const APP_VERSION = '0.17.7';
+export const APP_VERSION = '0.17.8';
 
 /**
  * Maximum file size for CSV and JSON imports (5 MB).
@@ -25,6 +25,11 @@ export const SPERT_SUITE_URL = 'https://spertsuite.com';
 export const TOS_URL = 'https://spertsuite.com/TOS.pdf';
 export const PRIVACY_URL = 'https://spertsuite.com/PRIVACY.pdf';
 export const LICENSE_URL = 'https://github.com/famousdavis/spert-cfd/blob/main/LICENSE';
+
+/** This app's page in the SPERT® Suite Help Center, linked from the end of the
+ *  tab bar (v0.17.8). ⚠️ Tests must NOT import this: they compare the href with
+ *  the literal address, so a wrong slug written here turns them red. */
+export const HELP_CENTER_URL = 'https://spertsuite.com/help/cfd';
 
 /** localStorage keys for consent flow */
 export const LS_FIRST_RUN_SEEN = 'spert_firstRun_seen';
