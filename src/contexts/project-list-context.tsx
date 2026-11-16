@@ -30,6 +30,7 @@ import {
   computeWriteRollback,
   shouldAutoSwitch,
   shouldIncrementProjectKey,
+  replacedActiveInCloud,
 } from '@/lib/import-utils';
 
 interface ProjectListContextValue {
@@ -47,9 +48,15 @@ interface ProjectListContextValue {
   /**
    * Bumped when the active project was replaced in local mode by an import.
    * ActiveProjectContext watches this to trigger a reload from storage.
-   * Cloud mode uses onProjectChange instead (see import-utils HR4-2 note).
+   * Cloud mode sets importedActiveProject instead.
    */
   projectUpdateKey: number;
+  /**
+   * The project the last cloud-mode import replaced the active one with, a
+   * new object per import; null until then. ActiveProjectContext takes it
+   * into its copy (v0.17.7; see replacedActiveInCloud in import-utils).
+   */
+  importedActiveProject: Project | null;
   /**
    * Adds the card and makes it active at once; resolves with the id once the
    * project is saved. Rejects if the save fails, after removing the card and
@@ -93,6 +100,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   // driver is non-null here — StorageProvider short-circuits until storageReady = driver !== null.
   const [driverLoading, setDriverLoading] = useState(() => driver.mode === 'cloud');
   const [projectUpdateKey, setProjectUpdateKey] = useState(0);
+  const [importedActiveProject, setImportedActiveProject] = useState<Project | null>(null);
 
   // Load project list from driver on mount
   useEffect(() => {
@@ -167,6 +175,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
     return registerDataReset(() => {
       setProjects([]);
       setActiveProjectId(null);
+      setImportedActiveProject(null);
       setIsLoaded(false);
       setDriverLoading(true); // symmetric reset; new driver effect will set false when ready
     });
@@ -318,10 +327,17 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
       setProjects((prev) => buildNewProjectList(prev, result));
 
       // Local-mode active-project replace → bump the reload key.
-      // Cloud-mode replaces flow through onProjectChange; incrementing the
-      // key there would race the 200ms saveProject debounce.
+      // Cloud mode hands the open copy the import instead: a reload there
+      // would race the 200ms saveProject debounce, and the doc listener
+      // never hears this device's own save.
       if (shouldIncrementProjectKey(driver.mode, activeProjectId, result.replaced)) {
         setProjectUpdateKey((k) => k + 1);
+      }
+      const importedActive = replacedActiveInCloud(driver.mode, activeProjectId, result.replaced);
+      if (importedActive) {
+        // A new object every time, so importing the same file twice is
+        // taken in twice.
+        setImportedActiveProject({ ...importedActive });
       }
 
       // ── Replace writes: fire-and-forget (debounced 200ms cloud) ────
@@ -443,6 +459,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
         isLoaded,
         driverLoading,
         projectUpdateKey,
+        importedActiveProject,
         createProject,
         loadSampleProject,
         deleteProject,

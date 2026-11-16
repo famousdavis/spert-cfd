@@ -93,6 +93,7 @@ function makeContextValue(applyFn: (args: unknown) => Promise<ImportMergeOutcome
     driverLoading: false,
     activeProjectId: 'existing-1',
     projectUpdateKey: 0,
+    importedActiveProject: null,
     createProject: vi.fn(),
     loadSampleProject: vi.fn(),
     deleteProject: vi.fn(),

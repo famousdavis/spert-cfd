@@ -1,6 +1,6 @@
 {
   "name": "spert-cfd",
-  "version": "0.17.6",
+  "version": "0.17.7",
   "private": true,
   "engines": {
     "node": "24.x"
