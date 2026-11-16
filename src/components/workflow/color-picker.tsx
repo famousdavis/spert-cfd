@@ -39,10 +39,16 @@ export function ColorPicker({ value, onChange, onClose }: ColorPickerProps) {
     }
   };
 
+  // The popover needs a definite width. Absolutely positioned, it would
+  // otherwise shrink to fit its 20px trigger, and `grid-cols-4` tracks are
+  // `minmax(0, 1fr)`, so the grid's only minimum is its gaps: the columns
+  // collapse to 0px and the 24px swatches overlap at a 6px pitch.
+  // w-33 = 132px = 4 swatches × 24px + 3 gaps × 6px + 2 × 8px padding
+  // + 2 × 1px border (border-box).
   return (
     <div
       ref={ref}
-      className="absolute left-0 top-full z-10 mt-1 rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
+      className="absolute left-0 top-full z-10 mt-1 w-33 rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
     >
       {/* Preset swatches: 4x3 grid */}
       <div className="grid grid-cols-4 gap-1.5 mb-2">
