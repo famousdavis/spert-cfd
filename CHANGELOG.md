@@ -5,7 +5,7 @@ All notable changes to SPERT® CFD are documented here.
 ## v0.17.2 — Security updates to supporting components (November 15, 2026)
 
 - **Twelve supporting components moved to patched versions**, clearing 37 of the 106 known security advisories in the project's dependencies. Most of them sit in the development and test tooling, not in the app you use.
-- **Every version taken has been public for at least 60 days**, the waiting period SPERT® applies to new releases of anything it depends on. The rest are scheduled: most wait for their fixes to complete the same 60 days in December, and a few have no fix published yet. None of those that ship with the app can be triggered by the way SPERT CFD uses its components.
+- **Every version taken has been public for at least 60 days**, the waiting period SPERT® applies to new releases of anything it depends on. Of the rest, most wait for their fixes to complete the same 60 days in December, and a few cannot be taken yet, because no fix exists or another component holds them on an older version. None of those that ship with the app can be triggered by the way SPERT CFD uses its components.
 - **No behaviour changes.** Nothing about projects, snapshots or the cumulative flow diagram has changed.
 
 ## v0.17.1 — One column for the header and every tab (November 9, 2026)
