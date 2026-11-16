@@ -2,6 +2,12 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.17.3 — Routine updates to supporting components (November 16, 2026)
+
+- **The charting, date, icon and styling libraries moved to newer releases**, along with five development and test tools. This is routine upkeep: no security advisory changes.
+- **Every version taken has been public for at least 60 days**, the waiting period SPERT® applies to new releases of anything it depends on.
+- **No behaviour changes.** Text now names its system fonts explicitly; it looks the same on macOS, and on some Linux desktops it may use a different font than before. Nothing about projects, snapshots or the cumulative flow diagram has changed.
+
 ## v0.17.2 — Security updates to supporting components (November 15, 2026)
 
 - **Twelve supporting components moved to patched versions**, clearing 37 of the 106 known security advisories in the project's dependencies. Most of them sit in the development and test tooling, not in the app you use.
