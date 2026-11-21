@@ -31,7 +31,7 @@ export function ChartControls({
             title={isHidden ? `Show ${state.name}` : `Hide ${state.name}`}
           >
             <span
-              className="inline-block h-2.5 w-2.5 rounded-sm"
+              className="inline-block h-2.5 w-2.5 rounded-sm dark:ring-1 dark:ring-gray-500"
               style={{ backgroundColor: state.color }}
             />
             {state.name}

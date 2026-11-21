@@ -29,7 +29,7 @@ export function FirstRunBanner() {
     // v0.17.0: a card, not a full-width strip, with an outlined "Got it" —
     // the look of the suite's app-wide notices.
     <div className={`${PAGE_COLUMN} pt-3`}>
-      <div className="flex items-center gap-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+      <div className="flex items-center gap-4 rounded-md border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 px-4 py-3 text-sm text-blue-800 dark:text-gray-200">
         <p className="flex-1">
           SPERT&reg; Suite web apps are free to use. No account is required to
           use them. By accessing or using this app, you agree to our{' '}
@@ -37,7 +37,7 @@ export function FirstRunBanner() {
             href={TOS_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 underline hover:text-blue-700"
+            className="text-blue-600 dark:text-blue-300 underline hover:text-blue-700 dark:hover:text-blue-200"
           >
             Terms of Service
           </a>
@@ -46,7 +46,7 @@ export function FirstRunBanner() {
             href={PRIVACY_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 underline hover:text-blue-700"
+            className="text-blue-600 dark:text-blue-300 underline hover:text-blue-700 dark:hover:text-blue-200"
           >
             Privacy Policy
           </a>
@@ -56,7 +56,7 @@ export function FirstRunBanner() {
         <button
           type="button"
           onClick={handleDismiss}
-          className="shrink-0 rounded border border-blue-600 px-3 py-1 text-xs text-blue-700 hover:bg-blue-100"
+          className="shrink-0 rounded border border-blue-600 dark:border-blue-600 px-3 py-1 text-xs text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/50"
         >
           Got it
         </button>

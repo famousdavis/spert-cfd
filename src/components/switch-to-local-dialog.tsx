@@ -49,20 +49,20 @@ export function SwitchToLocalDialog({
       <div
         ref={modalRef}
         tabIndex={-1}
-        className="w-full max-w-md rounded-lg bg-white shadow-xl outline-none"
+        className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 shadow-xl outline-none"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="switch-to-local-title"
         aria-describedby="switch-to-local-message"
       >
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 id="switch-to-local-title" className="text-sm font-semibold">
+        <div className="flex items-center justify-between border-b dark:border-gray-700 px-4 py-3">
+          <h2 id="switch-to-local-title" className="text-sm font-semibold dark:text-gray-100">
             Switch to Local Storage
           </h2>
           <button
             onClick={onCancel}
             disabled={copying}
-            className="rounded p-1 text-gray-400 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
             aria-label="Close"
           >
             <X size={16} />
@@ -70,27 +70,27 @@ export function SwitchToLocalDialog({
         </div>
 
         <div className="p-4">
-          <p id="switch-to-local-message" className="mb-2 text-sm text-gray-700">
+          <p id="switch-to-local-message" className="mb-2 text-sm text-gray-700 dark:text-gray-200">
             You have <strong>{projectCount}</strong> cloud project
             {projectCount !== 1 ? 's' : ''}. Keep a local copy before
             switching, or discard and switch?
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             <strong>Keep Local Copy</strong> copies your cloud projects into
             this browser. <strong>Discard</strong> leaves them in the cloud
             (accessible on re-sign-in) but clears this browser&apos;s
             active-project pointer.
           </p>
           {copying && (
-            <p className="mt-3 text-xs text-blue-700">Copying projects…</p>
+            <p className="mt-3 text-xs text-blue-700 dark:text-blue-300">Copying projects…</p>
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t px-4 py-3">
+        <div className="flex justify-end gap-2 border-t dark:border-gray-700 px-4 py-3">
           <button
             onClick={onCancel}
             disabled={copying}
-            className="rounded px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>

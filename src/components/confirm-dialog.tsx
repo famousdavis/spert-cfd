@@ -50,20 +50,20 @@ export function ConfirmDialog({
       <div
         ref={modalRef}
         tabIndex={-1}
-        className="w-full max-w-sm rounded-lg bg-white shadow-xl outline-none"
+        className="w-full max-w-sm rounded-lg bg-white dark:bg-gray-800 shadow-xl outline-none"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-message"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 id="confirm-dialog-title" className="text-sm font-semibold">
+        <div className="flex items-center justify-between border-b dark:border-gray-700 px-4 py-3">
+          <h2 id="confirm-dialog-title" className="text-sm font-semibold dark:text-gray-100">
             {title}
           </h2>
           <button
             onClick={onCancel}
-            className="rounded p-1 text-gray-400 hover:text-gray-700"
+            className="rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             aria-label="Close"
           >
             <X size={16} />
@@ -72,16 +72,16 @@ export function ConfirmDialog({
 
         {/* Body */}
         <div className="p-4">
-          <p id="confirm-dialog-message" className="text-sm text-gray-600">
+          <p id="confirm-dialog-message" className="text-sm text-gray-600 dark:text-gray-400">
             {message}
           </p>
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 border-t px-4 py-3">
+        <div className="flex justify-end gap-2 border-t dark:border-gray-700 px-4 py-3">
           <button
             onClick={onCancel}
-            className="rounded px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
+            className="rounded px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
           >
             {cancelLabel}
           </button>

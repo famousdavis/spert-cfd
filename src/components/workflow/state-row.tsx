@@ -101,8 +101,8 @@ export function StateRow({
 
   if (isConfirmingDelete) {
     return (
-      <div className="rounded border border-red-200 bg-red-50 p-2 text-xs">
-        <p className="text-red-700 mb-1.5">
+      <div className="rounded border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-2 text-xs">
+        <p className="text-red-700 dark:text-red-300 mb-1.5">
           {deleteWarning
             ? `"${state.name}" has snapshot data. Delete anyway?`
             : `Delete "${state.name}"?`}
@@ -119,7 +119,7 @@ export function StateRow({
           </button>
           <button
             onClick={() => setIsConfirmingDelete(false)}
-            className="rounded px-2 py-0.5 text-gray-600 hover:text-gray-900"
+            className="rounded px-2 py-0.5 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
           >
             Cancel
           </button>
@@ -129,14 +129,14 @@ export function StateRow({
   }
 
   return (
-    <div className="rounded border border-gray-200 bg-white p-2 space-y-1.5">
+    <div className="rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-2 space-y-1.5">
       {/* Row 1: color swatch, name, delete */}
       <div className="flex items-center gap-1.5">
         {/* Color swatch */}
         <div className="relative">
           <button
             onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
-            className="h-5 w-5 rounded border border-gray-300 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="h-5 w-5 rounded border border-gray-300 dark:border-gray-500 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500"
             style={{ backgroundColor: state.color }}
             aria-label={`Color for ${state.name}: ${state.color}`}
           />
@@ -169,7 +169,7 @@ export function StateRow({
             maxLength={MAX_NAME_LENGTH}
             aria-label={`Rename ${state.name}`}
             autoComplete="off"
-            className="min-w-0 flex-1 rounded border border-gray-300 px-1.5 py-0.5 text-sm"
+            className="min-w-0 flex-1 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-1.5 py-0.5 text-sm"
           />
         ) : (
           <button
@@ -177,7 +177,7 @@ export function StateRow({
               setDraftName(state.name);
               setIsEditingName(true);
             }}
-            className="min-w-0 flex-1 truncate text-left text-sm hover:text-blue-600"
+            className="min-w-0 flex-1 truncate text-left text-sm hover:text-blue-600 dark:hover:text-blue-400"
             title="Click to rename"
           >
             {state.name}
@@ -188,7 +188,7 @@ export function StateRow({
         <button
           onClick={() => setIsConfirmingDelete(true)}
           disabled={!canDelete}
-          className="flex-shrink-0 rounded p-0.5 text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:hover:text-gray-400"
+          className="flex-shrink-0 rounded p-0.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-30 disabled:hover:text-gray-400"
           title={canDelete ? 'Delete state' : 'Cannot delete last state'}
           aria-label={`Delete ${state.name}`}
         >
@@ -203,7 +203,7 @@ export function StateRow({
           name={`state-category-${state.id}`}
           value={state.category}
           onChange={(e) => onSetCategory(e.target.value as StateCategory)}
-          className="rounded border border-gray-300 px-1 py-0.5 text-xs"
+          className="rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-1 py-0.5 text-xs"
           aria-label={`Category for ${state.name}`}
         >
           <option value="backlog">Backlog</option>
@@ -212,7 +212,7 @@ export function StateRow({
         </select>
 
         {state.category === 'active' && (
-          <span className="flex items-center gap-0.5 text-xs text-gray-500">
+          <span className="flex items-center gap-0.5 text-xs text-gray-500 dark:text-gray-400">
             <label htmlFor={`wip-${state.id}`}>WIP:</label>
             <input
               id={`wip-${state.id}`}
@@ -228,7 +228,7 @@ export function StateRow({
               onBlur={commitWip}
               onKeyDown={(e) => { if (e.key === 'Enter') { commitWip(); e.currentTarget.blur(); } }}
               placeholder="—"
-              className="w-10 rounded border border-gray-300 px-1 py-0.5 text-xs text-center"
+              className="w-10 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-1 py-0.5 text-xs text-center"
             />
           </span>
         )}
@@ -238,7 +238,7 @@ export function StateRow({
         <button
           onClick={onMoveUp}
           disabled={isFirst}
-          className="rounded p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-30"
+          className="rounded p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-100 disabled:opacity-30"
           title="Move up"
           aria-label={`Move ${state.name} up`}
         >
@@ -247,7 +247,7 @@ export function StateRow({
         <button
           onClick={onMoveDown}
           disabled={isLast}
-          className="rounded p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-30"
+          className="rounded p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-100 disabled:opacity-30"
           title="Move down"
           aria-label={`Move ${state.name} down`}
         >

@@ -35,7 +35,7 @@ export function LocalStorageWarningBanner() {
 
   return (
     <div className={`${PAGE_COLUMN} pt-3`}>
-      <div className="flex items-center gap-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <div className="flex items-center gap-4 rounded-md border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-gray-200">
         <p className="flex-1">
           <strong>Your data exists only in this browser</strong> and can be lost
           without warning. Export at the end of every session to protect your work.
@@ -43,7 +43,7 @@ export function LocalStorageWarningBanner() {
         <button
           type="button"
           onClick={handleDismiss}
-          className="shrink-0 rounded border border-amber-600 px-3 py-1 text-xs text-amber-700 hover:bg-amber-100"
+          className="shrink-0 rounded border border-amber-600 dark:border-amber-600 px-3 py-1 text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800/50"
         >
           Got it
         </button>

@@ -149,12 +149,12 @@ export const CloudMigrationFlow = forwardRef<
   return (
     <>
       {migration.status === 'confirm' && (
-        <div className="rounded border border-blue-200 bg-blue-50 p-4 text-sm">
-          <p className="mb-3 text-blue-800">
+        <div className="rounded border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 p-4 text-sm">
+          <p className="mb-3 text-blue-800 dark:text-gray-200">
             You have <strong>{migration.localCount}</strong> local project
             {migration.localCount !== 1 ? 's' : ''}. Upload to cloud?
           </p>
-          <label className="flex items-center gap-2 mb-3 text-blue-700">
+          <label className="flex items-center gap-2 mb-3 text-blue-700 dark:text-blue-200">
             <input
               id="cloud-migration-clear-local"
               name="cloud-migration-clear-local"
@@ -173,7 +173,7 @@ export const CloudMigrationFlow = forwardRef<
             </button>
             <button
               onClick={handleSkipMigration}
-              className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100"
+              className="rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600"
             >
               Skip
             </button>
@@ -182,19 +182,19 @@ export const CloudMigrationFlow = forwardRef<
       )}
 
       {migration.status === 'migrating' && (
-        <div className="rounded border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+        <div className="rounded border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 p-4 text-sm text-blue-800 dark:text-gray-200">
           Uploading projects to cloud...
         </div>
       )}
 
       {migration.status === 'done' && (
-        <div className="rounded border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+        <div className="rounded border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/30 p-4 text-sm text-green-800 dark:text-green-100">
           Migration complete: {migration.uploaded} uploaded, {migration.skipped} skipped.
         </div>
       )}
 
       {migration.status === 'error' && (
-        <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <div className="rounded border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-800 dark:text-red-300">
           Migration failed: {migration.message}
           <button
             onClick={() => setMigration({ status: 'idle' })}

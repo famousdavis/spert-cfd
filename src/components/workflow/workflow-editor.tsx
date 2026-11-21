@@ -22,12 +22,12 @@ export function WorkflowEditor() {
     <section>
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
           Workflow
         </h2>
         <button
           onClick={() => setIsEditing(!isEditing)}
-          className="rounded p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 focus-visible:ring-2 focus-visible:ring-blue-500"
           title={isEditing ? 'View mode' : 'Edit workflow'}
           aria-label={isEditing ? 'Switch to view mode' : 'Edit workflow'}
         >
@@ -60,7 +60,7 @@ export function WorkflowEditor() {
 
           <button
             onClick={() => editor.addState()}
-            className="mt-2 flex w-full items-center justify-center gap-1 rounded border border-dashed border-gray-300 py-1.5 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors"
+            className="mt-2 flex w-full items-center justify-center gap-1 rounded border border-dashed border-gray-300 dark:border-gray-600 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:border-blue-400 dark:hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
           >
             <Plus size={14} />
             Add State
@@ -75,7 +75,7 @@ export function WorkflowEditor() {
               className="flex items-center gap-2 rounded px-2 py-1 text-sm"
             >
               <span
-                className="inline-block h-3 w-3 rounded-sm flex-shrink-0"
+                className="inline-block h-3 w-3 rounded-sm flex-shrink-0 dark:ring-1 dark:ring-gray-500"
                 style={{ backgroundColor: state.color }}
               />
               <span className="truncate">{state.name}</span>

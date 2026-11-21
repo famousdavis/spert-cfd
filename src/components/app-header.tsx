@@ -66,19 +66,29 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
     <header className={`${PAGE_COLUMN} my-3 flex items-start justify-between`}>
       <div>
         <div className="mb-1 flex items-center gap-3">
+          {/* v0.19.1 (DASH26 RD1, O29): the dark logo in dark, as the suite's
+              header does. Two images switched by the `dark` class, so CSS
+              alone picks one and no script has to know the theme; the one
+              not shown is `display: none`. The browser tab's icon stays. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/spert-favicon-cfd.png"
             alt="SPERT CFD icon"
-            className="mr-2 h-7 w-7 rounded-lg ring-1 ring-white/20"
+            className="mr-2 h-7 w-7 rounded-lg ring-1 ring-white/20 dark:hidden"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/spert-favicon-cfd-dark.png"
+            alt="SPERT CFD icon"
+            className="mr-2 hidden h-7 w-7 rounded-lg ring-1 ring-white/20 dark:block"
           />
           <h1 className="text-2xl sm:text-[1.75rem] md:text-[2.1rem] leading-[normal] whitespace-nowrap">
             <span className={TITLE_GRADIENT}>SPERT</span>
-            <span className="text-gray-400 font-normal text-base sm:text-lg align-top">®</span>
+            <span className="text-gray-400 dark:text-gray-500 font-normal text-base sm:text-lg align-top">®</span>
             <span className={TITLE_GRADIENT}> CFD</span>
           </h1>
         </div>
-        <p className="text-sm leading-[normal] text-gray-500 italic">{APP_DESCRIPTION}</p>
+        <p className="text-sm leading-[normal] text-gray-500 dark:text-gray-400 italic">{APP_DESCRIPTION}</p>
       </div>
 
       {/* The right-hand group, as Forecaster's: today only the sign-in chip,
@@ -90,7 +100,7 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
           aria-haspopup="dialog"
           aria-label="Account menu"
           onClick={onOpenModal}
-          className="flex items-center rounded-full hover:bg-gray-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="flex items-center rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           style={pillBorderStyle}
         >
           {/* Left segment: avatar + first name */}
@@ -107,7 +117,7 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
             >
               {initial}
             </span>
-            <span style={{ fontSize: 13, fontWeight: 500 }} className="text-gray-900">
+            <span style={{ fontSize: 13, fontWeight: 500 }} className="text-gray-900 dark:text-gray-100">
               {firstName}
             </span>
           </span>
@@ -124,7 +134,7 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
           aria-haspopup="dialog"
           aria-label="Account menu"
           onClick={onOpenModal}
-          className="flex items-center rounded-full hover:bg-gray-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="flex items-center rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           style={pillBorderStyle}
         >
           {/* Left segment: avatar + first name */}
@@ -141,7 +151,7 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
             >
               {initial}
             </span>
-            <span style={{ fontSize: 13, fontWeight: 500 }} className="text-gray-900">
+            <span style={{ fontSize: 13, fontWeight: 500 }} className="text-gray-900 dark:text-gray-100">
               {firstName}
             </span>
           </span>
@@ -157,7 +167,7 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
           type="button"
           aria-label="Sign in"
           onClick={onOpenModal}
-          className="flex items-center rounded-full hover:bg-gray-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="flex items-center rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           style={pillBorderStyle}
         >
           {/* Left segment: lock icon + "Local only" */}

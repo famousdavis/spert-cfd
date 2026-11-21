@@ -165,7 +165,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
   if (ownerStatus === 'loading') {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl text-center text-gray-400">
+        <div className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl text-center text-gray-400">
           Loading...
         </div>
       </div>
@@ -178,25 +178,25 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
         <div
           ref={modalRef}
           tabIndex={-1}
-          className="w-full max-w-md rounded-lg bg-white shadow-xl outline-none"
+          className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 shadow-xl outline-none"
           role="dialog"
           aria-modal="true"
           aria-labelledby="sharing-modal-title"
         >
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            <h2 id="sharing-modal-title" className="text-sm font-semibold">
+          <div className="flex items-center justify-between border-b dark:border-gray-700 px-4 py-3">
+            <h2 id="sharing-modal-title" className="text-sm font-semibold dark:text-gray-100">
               Share
             </h2>
             <button
               onClick={onClose}
-              className="rounded p-1 text-gray-400 hover:text-gray-700"
+              className="rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
               aria-label="Close"
             >
               <X size={16} />
             </button>
           </div>
           <div className="p-4">
-            <p className="text-sm text-red-600">
+            <p className="text-sm text-red-600 dark:text-red-400">
               Couldn&apos;t load sharing details. Refresh the page to try again.
             </p>
           </div>
@@ -214,19 +214,19 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
       <div
         ref={modalRef}
         tabIndex={-1}
-        className="w-full max-w-md rounded-lg bg-white shadow-xl outline-none"
+        className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 shadow-xl outline-none"
         role="dialog"
         aria-modal="true"
         aria-labelledby="sharing-modal-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 id="sharing-modal-title" className="text-sm font-semibold">
+        <div className="flex items-center justify-between border-b dark:border-gray-700 px-4 py-3">
+          <h2 id="sharing-modal-title" className="text-sm font-semibold dark:text-gray-100">
             Share — {project.name || UNNAMED_PROJECT}
           </h2>
           <button
             onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:text-gray-700"
+            className="rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             aria-label="Close"
           >
             <X size={16} />
@@ -236,7 +236,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
         {/* Body */}
         <div className="p-4">
           {ownerStatus === 'not-owner' && (
-            <p className="mb-3 text-sm text-gray-500">
+            <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
               Shared with you. Only the owner can manage members.
             </p>
           )}
@@ -246,9 +246,9 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
             {members.map((m) => (
               <div
                 key={m.uid}
-                className="flex items-center justify-between rounded border border-gray-200 px-3 py-2 text-sm"
+                className="flex items-center justify-between rounded border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm"
               >
-                <span className="text-gray-700 truncate max-w-[180px]">
+                <span className="text-gray-700 dark:text-gray-200 truncate max-w-[180px]">
                   {m.uid === user?.uid
                     ? 'You'
                     : memberProfiles[m.uid]?.displayName ||
@@ -257,7 +257,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
                 </span>
                 <div className="flex items-center gap-2">
                   {m.role === 'owner' ? (
-                    <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                    <span className="rounded bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 text-xs text-blue-700 dark:text-blue-300">
                       Owner
                     </span>
                   ) : ownerStatus === 'owner' ? (
@@ -270,20 +270,20 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
                           handleChangeRole(m.uid, e.target.value as MemberRole)
                         }
                         aria-label={`Role for ${m.uid === user?.uid ? 'you' : m.uid}`}
-                        className="rounded border border-gray-300 px-1 py-0.5 text-xs"
+                        className="rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-1 py-0.5 text-xs"
                       >
                         <option value="editor">Editor</option>
                         <option value="viewer">Viewer</option>
                       </select>
                       <button
                         onClick={() => setRemoveUid(m.uid)}
-                        className="rounded border border-red-200 px-2 py-0.5 text-xs text-red-600 hover:bg-red-50"
+                        className="rounded border border-red-200 dark:border-red-800 px-2 py-0.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                       >
                         Remove
                       </button>
                     </>
                   ) : (
-                    <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                    <span className="rounded bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs text-gray-600 dark:text-gray-300">
                       {m.role}
                     </span>
                   )}
@@ -311,7 +311,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
           {/* Member-removal and role-change errors. Invitation-flow
               errors live inside InvitationSection. */}
           {error && (
-            <p className="mt-2 text-xs text-red-600">{error}</p>
+            <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>
           )}
         </div>
       </div>
@@ -532,7 +532,7 @@ function InvitationSection({
     }
     if (lines.length === 0) return null;
     return (
-      <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+      <div className="mt-2 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 px-3 py-2 text-xs text-blue-900 dark:text-gray-200">
         {lines.map((l, i) => (
           <div key={i}>{l}</div>
         ))}
@@ -542,7 +542,7 @@ function InvitationSection({
 
   return (
     <>
-      <p className="mb-2 text-xs text-gray-500">
+      <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
         Invite collaborators by email. Existing SPERT users are added immediately;
         new emails receive a one-time invitation link (expires in 30 days).
       </p>
@@ -554,7 +554,7 @@ function InvitationSection({
         placeholder="alice@example.com, bob@example.com&#10;carol@example.com"
         disabled={sending}
         rows={3}
-        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-3 py-2 text-sm focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400"
         aria-label="Email addresses to invite"
       />
       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -564,7 +564,7 @@ function InvitationSection({
           value={role}
           onChange={(e) => setRole(e.target.value as 'editor' | 'viewer')}
           disabled={sending}
-          className="rounded border border-gray-300 px-2 py-1.5 text-sm"
+          className="rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 py-1.5 text-sm"
           aria-label="Role for invitees"
         >
           <option value="editor">Editor</option>
@@ -583,7 +583,7 @@ function InvitationSection({
 
       {/* Invitation-flow error surface (local to this section). */}
       {error && (
-        <p className="mt-2 text-xs text-red-600">{error}</p>
+        <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>
       )}
 
       {/* Pending invites list */}

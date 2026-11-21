@@ -62,7 +62,7 @@ export function InvitationBanner() {
       // `relative` anchors the absolute-positioned dismiss button.
       // `pr-6` on the inner content reserves room so longer copy
       // (e.g., several claimed model names) doesn't run under the ×.
-      className="relative mx-auto mt-3 max-w-lg rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
+      className="relative mx-auto mt-3 max-w-lg rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 text-sm text-blue-900 dark:text-gray-200"
     >
       <div className="pr-6">
         {state.kind === 'pre_auth' && (
@@ -72,7 +72,7 @@ export function InvitationBanner() {
             </div>
             {firebaseAvailable ? (
               <>
-                <div className="mt-0.5 text-xs text-blue-800">
+                <div className="mt-0.5 text-xs text-blue-800 dark:text-gray-400">
                   Sign in with the email address that received this
                   invitation to accept.
                 </div>
@@ -102,7 +102,7 @@ export function InvitationBanner() {
                 </div>
               </>
             ) : (
-              <div className="mt-0.5 text-xs text-blue-800">
+              <div className="mt-0.5 text-xs text-blue-800 dark:text-gray-400">
                 Cloud sign-in is unavailable in this build.
               </div>
             )}
@@ -124,7 +124,7 @@ export function InvitationBanner() {
         type="button"
         onClick={dismiss}
         aria-label="Dismiss invitation banner"
-        className="absolute right-2 top-2 rounded px-2 py-0.5 text-blue-600 hover:bg-blue-100 hover:text-blue-800"
+        className="absolute right-2 top-2 rounded px-2 py-0.5 text-blue-600 dark:text-gray-500 hover:bg-blue-100 dark:hover:bg-blue-800/50 hover:text-blue-800 dark:hover:text-gray-300"
       >
         ×
       </button>

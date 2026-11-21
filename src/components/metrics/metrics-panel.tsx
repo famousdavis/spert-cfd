@@ -56,12 +56,12 @@ function periodLabel(period: MetricsPeriod): string {
 
 function DoneDecreaseWarning({ from, to }: DoneDecrease) {
   return (
-    <div className="mb-2 rounded border border-amber-200 bg-amber-50 p-2">
-      <div className="flex items-center gap-1 text-xs font-medium text-amber-800 mb-1">
+    <div className="mb-2 rounded border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 p-2">
+      <div className="flex items-center gap-1 text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">
         <AlertTriangle size={12} aria-hidden="true" />
         Done count went down
       </div>
-      <p className="text-xs text-amber-700">
+      <p className="text-xs text-amber-700 dark:text-amber-300">
         Between {formatDate(from)} and {formatDate(to)}. A CFD needs cumulative
         Done counts (every item finished so far), so the rates and times below
         may be wrong.
@@ -92,12 +92,12 @@ function FlowWarning({
 }: Pick<FlowMetrics, 'cycleTimeLean' | 'leadTimeLean' | 'totalFell'>) {
   if (!cycleTimeLean && !leadTimeLean && !totalFell) return null;
   return (
-    <div className="mt-2 rounded border border-amber-200 bg-amber-50 p-2">
-      <div className="flex items-center gap-1 text-xs font-medium text-amber-800 mb-1">
+    <div className="mt-2 rounded border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 p-2">
+      <div className="flex items-center gap-1 text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">
         <AlertTriangle size={12} aria-hidden="true" />
         Flow is not steady
       </div>
-      <div className="space-y-1 text-xs text-amber-700">
+      <div className="space-y-1 text-xs text-amber-700 dark:text-amber-300">
         {cycleTimeLean && <p>{CYCLE_TIME_LEAN[cycleTimeLean]}</p>}
         {leadTimeLean && <p>{LEAD_TIME_LEAN[leadTimeLean]}</p>}
         {totalFell && (
@@ -127,7 +127,7 @@ export function MetricsPanel() {
   if (snapshots.length === 0) {
     return (
       <section className="mt-6">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
           Metrics
         </h2>
         <p className="text-xs text-gray-400">Add data to see metrics</p>
@@ -138,7 +138,7 @@ export function MetricsPanel() {
   return (
     <section className="mt-6">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
           Metrics
         </h2>
         <select
@@ -154,7 +154,7 @@ export function MetricsPanel() {
               updateSettings({ metricsPeriod: { kind: 'days', value: days } });
             }
           }}
-          className="rounded border border-gray-300 px-1 py-0.5 text-xs"
+          className="rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-1 py-0.5 text-xs"
           aria-label="Metrics period"
         >
           {PERIOD_OPTIONS.map((o) => (
@@ -213,13 +213,13 @@ export function MetricsPanel() {
 
       {/* WIP Violations */}
       {metrics.wipViolations.length > 0 && (
-        <div className="mt-2 rounded border border-amber-200 bg-amber-50 p-2">
-          <div className="flex items-center gap-1 text-xs font-medium text-amber-800 mb-1">
+        <div className="mt-2 rounded border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 p-2">
+          <div className="flex items-center gap-1 text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">
             <AlertTriangle size={12} />
             WIP Violations
           </div>
           {metrics.wipViolations.map((v) => (
-            <div key={v.stateId} className="text-xs text-amber-700">
+            <div key={v.stateId} className="text-xs text-amber-700 dark:text-amber-300">
               {v.stateName}: {v.current}/{v.limit}
             </div>
           ))}

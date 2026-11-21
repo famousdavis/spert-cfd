@@ -30,14 +30,14 @@ const TABS: { id: TabId; label: string }[] = [
 // written here as hex (#666, #f5f5f5, #eee).
 const TAB =
   'px-5 py-2 border-0 border-b-[3px] rounded-t-[8px] cursor-pointer font-semibold text-base leading-[normal] transition-all duration-200';
-const TAB_ACTIVE = 'bg-spert-blue text-white border-b-spert-blue';
-const TAB_INACTIVE = 'bg-transparent text-[#666] border-b-transparent hover:bg-[#f5f5f5]';
+const TAB_ACTIVE = 'bg-spert-blue text-white border-b-spert-blue dark:bg-[#3b82f6] dark:border-b-[#3b82f6]';
+const TAB_INACTIVE = 'bg-transparent text-[#666] border-b-transparent hover:bg-[#f5f5f5] dark:text-[#a0aec0] dark:hover:bg-[#2d3748]';
 
 export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
   return (
     // The rule under the tabs spans the page's column, not the window.
     <nav className={PAGE_COLUMN}>
-      <div className="flex gap-2 border-b-2 border-[#eee]">
+      <div className="flex gap-2 border-b-2 border-[#eee] dark:border-[#2d3748]">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -62,7 +62,7 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
           href={HELP_CENTER_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="ml-auto self-center whitespace-nowrap text-sm text-[#666] underline-offset-2 hover:underline"
+          className="ml-auto self-center whitespace-nowrap text-sm text-[#666] dark:text-[#a0aec0] underline-offset-2 hover:underline"
         >
           Help Center{' '}<span aria-hidden="true">↗</span>{' '}<span className="sr-only">(opens in a new tab)</span>
         </a>

@@ -15,7 +15,7 @@ export function SettingsTab() {
     // reading width.
     <div className="flex-1 overflow-y-auto py-4">
       <div className={`${PAGE_COLUMN} *:max-w-4xl`}>
-        <h2 className="text-2xl mb-6 text-gray-900">Settings</h2>
+        <h2 className="text-2xl mb-6 text-gray-900 dark:text-gray-100">Settings</h2>
 
         <StorageSection />
         <ProjectExportSection />

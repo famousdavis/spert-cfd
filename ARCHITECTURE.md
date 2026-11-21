@@ -291,6 +291,36 @@ Semver-based, matching the pattern from MyScrumBudget:
 - **Version constant** `APP_VERSION` in `constants.ts` — used by footer and migration system
 - **CFD band order**: Done on bottom, Backlog on top (bands rise as work flows through)
 
+## Dark Mode (v0.19.1: every screen's colours in place, switched off)
+
+- **The variant.** `globals.css` declares `@custom-variant dark { @media not print { &:is(.dark *) { @slot; } } }`: a `dark:` class
+  applies only under an element carrying the `dark` class (never from the operating system's setting) and never in print, so a page
+  printed in dark comes out light. `&:is(.dark *)` needs an ancestor, so it never matches `<html>` itself.
+- **Nothing sets the `dark` class yet.** v0.19.1 gives every screen its dark colours (DASH26 RD1); no visitor sees them. The theme
+  switch (light / dark / system, SPERT® Forecaster's), the pre-paint script that sets the class before first paint, and the stored
+  preference come in the next release (RD2), with the preference held by the switch's own code.
+- **CSS only, no theme state in JavaScript.** Everything that changes with the theme follows the class through CSS:
+  - Tailwind `dark:` classes beside every light colour, hover and focus colour (the values: SPERT® Forecaster's for shared elements,
+    its palette for CFD's own; the page `#101828`, raised surfaces `#1e2939`, inputs `#364153`);
+  - `html.dark { color-scheme: dark }` (plain CSS, since the variant cannot reach `<html>`) for scrollbars, select lists, the date
+    picker and spinners; the body carries explicit text and background colours in both themes (`text-black` = the browser default);
+  - the chart: recharts draws its axes and the Brush's background as SVG attributes, overridden by rules on recharts' class names in
+    `globals.css` (`.recharts-brush > rect:first-of-type` depends on recharts' DOM order); its tooltip box is an inline style,
+    overridden by `dark:!` classes through `wrapperClassName`; the workflow colours are drawn as chosen in both themes;
+  - the header logo is two `<img>`s, `dark:hidden` and `hidden dark:block`; the browser tab's icon does not change. The
+    hidden one is still downloaded on a light visit (`spert-favicon-cfd-dark.png`, about 4 KB, one request): accepted
+    (PR #110 review -07), since it lets CSS alone choose the logo and the dark one is ready the moment RD2 sets the class;
+  - the browser's own focus ring (`outline: auto`, which Chromium draws in #101010 whatever the colour scheme) takes the dark
+    focus blue `#60a5fa` through one `@layer base` rule on `:where(.dark) *`, below every authored outline colour.
+- **Test files are not scanned for classes** (`@source not "../**/__tests__"` in `globals.css`): strings in a test, such as a
+  guard's fixtures, would otherwise become utilities in the shipped CSS.
+- **Guards.** `dark-partners.test.ts` fails when a class string carries a light colour utility (rest, hover, focus…) with no `dark:`
+  partner of the same property and variants, unless the colour is on its short allowlist of colours kept in both themes,
+  and when a one-side rule (`border-b`, `border-b-2`, `divide-y`) carries no colour at all. Its doc comment lists what it
+  cannot see (inline and JavaScript colours, inherited ones, bare all-sides `border` / `ring-N` / `outline-N`).
+  `globals-css.test.ts` compiles `globals.css` with the app's Tailwind and checks the variant, the print exclusion, `color-scheme`
+  and the chart rules, the focus-ring rule and the test-file exclusion.
+
 ## Test Tiers
 
 | Tier | Where | Runs with | Sees |
