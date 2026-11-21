@@ -46,59 +46,65 @@ const TOKEN = new RegExp(
 function literals(source: string): { text: string; index: number }[] {
   const out: { text: string; index: number }[] = [];
   let i = 0;
-  // Reads code from i up to an unmatched `}` (when inTemplate) or the end; returns where it stopped.
-  const code = (inTemplate: boolean): void => {
-    let depth = 0;
-    while (i < source.length) {
-      const c = source[i];
-      if (c === '/' && source[i + 1] === '/') {
-        i = source.indexOf('\n', i);
-        if (i < 0) i = source.length;
-      } else if (c === '/' && source[i + 1] === '*') {
-        const end = source.indexOf('*/', i + 2);
-        i = end < 0 ? source.length : end + 2;
-      } else if (c === "'" || c === '"') {
-        const start = i++;
-        let text = '';
-        while (i < source.length && source[i] !== c && source[i] !== '\n') {
-          if (source[i] === '\\') i++;
-          text += source[i++] ?? '';
-        }
-        i++;
-        out.push({ text, index: start });
-      } else if (c === '`') {
-        template();
-      } else if (c === '{') {
-        depth++;
-        i++;
-      } else if (c === '}') {
-        if (inTemplate && depth === 0) return;
-        depth--;
-        i++;
-      } else {
-        i++;
-      }
-    }
+
+  /** Past a comment starting at i, or i itself when none starts there. */
+  const skipComment = (): boolean => {
+    if (source[i] !== '/' || (source[i + 1] !== '/' && source[i + 1] !== '*')) return false;
+    const [close, width] = source[i + 1] === '/' ? ['\n', 0] : ['*/', 2];
+    const end = source.indexOf(close, i + 2);
+    i = end < 0 ? source.length : end + width;
+    return true;
   };
+
+  /** A '…' or "…" literal starting at i; it cannot cross a line. */
+  const quoted = (): void => {
+    const quote = source[i];
+    const start = i++;
+    let text = '';
+    while (i < source.length && source[i] !== quote && source[i] !== '\n') {
+      if (source[i] === '\\') i++;
+      text += source[i++] ?? '';
+    }
+    i++;
+    out.push({ text, index: start });
+  };
+
+  /** A `…` literal starting at i: its text without the ${…} parts, which are read as code. */
   const template = (): void => {
     const start = i++;
     let text = '';
     while (i < source.length && source[i] !== '`') {
-      if (source[i] === '\\') {
-        text += source[i + 1] ?? '';
-        i += 2;
-      } else if (source[i] === '$' && source[i + 1] === '{') {
+      if (source[i] === '$' && source[i + 1] === '{') {
         i += 2;
         text += ' ';
         code(true);
         i++; // the closing }
       } else {
-        text += source[i++];
+        if (source[i] === '\\') i++;
+        text += source[i++] ?? '';
       }
     }
     i++;
     out.push({ text, index: start });
   };
+
+  /** Code from i to the end, or (inside a template's ${…}) to its unmatched closing brace. */
+  function code(inTemplate: boolean): void {
+    let depth = 0;
+    while (i < source.length && !(inTemplate && depth === 0 && source[i] === '}')) {
+      if (!skipComment()) depth += step();
+    }
+  }
+
+  /** One token of code at i: a literal is read whole; returns the change in brace depth. */
+  function step(): number {
+    const c = source[i];
+    if (c === "'" || c === '"') quoted();
+    else if (c === '`') template();
+    else i++;
+    return c === '{' ? 1 : c === '}' ? -1 : 0;
+  }
+
   code(false);
   return out;
 }
