@@ -226,9 +226,12 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     handleLoadSample();
   }, [handleLoadSample]);
 
-  // A clone's words, after a macrotask (DASH26 R1b F5): emptied first, so the
-  // same words twice are announced twice. In local mode the save resolves in a
-  // microtask, where the empty and the refill could land in one commit.
+  // A clone's words, after a macrotask (DASH26 R1b F5): the region is emptied
+  // first (in handleClone, and by every failure), so the same words twice are
+  // announced twice. The macrotask is a margin, not load-bearing today: the
+  // click's own update commits the empty before the clone's asynchronous
+  // refill can land (a mutant without it passed every test; equivalent by
+  // reading). It guards a future path that empties and refills in one run.
   const announceClone = useCallback((text: string) => {
     window.clearTimeout(cloneStatusTimer.current);
     cloneStatusTimer.current = window.setTimeout(() => setCloneStatus(text), 0);
@@ -447,7 +450,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
             projects (v0.19.0, DASH26 R11, O21): Forecaster's pending line while
             the cloud list loads, else the welcome panel once it has loaded,
             unless an import preview is open. 24 px below the row above, as
-            Forecaster's \`mt-6\` sections (16 px gap + 8). */}
+            Forecaster's mt-6 sections (16 px gap + 8). */}
         {projects.length === 0 ? (
           driverLoading ? (
             <p role="status" aria-live="polite" className="mt-2 text-sm text-[#666] dark:text-gray-400">
