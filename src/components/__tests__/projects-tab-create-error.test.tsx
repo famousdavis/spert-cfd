@@ -70,7 +70,7 @@ describe('Projects tab: creating a project', () => {
 
     // v0.17.0: the name is asked for in the New Project dialog.
     fireEvent.click(screen.getByRole('button', { name: 'New Project' }));
-    fireEvent.change(screen.getByLabelText('Project name'), { target: { value: 'Beta' } });
+    fireEvent.change(screen.getByLabelText('Project Name'), { target: { value: 'Beta' } });
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create' })); });
 
     expect(createProject).toHaveBeenCalledWith('Beta');

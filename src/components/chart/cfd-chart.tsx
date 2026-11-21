@@ -68,10 +68,9 @@ export const CFDChart = memo(function CFDChart() {
 
   if (snapshots.length === 0) {
     return (
+      // v0.18.0 (DASH26 O13): no label row here; the CFD tab's project picker,
+      // above this section, names the open project in both branches.
       <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
-          Chart
-        </h2>
         <div className="flex h-48 items-center justify-center rounded border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-400">
           Add snapshot data to see the CFD chart
         </div>
@@ -81,10 +80,6 @@ export const CFDChart = memo(function CFDChart() {
 
   return (
     <section>
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
-        Cumulative Flow Diagram
-      </h2>
-
       <div className="rounded border border-gray-200 bg-white p-2" aria-label="Cumulative Flow Diagram">
         <ResponsiveContainer width="100%" height={300}>
           <AreaChart data={data}>

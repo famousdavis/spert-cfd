@@ -37,23 +37,30 @@ src/
 │   ├── cloud-migration-flow.tsx  # Shared local→cloud migration UX (consumed by StorageSection + modal; see JSDoc re intentional cloud→local duplication)
 │   ├── icons/google-logo.tsx     # Inline native-color Google G mark
 │   ├── icons/microsoft-logo.tsx  # Inline native-color Microsoft four-square mark
-│   ├── icons/toolbar-icon.tsx    # Dashboard toolbar icon (v0.17.0; paths in toolbar-icon-paths.ts, copied from GanttApp)
+│   ├── icons/toolbar-icon.tsx    # Dashboard toolbar icon (v0.17.0; paths in toolbar-icon-paths.ts, copied from GanttApp; 18 px since v0.18.0)
+│   ├── icons/icon-buttons.tsx    # The tile's 28 px icon buttons, Trash · Export · Pencil · Share, SPERT® Forecaster's glyphs (v0.18.0)
+│   ├── icons/icon-button-styles.ts  # Their look: box, resting grey, one hue per action (Forecaster's, v0.18.0)
+│   ├── icons/drag-handle.tsx     # The tile's six-dot grip (Forecaster's DragHandle, v0.18.0)
+│   ├── dashboard-styles.ts       # The Projects dashboard's and the CFD-tab picker's class strings, Forecaster's at df59b2d (v0.18.0)
+│   ├── toolbar-button-styles.ts  # The Projects toolbar's labelled buttons, Forecaster's (v0.18.0)
 │   ├── tab-navigation.tsx        # The suite's tab bar, 8px top corners over a 2px rule (v0.17.9) (Projects | CFD | Settings | About) + Help Center link
-│   ├── projects-tab.tsx          # Projects landing tab: heading + toolbar row (Export All · Import · Load Sample · New Project), card grid
-│   ├── new-project-dialog.tsx    # Asks for a new project's name (v0.17.0)
-│   ├── project-row.tsx           # SortableProjectCard: draggable tile with stats + actions
+│   ├── projects-tab.tsx          # Projects landing tab: "Projects" + toolbar row (Export All · Import · Load Sample · New Project), the tile grid, the project dialog, focus after Delete (v0.18.0: Forecaster's dashboard)
+│   ├── project-dialog.tsx        # The one New Project / Edit Project dialog: name only, page behind inert, Escape in the capture phase, focus back to the opener (v0.18.0)
+│   ├── project-row.tsx           # ProjectTile / SortableProjectTile: Forecaster's tile (grip · name opens the CFD tab · badge · Delete; meta lines; revealed Share · Export · Edit) (v0.18.0)
 │   ├── settings-tab.tsx          # Settings tab: StorageSection + ProjectExportSection + LocalWarningSetting
 │   ├── local-warning-setting.tsx # Settings switch for the local-storage caution (v0.17.0)
 │   ├── storage-section.tsx       # Storage mode toggle, auth UI; consumes CloudMigrationFlow
 │   ├── sharing-modal.tsx          # Per-project sharing modal (cloud, owner manages)
 │   ├── about-tab.tsx             # About page (Forecaster pattern)
 │   ├── error-boundary.tsx        # React Error Boundary for crash recovery
-│   ├── confirm-dialog.tsx        # Custom confirmation modal (replaces browser confirm())
+│   ├── confirm-dialog.tsx        # Custom confirmation modal (replaces browser confirm()); Escape closes it alone (useModalEscape, v0.18.0)
+│   ├── view-error-notice.tsx     # What an error boundary shows in place of a view (v0.16.4; own module v0.18.0)
 │   ├── consent-modal.tsx         # Clickwrap consent modal for Cloud Storage
 │   ├── first-run-banner.tsx      # First-run informational banner
 │   ├── local-storage-warning-banner.tsx  # Data persistence caution; "Got it" hides it until the next page load (v0.4.7; card, v0.17.0)
 │   ├── footer.tsx                # App footer (version, copyright, license, legal links)
-│   ├── project-dashboard.tsx     # CFD tab layout: sidebar + chart + grid, a bordered panel in the page column
+│   ├── project-dashboard.tsx     # CFD tab layout: sidebar + chart + grid, a bordered panel in the page column; the per-project key sits here, below the picker (v0.18.0)
+│   ├── project-picker.tsx        # "Cumulative flow for [project ▾]": names and switches the open project, above the chart (v0.18.0)
 │   ├── chart/
 │   │   ├── cfd-chart.tsx         # Memo'd Recharts AreaChart (Done bottom, Backlog top)
 │   │   ├── chart-controls.tsx    # Toggleable legend
@@ -83,7 +90,7 @@ src/
 │   ├── constants.ts              # APP_VERSION, TOS_VERSION, legal URLs, localStorage keys
 │   ├── firebase.ts               # Firebase app/auth/firestore initialization
 │   ├── consent.ts                # Consent localStorage helpers
-│   ├── storage-driver.ts          # StorageDriver interface + StorageMode + ProjectListItem
+│   ├── storage-driver.ts          # StorageDriver interface + StorageMode + ProjectListItem (cloud items carry owner, role, memberCount)
 │   ├── local-storage-driver.ts    # createLocalStorageDriver() — async wrapper over storage.ts
 │   ├── firestore-driver.ts       # createFirestoreDriver(uid, db) — Firestore StorageDriver
 │   ├── cloud-load-guards.ts      # Shape checks on project documents read from the cloud (v0.16.4)
@@ -99,7 +106,10 @@ src/
 │   ├── colors.ts                 # 12 preset colors + W3C contrast calculation
 │   ├── dates.ts                  # Date formatting + collection helpers (sort, merge)
 │   ├── download.ts               # Browser file download + standardized export filenames
-│   ├── use-dismiss.ts            # useEscapeKey() + useClickOutside() hooks
+│   ├── use-dismiss.ts            # useModalEscape() (capture phase, for a modal) + useEscapeKey() + useClickOutside() hooks
+│   ├── project-tile-meta.ts      # A tile's stats and meta lines: counts, the latest snapshot's date (v0.18.0)
+│   ├── tile-access.ts            # What a tile offers: badges, Share, the Delete and Edit gates; cloud only (v0.18.0)
+│   ├── tile-focus.ts             # Finding a tile's controls by project id; focus after a delete (v0.18.0)
 │   ├── use-grid-navigation.ts    # 2D keyboard navigation (arrows, Tab, Enter, Escape)
 │   ├── use-workflow-editor.ts    # Workflow state CRUD hook
 │   └── __tests__/                # 13 test files, 193 tests
@@ -272,7 +282,7 @@ Semver-based, matching the pattern from MyScrumBudget:
 - **Discriminated unions** use `kind` (not `type`) as the discriminant field
 - **IDs** are `nanoid(8)` — 8-character random strings
 - **Shared helpers** live in `dates.ts`: `sortSnapshots()`, `sortWorkflow()`, `mergeSnapshots()`, `daySpanBetween()`
-- **Dismiss hooks** in `use-dismiss.ts`: `useEscapeKey()`, `useClickOutside()`
+- **Dismiss hooks** in `use-dismiss.ts`: `useEscapeKey()`, `useClickOutside()`; a modal that can open over another Escape-listening surface (the import preview) uses `useModalEscape()` (or, in `ProjectDialog`, its own listener): one capture-phase `document` listener with `preventDefault` + `stopPropagation`, so one Escape closes only it (v0.18.0). A modal that makes the page `inert` returns focus in its close cleanup, after `inert` is removed: a `focus()` from a submit or cancel handler does nothing while the page is inert
 - **Version constant** `APP_VERSION` in `constants.ts` — used by footer and migration system
 - **CFD band order**: Done on bottom, Backlog on top (bands rise as work flows through)
 
@@ -307,16 +317,11 @@ npm run lint           # ESLint
 
 ## Known Optimizations / Backlog
 
-### Drop per-project hydration in `projects-tab` (post-v0.11.0 follow-up)
+### Drop per-project hydration in `projects-tab` (post-v0.11.0 follow-up; half done in v0.18.0)
 
-`src/components/projects-tab.tsx` currently calls `driver.loadProject(id)` for every project in a `useEffect` to compute `ProjectStats` (including `isOwner = full.owner === user.uid`). This is an N+1 read pattern: `driver.loadProjectList()` already fetches the full document set, and after v0.11.0 (PR [#41](https://github.com/famousdavis/spert-cfd/pull/41), F12) the list-level `ProjectListItem` shape carries `owner?: string` natively.
+`src/components/projects-tab.tsx` calls `driver.loadProject(id)` for every project in a `useEffect` to compute `ProjectStats`: an N+1 read pattern.
 
-The hydration loop predates the F12 fix and was the only available path to ownership metadata at the list level. It can now be removed:
+- **Done in v0.18.0 (DASH26 R1a):** access no longer comes from it. Cloud `ProjectListItem`s carry `owner`, this user's `role` and `memberCount` (`toListItem` in `firestore-driver.ts`, at both list read sites), and `tile-access.ts` derives the badges, Share and the Delete and Edit gates from the list item alone, in cloud mode only. The v0.10.2 Share-button rule (commit `4c250e2`) holds: Share needs cloud mode AND an explicit `owner` role, and the modal-side `isOwner` check in `sharing-modal.tsx` stays as a second line of defense.
+- **Still to do:** the tile's meta lines (the snapshot and state counts, and the latest snapshot's date, DASH26 R7) need the snapshots and the workflow, which the list does not carry. Dropping the loop needs those counts and that date on the list item (cloud: on the document, kept current by every save).
 
-- Use `ProjectListItem.owner` directly when computing the Share-button gate (`onShare={driver.mode === 'cloud' && p.owner === user.uid ? ... : undefined}`).
-- Other `ProjectStats` fields (snapshot counts, last-updated dates, etc.) — audit which still need a full-project load. If any do, keep the loop only for those; if none do, delete it entirely.
-- Watch out: the v0.10.2 Share-button fix (commit `4c250e2`) is the regression target. The replacement must continue to gate on cloud mode AND ownership, and the modal-side `isOwner` check in `sharing-modal.tsx` stays as a second line of defense.
-
-Estimated impact: removes one Firestore read per project on the Projects tab mount and on every `spert:models-changed` event (currently up to 25× the project count for a freshly-claimed batch). Becomes meaningful for users with 20+ projects or on slow connections.
-
-Why deferred: out of scope for the bulk-sharing remediation PRs, and touching `projects-tab` while the v0.10.2 fix was a few commits old would have risked silent regression. Worth picking up as a focused follow-up once v0.11.0 has soaked in production.
+Estimated impact: one Firestore read per project on the Projects tab mount and on every list change. Meaningful for users with 20+ projects or on slow connections.

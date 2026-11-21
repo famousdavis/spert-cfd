@@ -7,8 +7,12 @@
 // v0.16.4 keyed it by the active project on every tab, so creating a project
 // (which makes it active at once) remounted the whole Projects tab: its
 // "Couldn't create" alert was lost, and focus could not return to New
-// Project. The CFD tab shows one project, so it is still tried afresh when
-// the project changes.
+// Project.
+//
+// v0.18.0 (DASH26 R1a D1): the CFD tab is no longer keyed by project here
+// either. Its per-project key moved inside the tab, below its project picker,
+// so a switch made from the picker keeps the picker mounted (its focus and its
+// type-ahead). The inner remount is pinned in project-dashboard-picker.test.tsx.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -79,12 +83,20 @@ describe('AppShell: a change of active project', () => {
     expect(h.mounts.projects).toBe(1);
   });
 
-  it('still mounts the CFD tab afresh for the new project', () => {
+  it('keeps the CFD tab mounted too: its per-project key is inside it, below the picker', () => {
     const { rerender } = render(<AppShell />);
     fireEvent.click(screen.getByRole('button', { name: 'CFD' }));
     expect(h.mounts.cfd).toBe(1);
     h.activeProjectId = 'p2';
     rerender(<AppShell />);
+    expect(h.mounts.cfd).toBe(1);
+  });
+
+  it('control: changing tab does mount the CFD tab afresh', () => {
+    render(<AppShell />);
+    fireEvent.click(screen.getByRole('button', { name: 'CFD' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
+    fireEvent.click(screen.getByRole('button', { name: 'CFD' }));
     expect(h.mounts.cfd).toBe(2);
   });
 });

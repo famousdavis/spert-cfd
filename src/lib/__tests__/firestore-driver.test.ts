@@ -653,9 +653,10 @@ describe('projectOrder writes are atomic (v0.15.9)', () => {
 // converter, so `Project.updatedAt` is honestly an ISO string or absent by the
 // time anything holds it.
 //
-// Hops 1-2 of the four-hop chain. Layer 2 (the render) and layer 3 (the
-// carrier type) are in
-// `src/components/__tests__/project-row-updated-at.test.tsx`.
+// Hops 1-2 of the four-hop chain. Layers 2 and 3 (the tile's render and its
+// carrier type) were retired in v0.18.0 with the tile's "Updated" line
+// (DASH26 R7); nothing renders `updatedAt` now, so the no-instant case is
+// logged instead (`readUpdatedAt`, pinned at the end of this block).
 //
 // ⚠️ The fix has to land HERE, at `mapDocToProject`, not at the render site.
 // A render-site fix leaves `Project.updatedAt` lying about its type and does
@@ -721,6 +722,30 @@ describe('mapDocToProject — updatedAt normalisation (PC-1 layer 1)', () => {
     expect(project?.updatedAt).not.toBeNull();
     // Never a substituted current date, and never createdAt.
     expect(project?.createdAt).toBe(EXPECTED_ISO);
+  });
+
+  // v0.18.0 (DASH26 R1a D5): the case is logged, as in SPERT® Forecaster.
+  it.each(NO_RECOVERABLE_INSTANT)('%s -> one warning, naming neither the project nor the value', async (_label, shape) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      mockGetDoc.mockResolvedValueOnce(docWith(shape));
+      await createFirestoreDriver(TEST_UID, FAKE_DB).loadProject('p1');
+      const calls = warn.mock.calls.filter((c) => String(c[0]).includes('updatedAt'));
+      expect(calls).toEqual([["[SPERT CFD] cloud-load: a project's updatedAt carries no recoverable instant; left unset, not stamped"]]);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('control: a recoverable instant logs nothing', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      mockGetDoc.mockResolvedValueOnce(docWith(EXPECTED_ISO));
+      await createFirestoreDriver(TEST_UID, FAKE_DB).loadProject('p1');
+      expect(warn.mock.calls.filter((c) => String(c[0]).includes('updatedAt'))).toEqual([]);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('normalises on the onSnapshot path too, not only on loadProject', async () => {
@@ -937,6 +962,45 @@ describe('cloud reads (v0.16.4)', () => {
     });
 
     expect(callback).toHaveBeenCalledWith([{ id: 'p2', name: '', owner: undefined }]);
+  });
+
+  // v0.18.0 (DASH26 R1a): the list item carries this user's role and the member
+  // count, so the Projects tab gates and badges from the list, not the stats load.
+  it.each([
+    ['owner', { [TEST_UID]: 'owner' }, 'owner', 1],
+    ['editor', { other: 'owner', [TEST_UID]: 'editor' }, 'editor', 2],
+    ['viewer', { other: 'owner', x: 'editor', [TEST_UID]: 'viewer' }, 'viewer', 3],
+    ['a role that is not one of the three', { other: 'owner', [TEST_UID]: 'admin' }, undefined, 2],
+    ['no members map', undefined, undefined, undefined],
+    ['a members value that is not a map', ['x'], undefined, undefined],
+  ])('loadProjectList: %s', async (_label, members, role, memberCount) => {
+    mockGetDocs.mockResolvedValue({
+      forEach: (cb: (doc: { id: string; data: () => Record<string, unknown> }) => void) => {
+        cb({ id: 'p1', data: () => ({ name: 'P', owner: 'other', members }) });
+      },
+    });
+    const list = await createFirestoreDriver(TEST_UID, FAKE_DB).loadProjectList();
+    expect(list).toHaveLength(1);
+    expect(list[0].role).toBe(role);
+    expect(list[0].memberCount).toBe(memberCount);
+  });
+
+  it('onProjectListChange carries the role and member count too', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const callback = vi.fn();
+    let deliver!: (snap: unknown) => Promise<void>;
+    mockOnSnapshot.mockImplementation((_query, cb) => {
+      deliver = cb;
+      return () => {};
+    });
+    driver.onProjectListChange(callback);
+    await deliver({
+      metadata: { hasPendingWrites: false },
+      forEach: (cb: (doc: { id: string; data: () => Record<string, unknown> }) => void) => {
+        cb({ id: 'p3', data: () => ({ name: 'Shared', owner: 'other', members: { other: 'owner', [TEST_UID]: 'viewer' } }) });
+      },
+    });
+    expect(callback).toHaveBeenCalledWith([{ id: 'p3', name: 'Shared', owner: 'other', role: 'viewer', memberCount: 2 }]);
   });
 
   it('loadProject loads a project with the parts it cannot read set aside', async () => {

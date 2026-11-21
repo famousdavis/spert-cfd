@@ -4,23 +4,48 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useActiveProject } from '@/contexts/active-project-context';
+import { useProjectList } from '@/contexts/project-list-context';
 import { useStorage } from '@/contexts/storage-context';
 import { getStorageUsage } from '@/lib/storage-health';
 import { WorkflowEditor } from './workflow/workflow-editor';
 import { DataGrid } from './grid/data-grid';
 import { CFDChart } from './chart/cfd-chart';
 import { MetricsPanel } from './metrics/metrics-panel';
+import { ErrorBoundary } from './error-boundary';
+import { ProjectPicker } from './project-picker';
+import { ViewErrorNotice } from './view-error-notice';
 import { PAGE_COLUMN } from './page-column';
 
 interface ProjectDashboardProps {
   onGoToProjects?: () => void;
+  /** Passed to the picker: true once when focus should land on it as it mounts (DASH26 O14). */
+  takePickerFocus?: () => boolean;
 }
 
-export function ProjectDashboard({ onGoToProjects }: ProjectDashboardProps) {
+/**
+ * The CFD tab.
+ *
+ * v0.18.0 (DASH26 R1a D1): the per-project key is HERE, below the project
+ * picker, no longer on the tab's error boundary in `app-shell.tsx`. A switch
+ * still gives the sidebar, the chart and the grid a fresh mount, and the chart
+ * and the grid a fresh error boundary (v0.16.4: one project's bad data never
+ * blocks another), but the picker and the scroll area stay mounted, so a switch
+ * made from the picker keeps its focus and the browser's type-ahead. A crash in
+ * the chart or the grid shows its notice inside the panel, with the picker
+ * still above it. The scroll area goes back to the top on a switch, as the
+ * remount used to make it.
+ *
+ * The tree keeps the same shape with and without an open project (the aside
+ * slot and `main` are always at the same positions), so the picker also
+ * survives the moment a project first opens.
+ */
+export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDashboardProps) {
   const { project } = useActiveProject();
+  const { projects, activeProjectId } = useProjectList();
   const { driver } = useStorage();
+  const mainRef = useRef<HTMLElement>(null);
   // Memoize storage usage calculation — recompute when the active
   // project saves. updatedAt isn't used inside the memo body; it's an
   // intentional invalidation trigger because a save is what mutates
@@ -28,58 +53,72 @@ export function ProjectDashboard({ onGoToProjects }: ProjectDashboardProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const usage = useMemo(() => getStorageUsage(), [project?.updatedAt]);
 
-  if (!project) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-gray-500">
-        <p>Open a project from the Projects tab to view its CFD.</p>
-        {onGoToProjects && (
-          <button
-            onClick={onGoToProjects}
-            className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
-          >
-            Go to Projects
-          </button>
-        )}
-      </div>
-    );
-  }
+  // A switch shows the new project from its top.
+  useEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  }, [activeProjectId]);
+
+  const open = project !== null;
+  // DASH26 O15: with projects but none open, the picker still shows, above
+  // today's empty state.
+  const showPicker = projects.length > 0;
 
   return (
     // A bordered panel in the page's column, under the header and the tabs.
     <div className={`${PAGE_COLUMN} flex flex-1 overflow-hidden py-4`}>
-      <div className="flex w-full overflow-hidden rounded-lg border border-gray-200 bg-white">
-        {/* Left sidebar */}
-        <aside className="w-64 border-r border-gray-200 bg-gray-50 p-4 overflow-y-auto">
-          <WorkflowEditor />
+      <div className={open ? 'flex w-full overflow-hidden rounded-lg border border-gray-200 bg-white' : 'flex w-full overflow-hidden'}>
+        {/* Left sidebar, remounted for each project */}
+        {open && (
+          <aside key={activeProjectId ?? ''} className="w-64 border-r border-gray-200 bg-gray-50 p-4 overflow-y-auto">
+            <WorkflowEditor />
 
-          <MetricsPanel />
+            <MetricsPanel />
 
-          {/* Storage indicator (local mode only) */}
-          {driver.mode === 'local' && (
-            <div className="mt-auto pt-6">
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <span>Storage:</span>
-                <span
-                  className={
-                    usage.status === 'critical'
-                      ? 'text-red-600 font-medium'
-                      : usage.status === 'warning'
-                        ? 'text-amber-600 font-medium'
-                        : ''
-                  }
-                >
-                  {(usage.bytes / 1024).toFixed(1)} KB
-                </span>
+            {/* Storage indicator (local mode only) */}
+            {driver.mode === 'local' && (
+              <div className="mt-auto pt-6">
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <span>Storage:</span>
+                  <span
+                    className={
+                      usage.status === 'critical'
+                        ? 'text-red-600 font-medium'
+                        : usage.status === 'warning'
+                          ? 'text-amber-600 font-medium'
+                          : ''
+                    }
+                  >
+                    {(usage.bytes / 1024).toFixed(1)} KB
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
-        </aside>
+            )}
+          </aside>
+        )}
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto p-4">
-          <CFDChart />
+        <main ref={mainRef} className={open ? 'flex-1 overflow-y-auto p-4' : 'flex flex-1 flex-col overflow-y-auto p-4'}>
+          {showPicker && <ProjectPicker takeFocus={takePickerFocus} />}
 
-          <DataGrid />
+          {open ? (
+            <ErrorBoundary key={activeProjectId ?? ''} fallback={<ViewErrorNotice />}>
+              <CFDChart />
+
+              <DataGrid />
+            </ErrorBoundary>
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 text-gray-500">
+              <p>Open a project from the Projects tab to view its CFD.</p>
+              {onGoToProjects && (
+                <button
+                  onClick={onGoToProjects}
+                  className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+                >
+                  Go to Projects
+                </button>
+              )}
+            </div>
+          )}
         </main>
       </div>
     </div>
