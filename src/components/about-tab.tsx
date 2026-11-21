@@ -4,7 +4,7 @@
 
 "use client";
 
-import { APP_VERSION } from "@/lib/constants";
+import { APP_DESCRIPTION, APP_VERSION } from "@/lib/constants";
 import { STABILITY_NOISE_SIGMAS, STABILITY_TOLERANCE } from "@/lib/calculations";
 import { PAGE_COLUMN } from "./page-column";
 
@@ -34,9 +34,8 @@ export function AboutTab() {
         <h2 className="text-2xl mb-2 text-gray-900">
           About <TrademarkedName name="SPERT" /> CFD
         </h2>
-        <p className="text-gray-500 italic mb-8">
-          Cumulative Flow Diagrams for Agile Teams
-        </p>
+        {/* The header's tagline (v0.17.9): one constant for both. */}
+        <p className="text-gray-500 italic mb-8">{APP_DESCRIPTION}</p>
 
         <section className="mb-8">
           <h3 className="text-xl mb-3 text-blue-600">

@@ -32,13 +32,13 @@ src/
 ├── components/
 │   ├── app-shell.tsx             # Top-level provider wiring + tab state + loading gate + CloudStorageModal mount
 │   ├── page-column.ts            # PAGE_COLUMN: the one centred 1200px column shared by header, tabs, notices and every tab (v0.17.1)
-│   ├── app-header.tsx            # Header: branding + Option C split pill auth chip — opens CloudStorageModal
+│   ├── app-header.tsx            # Header: gradient title + tagline (APP_DESCRIPTION), the suite's shell (v0.17.9) + Option C split pill auth chip — opens CloudStorageModal
 │   ├── cloud-storage-modal.tsx   # Three-state Cloud Storage modal + Notifications toggle (auth-chip target)
 │   ├── cloud-migration-flow.tsx  # Shared local→cloud migration UX (consumed by StorageSection + modal; see JSDoc re intentional cloud→local duplication)
 │   ├── icons/google-logo.tsx     # Inline native-color Google G mark
 │   ├── icons/microsoft-logo.tsx  # Inline native-color Microsoft four-square mark
 │   ├── icons/toolbar-icon.tsx    # Dashboard toolbar icon (v0.17.0; paths in toolbar-icon-paths.ts, copied from GanttApp)
-│   ├── tab-navigation.tsx        # Pill-style tab bar (Projects | CFD | Settings | About) + Help Center link
+│   ├── tab-navigation.tsx        # The suite's tab bar, 8px top corners over a 2px rule (v0.17.9) (Projects | CFD | Settings | About) + Help Center link
 │   ├── projects-tab.tsx          # Projects landing tab: heading + toolbar row (Export All · Import · Load Sample · New Project), card grid
 │   ├── new-project-dialog.tsx    # Asks for a new project's name (v0.17.0)
 │   ├── project-row.tsx           # SortableProjectCard: draggable tile with stats + actions
