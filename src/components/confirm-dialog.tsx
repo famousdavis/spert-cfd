@@ -5,7 +5,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useEscapeKey } from '@/lib/use-dismiss';
+import { useModalEscape } from '@/lib/use-dismiss';
 import { X } from 'lucide-react';
 
 interface ConfirmDialogProps {
@@ -29,7 +29,11 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
-  useEscapeKey(onCancel);
+  // v0.18.0 (DASH26 R1a D2): Escape closes this dialog and only it. With the
+  // bubble-phase `useEscapeKey` it had, one Escape on the Delete confirmation
+  // also discarded a waiting import preview, and one on a confirmation inside
+  // the sharing modal also closed that modal.
+  useModalEscape(onCancel);
 
   // Focus the modal on mount
   useEffect(() => {

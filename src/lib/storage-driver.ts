@@ -18,6 +18,19 @@ export interface ProjectListItem {
    * "yours" by definition).
    */
   owner?: string;
+  /**
+   * v0.18.0: this user's role on the project, from the document's `members`
+   * map, set by cloud mode at the same read sites as `owner`. The membership
+   * query lists only projects whose `members[uid]` is one of the three
+   * roles. Local mode omits it, as it omits `owner`, so no access gate or
+   * badge ever shows there, even on a kept local copy of a cloud project.
+   * Absent also on a cloud project this browser is still creating or
+   * importing, until the list listener delivers it: the tile reads absent as
+   * "no gate" (DASH26 R1a D4), never as "not the owner".
+   */
+  role?: ProjectMemberRole;
+  /** v0.18.0: the number of entries in `members`, cloud mode only (the "Shared" badge, DASH26 R9). */
+  memberCount?: number;
 }
 
 export type ProjectMemberRole = 'owner' | 'editor' | 'viewer';

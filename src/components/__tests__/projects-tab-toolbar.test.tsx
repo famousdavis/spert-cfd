@@ -58,8 +58,10 @@ vi.mock('@/hooks/use-import-state', () => ({
   }),
 }));
 vi.mock('../sharing-modal', () => ({ SharingModal: () => null }));
+// v0.18.0: the tile is SortableProjectTile; this mock still intercepts the real
+// export (a missing export on a mocked module throws, so a rename shows here).
 vi.mock('../project-row', () => ({
-  SortableProjectCard: ({ name }: { name: string }) => <div>{name}</div>,
+  SortableProjectTile: ({ name }: { name: string }) => <li>{name}</li>,
 }));
 
 import { ProjectsTab } from '../projects-tab';
@@ -70,7 +72,7 @@ const TOOLBAR = ['Export All', 'Import', 'Load Sample', 'New Project'];
 
 /** The visible label of each button in the heading row, in order. */
 function toolbarLabels() {
-  const row = screen.getByRole('heading', { name: /^Projects \(\d+\)$/ }).parentElement!;
+  const row = screen.getByRole('heading', { name: 'Projects' }).parentElement!;
   return within(row).getAllByRole('button').map((b) => b.textContent);
 }
 
@@ -85,7 +87,9 @@ beforeEach(() => {
 describe('Projects tab: the heading and toolbar row', () => {
   it('shows the heading, then the four buttons in the suite order', () => {
     render(<ProjectsTab onOpenInCfd={vi.fn()} />);
-    expect(screen.getByRole('heading', { name: 'Projects (2)' })).toBeTruthy();
+    // v0.18.0: "Projects", as across the suite, with no count.
+    expect(screen.getByRole('heading', { name: 'Projects', level: 2 })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: /^Projects \(/ })).toBeNull();
     expect(toolbarLabels()).toEqual(TOOLBAR);
   });
 
@@ -154,13 +158,13 @@ describe('Projects tab: the New Project dialog', () => {
 
   it('has no inline name field on the tab', () => {
     render(<ProjectsTab onOpenInCfd={vi.fn()} />);
-    expect(screen.queryByLabelText('Project name')).toBeNull();
+    expect(screen.queryByLabelText('Project Name')).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
   it('focuses the name field; Create stays disabled while the name is blank', () => {
     const { dialog } = open();
-    const input = within(dialog).getByLabelText('Project name') as HTMLInputElement;
+    const input = within(dialog).getByLabelText('Project Name') as HTMLInputElement;
     expect(document.activeElement).toBe(input);
     const create = within(dialog).getByRole('button', { name: 'Create' }) as HTMLButtonElement;
     expect(create.disabled).toBe(true);
@@ -171,7 +175,7 @@ describe('Projects tab: the New Project dialog', () => {
 
   it('Enter creates the project with the trimmed name, closes, and returns focus to New Project', () => {
     const { trigger, dialog } = open();
-    const input = within(dialog).getByLabelText('Project name');
+    const input = within(dialog).getByLabelText('Project Name');
     fireEvent.change(input, { target: { value: '  Gamma  ' } });
     fireEvent.submit(input.closest('form')!);
     expect(h.createProject).toHaveBeenCalledWith('Gamma');
@@ -181,7 +185,7 @@ describe('Projects tab: the New Project dialog', () => {
 
   it('Enter on a blank name creates nothing and keeps the dialog open', () => {
     const { dialog } = open();
-    fireEvent.submit(within(dialog).getByLabelText('Project name').closest('form')!);
+    fireEvent.submit(within(dialog).getByLabelText('Project Name').closest('form')!);
     expect(h.createProject).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog')).toBeTruthy();
   });

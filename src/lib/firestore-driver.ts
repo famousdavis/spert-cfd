@@ -23,7 +23,7 @@ import {
   type QuerySnapshot,
 } from 'firebase/firestore';
 import type { Project, ChangeLogEntry, PendingInvite, InvitationStatus } from '@/types';
-import type { StorageDriver, ProjectListItem } from './storage-driver';
+import type { StorageDriver, ProjectListItem, ProjectMemberRole } from './storage-driver';
 import {
   PROJECTS_COL,
   SETTINGS_COL,
@@ -100,6 +100,28 @@ function mapToPendingInvite(
 // ── Internal helpers ────────────────────────────────────
 
 /**
+ * `updatedAt` through `normalizeUpdatedAt`, with SPERT® Forecaster's warning
+ * (`firestore-converters.ts` at df59b2d) when the stored value carries no
+ * recoverable instant. LEAVE AND LOG, never stamp: substituting the current
+ * date or `createdAt` would manufacture data with the wrong meaning.
+ *
+ * v0.18.0 (DASH26 R1a): until then this file deliberately did not log,
+ * because the Projects tab's tile rendered the case ("Updated —") and the
+ * user already saw it. The tile no longer shows `updatedAt` (DASH26 R7: it
+ * shows the latest snapshot's date), so nothing renders the case any more and,
+ * by that comment's own reasoning, it is logged here as Forecaster logs it.
+ * The message names neither the project nor the value, as this app's other
+ * load warnings do (`cloud-load-notices.ts`).
+ */
+function readUpdatedAt(value: unknown): string | undefined {
+  const updatedAt = normalizeUpdatedAt(value);
+  if (updatedAt === undefined) {
+    console.warn('[SPERT CFD] cloud-load: a project\'s updatedAt carries no recoverable instant; left unset, not stamped');
+  }
+  return updatedAt;
+}
+
+/**
  * Extract a Project from a Firestore document snapshot.
  * Strips cloud-only fields so consumers see the same shape as local mode.
  *
@@ -115,23 +137,7 @@ function mapDocToProject(snap: DocumentSnapshot, report: CloudSetAsideReport = n
     id: snap.id,
     ...cloudProjectData(snap.id, data, report),
     createdAt: typeof data.createdAt === 'string' ? data.createdAt : '',
-    // NO LOG HERE, DELIBERATELY — and this is the one respect in which this file
-    // differs from spert-forecaster's `src/shared/firebase/firestore-converters.ts`,
-    // which console.warns at its equivalent call site.
-    //
-    // The difference is in the callers, not in the classifier: `updated-at.ts` is
-    // near-identical in both repos and neither copy logs. Forecaster warns because
-    // it has NO RENDER SITE for this case — its own comment says so — so an
-    // unrecoverable `updatedAt` simply drops out of the merge mask and is
-    // completely invisible. Here it is visible: `normalizeUpdatedAt` returns
-    // `undefined`, and `project-row.tsx` renders `UPDATED_AT_FALLBACK` (an em dash)
-    // for exactly that. The user already sees the case, so a console.warn would be
-    // noise for something that is not hidden.
-    //
-    // This is not an oversight and should not be "made symmetric". Two
-    // near-identical files differing in one respect for a stated reason is a better
-    // outcome than two files that match by accident.
-    updatedAt: normalizeUpdatedAt(data.updatedAt),
+    updatedAt: readUpdatedAt(data.updatedAt),
     _version: typeof data._version === 'string' ? data._version : DATA_VERSION,
     // Preserve fingerprinting fields if present
     ...(typeof data._originRef === 'string' && { _originRef: data._originRef }),
@@ -143,16 +149,32 @@ function mapDocToProject(snap: DocumentSnapshot, report: CloudSetAsideReport = n
   };
 }
 
+const MEMBER_ROLES: readonly ProjectMemberRole[] = ['owner', 'editor', 'viewer'];
+
 /**
  * One project-list entry. v0.16.4: a name that is not text reads as '' and
  * is reported, so one project cannot take the list down for everyone it
  * names; an owner that is not text reads as none.
+ *
+ * v0.18.0 (DASH26 R1a): also this user's role and the member count, from the
+ * same document, so the Projects tab gates Delete, Edit and Share and shows
+ * its badges from the list itself, before and without the per-project stats
+ * load. A role that is not one of the three reads as none, which the tile
+ * treats as "no gate".
  */
-function toListItem(id: string, data: Record<string, unknown>): ProjectListItem {
+function toListItem(id: string, data: Record<string, unknown>, uid: string): ProjectListItem {
+  const members = data.members;
+  const memberMap =
+    typeof members === 'object' && members !== null && !Array.isArray(members)
+      ? (members as Record<string, unknown>)
+      : undefined;
+  const role = memberMap?.[uid];
   return {
     id,
     name: cloudText(data.name, id, 'project-name', noteCloudSetAside),
     owner: typeof data.owner === 'string' ? data.owner : undefined,
+    role: MEMBER_ROLES.includes(role as ProjectMemberRole) ? (role as ProjectMemberRole) : undefined,
+    memberCount: memberMap ? Object.keys(memberMap).length : undefined,
   };
 }
 
@@ -306,7 +328,7 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
         // Re-attach owner from the raw doc so list consumers can
         // compute isOwner without an N+1 round-trip per project
         // (Lessons 38, 49).
-        projects.push(toListItem(d.id, data));
+        projects.push(toListItem(d.id, data, uid));
       });
       const order = await loadProjectOrder();
       return sortByOrder(projects, order);
@@ -538,7 +560,7 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
             // Re-attach owner so the spert:models-changed downstream
             // listeners (and any other list-snapshot consumer) get
             // ownership metadata without a follow-up read (Lesson 49).
-            projects.push(toListItem(d.id, data));
+            projects.push(toListItem(d.id, data, uid));
           });
           const order = await loadProjectOrder();
           callback(sortByOrder(projects, order));

@@ -8,7 +8,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -21,27 +20,42 @@ import {
 import { arrayMove } from '@dnd-kit/sortable';
 import { useProjectList } from '@/contexts/project-list-context';
 import { useStorage } from '@/contexts/storage-context';
-import { useAuth } from '@/contexts/auth-context';
 import { exportFilename, exportAllFilename, downloadFile } from '@/lib/download';
 import { buildBannerText } from '@/lib/import-utils';
+import { projectStats as statsOf, type ProjectStats } from '@/lib/project-tile-meta';
+import { tileAccess } from '@/lib/tile-access';
+import { findTileControl, focusAfterTileLeaves, resolveFocusTarget, type TileFocusTarget } from '@/lib/tile-focus';
 import { useImportState } from '@/hooks/use-import-state';
 import { ConfirmDialog } from './confirm-dialog';
-import { NewProjectDialog } from './new-project-dialog';
+import { ProjectDialog } from './project-dialog';
 import { ToolbarIcon } from './icons/toolbar-icon';
 import { TOOLBAR_ICON_PATHS } from './icons/toolbar-icon-paths';
 import { ImportPreviewSection } from './import-preview-section';
 import { SharingModal } from './sharing-modal';
-import { SortableProjectCard, type ProjectStats } from './project-row';
+import { SortableProjectTile } from './project-row';
 import { PAGE_COLUMN } from './page-column';
+import { GRID, GRID_AREA, HEADING, HEAD_ROW } from './dashboard-styles';
+import {
+  TOOLBAR_BUTTON,
+  TOOLBAR_ICON_PRIMARY,
+  TOOLBAR_ICON_SECONDARY,
+  TOOLBAR_PRIMARY,
+  TOOLBAR_SECONDARY,
+} from './toolbar-button-styles';
 
 interface ProjectsTabProps {
   onOpenInCfd: (id: string) => void;
 }
 
+/** The project dialog: New Project, or Edit for one project, by id. */
+type DialogState = { kind: 'new' } | { kind: 'edit'; projectId: string; name: string } | null;
+
+const SECONDARY = `${TOOLBAR_BUTTON} ${TOOLBAR_SECONDARY}`;
+const PRIMARY = `${TOOLBAR_BUTTON} ${TOOLBAR_PRIMARY}`;
+
 export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
   const {
     projects,
-    activeProjectId,
     driverLoading,
     createProject,
     loadSampleProject,
@@ -50,11 +64,14 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     reorderProjects,
   } = useProjectList();
   const { driver } = useStorage();
-  const { user } = useAuth();
 
-  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  // New Project, always rendered: where focus goes when a New Project dialog closes.
   const newProjectButtonRef = useRef<HTMLButtonElement>(null);
+  // The tab's root, where a tile's controls are found by project id when focus must land on one.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [dialog, setDialog] = useState<DialogState>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [focusRequest, setFocusRequest] = useState<{ target: TileFocusTarget } | null>(null);
   const [sharingProjectId, setSharingProjectId] = useState<string | null>(null);
   const [projectStats, setProjectStats] = useState<Map<string, ProjectStats>>(new Map());
   const [uiError, setUiError] = useState<string | null>(null);
@@ -73,9 +90,13 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     handleDismissBanner: onDismissImportBanner,
   } = useImportState();
 
+  // v0.18.0: reordering is by pointer drag on the grip only, as in the
+  // siblings. The KeyboardSensor is gone: it never worked (no
+  // sortableKeyboardCoordinates, and its key listener sat on an element that
+  // could not take focus), and the focusable "sortable" wrapper it needed is
+  // gone with it.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor),
   );
 
   const projectIds = projects.map((p) => p.id);
@@ -93,7 +114,9 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     [projectIds, reorderProjects]
   );
 
-  // Load full project data for stats via driver (async)
+  // Load full project data for the tiles' meta lines via driver (async).
+  // Access (badges, Share, the Delete and Edit gates) comes from the list item,
+  // never from here (v0.18.0).
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -101,36 +124,60 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
       for (const p of projects) {
         // v0.16.4: one project that cannot be read leaves the others' stats.
         const full = await driver.loadProject(p.id).catch(() => null);
-        if (full) {
-          map.set(p.id, {
-            snapshotCount: full.snapshots.length,
-            workflowStateCount: full.workflow.length,
-            updatedAt: full.updatedAt,
-            memberCount: full.members ? Object.keys(full.members).length : undefined,
-            isOwner: !!user && full.owner === user.uid,
-          });
-        }
+        if (full) map.set(p.id, statsOf(full));
       }
       if (!cancelled) setProjectStats(map);
     })();
     return () => { cancelled = true; };
-  }, [projects, driver, user]);
+  }, [projects, driver]);
 
-  // The New Project button is always rendered, so focus can go back to it.
-  const closeNewProject = useCallback(() => {
-    setNewProjectOpen(false);
-    newProjectButtonRef.current?.focus();
-  }, []);
+  // A project whose Edit dialog is open left the list (unshared, or deleted on
+  // another device: cloud mode only): the dialog closes, nothing is saved.
+  // Adjusted during render, as Forecaster's useProjectDialog does, so no frame
+  // shows the dialog for a project that is gone.
+  if (dialog?.kind === 'edit' && !projects.some((p) => p.id === dialog.projectId)) {
+    setDialog(null);
+  }
+
+  // Focus after the Delete confirmation closes (DASH26 O12, D7), moved after
+  // the commit, once the dialog is gone. Neither target may exist (cloud mode
+  // can replace the list): then focus nothing.
+  useEffect(() => {
+    if (!focusRequest) return;
+    resolveFocusTarget(rootRef.current, focusRequest.target, newProjectButtonRef.current)?.focus();
+  }, [focusRequest]);
+
+  const closeDialog = useCallback(() => setDialog(null), []);
+
+  // Read when the dialog has closed and the page is no longer inert.
+  const returnFocusFromDialog = useCallback((): HTMLElement | null => {
+    if (dialog?.kind === 'edit') {
+      return findTileControl(rootRef.current, dialog.projectId, 'edit') ?? newProjectButtonRef.current;
+    }
+    return newProjectButtonRef.current;
+  }, [dialog]);
 
   const handleCreate = useCallback((name: string) => {
-    closeNewProject();
+    setDialog(null);
     createProject(name).catch(() => {
       setUiError(`Couldn't create "${name}" — it wasn't saved. Please try again.`);
     });
-  }, [createProject, closeNewProject]);
+  }, [createProject]);
 
-  // v0.17.0: a fresh sample, in either storage mode, opened the way a card's
-  // Open opens a project once it is saved.
+  // Edit renames through renameProject, which v0.17.6 keeps the open copy in
+  // step with. An unchanged name saves nothing, as the inline rename did.
+  const handleUpdate = useCallback((name: string) => {
+    if (dialog?.kind === 'edit' && name !== dialog.name) renameProject(dialog.projectId, name);
+    setDialog(null);
+  }, [dialog, renameProject]);
+
+  const handleEdit = useCallback((id: string) => {
+    const project = projects.find((p) => p.id === id);
+    if (project) setDialog({ kind: 'edit', projectId: id, name: project.name });
+  }, [projects]);
+
+  // v0.17.0: a fresh sample, in either storage mode, opened the way a tile
+  // opens a project once it is saved.
   const handleLoadSample = useCallback(() => {
     loadSampleProject().then(onOpenInCfd, () => {
       setUiError("Couldn't load the sample project — it wasn't saved. Please try again.");
@@ -160,6 +207,8 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     downloadFile(json, exportAllFilename('json'), 'application/json');
   }, [projects, driver]);
 
+  // The last-project rule (since v0.1.0), unchanged in R1a: Delete stays
+  // enabled on the last tile and says why it did nothing.
   const handleDeleteClick = useCallback(
     (id: string) => {
       if (projects.length <= 1) {
@@ -173,10 +222,17 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
 
   const handleConfirmDelete = useCallback(() => {
     if (deleteConfirmId) {
+      const target = focusAfterTileLeaves(projects, deleteConfirmId);
       deleteProject(deleteConfirmId);
+      setFocusRequest({ target });
     }
     setDeleteConfirmId(null);
-  }, [deleteConfirmId, deleteProject]);
+  }, [deleteConfirmId, deleteProject, projects]);
+
+  const handleCancelDelete = useCallback(() => {
+    if (deleteConfirmId) setFocusRequest({ target: { kind: 'delete', projectId: deleteConfirmId } });
+    setDeleteConfirmId(null);
+  }, [deleteConfirmId]);
 
   const deleteTargetName =
     projects.find((p) => p.id === deleteConfirmId)?.name ?? '';
@@ -185,23 +241,23 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     // The scroll area spans the window, so its scrollbar is at the edge; the
     // content sits in the page's column, under the header and the tabs.
     <div className="flex-1 overflow-y-auto py-4">
-      <div className={`${PAGE_COLUMN} flex flex-col gap-4`}>
-        {/* Heading and toolbar row (v0.17.0): the dashboard's first row, the
-            same order as across the SPERT suite. Every button is always
-            rendered; none moves with the project count or a load. */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-            Projects ({projects.length})
-          </h2>
+      <div ref={rootRef} className={`${PAGE_COLUMN} flex flex-col gap-4`}>
+        {/* Heading and toolbar row: the dashboard's first row, the same order
+            as across the SPERT suite (v0.17.0), drawn as SPERT® Forecaster's
+            (v0.18.0). Every button is always rendered; none moves with the
+            project count or a load. Deliberately NOT role="toolbar": that role
+            promises arrow-key navigation, and nothing here provides it. */}
+        <div className={HEAD_ROW}>
+          <h2 className={HEADING}>Projects</h2>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={handleExportAll}
               disabled={projects.length === 0}
               aria-label="Export all projects as JSON"
-              className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              className={SECONDARY}
             >
-              <ToolbarIcon d={TOOLBAR_ICON_PATHS.export} />
+              <ToolbarIcon d={TOOLBAR_ICON_PATHS.export} className={TOOLBAR_ICON_SECONDARY} />
               Export All
             </button>
             <button
@@ -209,26 +265,26 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
               onClick={onImportClick}
               disabled={driverLoading}
               aria-label="Import projects from JSON"
-              className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              className={SECONDARY}
             >
-              <ToolbarIcon d={TOOLBAR_ICON_PATHS.import} />
+              <ToolbarIcon d={TOOLBAR_ICON_PATHS.import} className={TOOLBAR_ICON_SECONDARY} />
               Import
             </button>
             <button
               type="button"
               onClick={handleLoadSample}
-              className="inline-flex items-center gap-1.5 rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              className={SECONDARY}
             >
-              <ToolbarIcon d={TOOLBAR_ICON_PATHS.sample} />
+              <ToolbarIcon d={TOOLBAR_ICON_PATHS.sample} className={TOOLBAR_ICON_SECONDARY} />
               Load Sample
             </button>
             <button
               ref={newProjectButtonRef}
               type="button"
-              onClick={() => setNewProjectOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700"
+              onClick={() => setDialog({ kind: 'new' })}
+              className={PRIMARY}
             >
-              <ToolbarIcon d={TOOLBAR_ICON_PATHS.plus} />
+              <ToolbarIcon d={TOOLBAR_ICON_PATHS.plus} className={TOOLBAR_ICON_PRIMARY} />
               New Project
             </button>
           </div>
@@ -304,43 +360,54 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
           />
         )}
 
-        {/* Project list */}
-        <section aria-label="Projects">
-          {projects.length === 0 ? (
-            <p className="text-sm text-gray-400">
-              No projects yet. Use New Project, Load Sample or Import.
-            </p>
-          ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext items={projectIds} strategy={rectSortingStrategy}>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+        {/* Project grid (v0.18.0: SPERT® Forecaster's tiles and grid) */}
+        {projects.length === 0 ? (
+          <p className="text-sm text-gray-400">
+            No projects yet. Use New Project, Load Sample or Import.
+          </p>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={projectIds} strategy={rectSortingStrategy}>
+              <div className={GRID_AREA}>
+                <ul className={GRID} aria-label="Projects">
                   {projects.map((p) => (
-                    <SortableProjectCard
+                    <SortableProjectTile
                       key={p.id}
                       id={p.id}
                       name={p.name}
                       stats={projectStats.get(p.id)}
-                      isActive={p.id === activeProjectId}
+                      access={tileAccess(driver.mode, p.role, p.memberCount)}
                       onOpen={onOpenInCfd}
                       onExport={handleExport}
-                      onShare={driver.mode === 'cloud' && projectStats.get(p.id)?.isOwner ? (id: string) => setSharingProjectId(id) : undefined}
+                      onEdit={handleEdit}
+                      onShare={setSharingProjectId}
                       onDelete={handleDeleteClick}
-                      onRename={renameProject}
                     />
                   ))}
-                </div>
-              </SortableContext>
-            </DndContext>
-          )}
-        </section>
+                </ul>
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
 
-        {/* New project name */}
-        {newProjectOpen && (
-          <NewProjectDialog onCreate={handleCreate} onCancel={closeNewProject} />
+        {/* The one project dialog, New or Edit (v0.18.0). Keyed by identity, so a
+            different project's Edit starts a fresh form. Its DOM goes to
+            document.body. */}
+        {dialog && (
+          <ProjectDialog
+            key={dialog.kind === 'edit' ? dialog.projectId : 'new'}
+            identity={dialog.kind === 'edit' ? dialog.projectId : 'new'}
+            title={dialog.kind === 'edit' ? 'Edit Project' : 'New Project'}
+            initialName={dialog.kind === 'edit' ? dialog.name : ''}
+            submitLabel={dialog.kind === 'edit' ? 'Update' : 'Create'}
+            onSubmit={dialog.kind === 'edit' ? handleUpdate : handleCreate}
+            onCancel={closeDialog}
+            returnFocusTo={returnFocusFromDialog}
+          />
         )}
 
         {/* Sharing modal */}
@@ -359,7 +426,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
             confirmLabel="Delete"
             variant="danger"
             onConfirm={handleConfirmDelete}
-            onCancel={() => setDeleteConfirmId(null)}
+            onCancel={handleCancelDelete}
           />
         )}
 

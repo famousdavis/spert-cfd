@@ -4,7 +4,7 @@
 
 'use client';
 
-import { Suspense, useState, useCallback } from 'react';
+import { Suspense, useState, useCallback, useRef } from 'react';
 import { ProjectListProvider, useProjectList } from '@/contexts/project-list-context';
 import { ActiveProjectProvider } from '@/contexts/active-project-context';
 import { AuthProvider } from '@/contexts/auth-context';
@@ -22,28 +22,38 @@ import { AboutTab } from './about-tab';
 import { Footer } from './footer';
 import { CloudStorageModal } from './cloud-storage-modal';
 import { InvitationBanner } from './invitation-banner';
-
-function ViewErrorNotice() {
-  return (
-    <div role="alert" className="mx-auto mt-8 max-w-xl rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-      <p className="font-semibold">This view could not be displayed.</p>
-      <p className="mt-1">Some of its data could not be shown. Other tabs and projects still work.</p>
-    </div>
-  );
-}
+import { ViewErrorNotice } from './view-error-notice';
 
 function AppContent() {
-  const { isLoaded, switchProject, activeProjectId } = useProjectList();
+  const { isLoaded, switchProject } = useProjectList();
   const [activeTab, setActiveTab] = useState<TabId>('projects');
   const [cloudModalOpen, setCloudModalOpen] = useState(false);
+  // v0.18.0 (DASH26 O14): a tile's Open, or Load Sample, takes focus to the
+  // CFD tab's project picker, which reads this once as it mounts. Without it
+  // focus fell to <body>: the Projects tab unmounts under the focused button.
+  const pickerFocusPending = useRef(false);
+  const takePickerFocus = useCallback(() => {
+    const pending = pickerFocusPending.current;
+    pickerFocusPending.current = false;
+    return pending;
+  }, []);
 
   const handleOpenInCfd = useCallback(
     (id: string) => {
+      pickerFocusPending.current = true;
       switchProject(id);
       setActiveTab('cfd');
     },
     [switchProject]
   );
+
+  // Any other tab change drops a request the picker never took (it does not
+  // mount when the CFD tab fails as a whole), so it cannot pull focus to the
+  // picker on a later, unrelated visit (DASH26 PR #108 review, -07).
+  const handleTabChange = useCallback((tab: TabId) => {
+    pickerFocusPending.current = false;
+    setActiveTab(tab);
+  }, []);
 
   if (!isLoaded) {
     return (
@@ -59,7 +69,7 @@ function AppContent() {
           tab share one column (see page-column.ts), with no full-width bars. */}
       <div className="flex h-screen flex-col bg-white">
         <AppHeader onOpenModal={() => setCloudModalOpen(true)} />
-        <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+        <TabNavigation activeTab={activeTab} onTabChange={handleTabChange} />
         {/* InvitationBanner uses next/navigation hooks (useSearchParams)
             which require a Suspense boundary in the App Router or
             `next build` will fail. Mounted above FirstRunBanner since
@@ -76,17 +86,22 @@ function AppContent() {
         />
         <div className="flex flex-1 overflow-hidden">
           {/* v0.16.4: an error in one tab leaves the header, the tabs and
-              sign-out up, so the user can move on. v0.17.0: keyed by the
-              project only on the CFD tab, which shows one project. On the
-              Projects tab a create makes the new project active at once, and
-              a key change there remounted the tab, losing its "Couldn't
-              create" alert and the New Project button's focus. */}
-          <ErrorBoundary key={activeTab === 'cfd' ? `cfd:${activeProjectId}` : activeTab} fallback={<ViewErrorNotice />}>
+              sign-out up, so the user can move on. Keyed by the tab only:
+              v0.17.0 stopped keying the Projects tab by the open project (a
+              create makes the new project active at once, and the remount lost
+              its "Couldn't create" alert and the New Project button's focus),
+              and v0.18.0 moved the CFD tab's per-project key inside the tab,
+              below its project picker (project-dashboard.tsx), so a switch made
+              from the picker keeps the picker, its focus and its type-ahead. */}
+          <ErrorBoundary key={activeTab} fallback={<ViewErrorNotice />}>
             {activeTab === 'projects' && (
               <ProjectsTab onOpenInCfd={handleOpenInCfd} />
             )}
             {activeTab === 'cfd' && (
-              <ProjectDashboard onGoToProjects={() => setActiveTab('projects')} />
+              <ProjectDashboard
+                onGoToProjects={() => handleTabChange('projects')}
+                takePickerFocus={takePickerFocus}
+              />
             )}
             {activeTab === 'settings' && <SettingsTab />}
             {activeTab === 'about' && <AboutTab />}

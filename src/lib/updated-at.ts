@@ -7,13 +7,16 @@
  *
  * WHY THIS EXISTS
  * ---------------
- * `Project.updatedAt` is typed `string`, and `project-row.tsx` formats it with
- * date-fns `format(new Date(value))`. `format()` throws `RangeError` on an
- * Invalid Date, so every shape that is not a parseable date CRASHES the project
- * row rather than degrading. Measured against the installed date-fns 4.1.0,
- * six shapes throw: a client `Timestamp`, both plain map spellings, the
- * unresolved `serverTimestamp()` sentinel, `undefined`, and any string
- * `Date.parse` rejects (`''` included).
+ * `Project.updatedAt` was typed `string`, and until v0.18.0 `project-row.tsx`
+ * formatted it with date-fns `format(new Date(value))`. `format()` throws
+ * `RangeError` on an Invalid Date, so every shape that is not a parseable date
+ * CRASHED the project row rather than degrading. Measured against the
+ * installed date-fns 4.1.0, six shapes throw: a client `Timestamp`, both plain
+ * map spellings, the unresolved `serverTimestamp()` sentinel, `undefined`, and
+ * any string `Date.parse` rejects (`''` included). v0.18.0 (DASH26 R7) took
+ * `updatedAt` off the tile, so nothing renders it now; this keeps
+ * `Project.updatedAt` honest to its type for every reader, and
+ * `firestore-driver.ts` (`readUpdatedAt`) logs the no-instant case.
  *
  * Suite writers do not agree on a type. Until Brief 19 the invitation Cloud
  * Functions wrote `Date.now()` and `FieldValue.serverTimestamp()` into
@@ -30,9 +33,9 @@
  *
  * ⚠️ RETURNS `undefined`, NEVER `''` AND NEVER `null`, for a shape carrying no
  * recoverable instant. `''` is itself a crashing shape, and `null` would reach
- * the document through write paths that strip only `undefined`. The caller
- * renders a fallback for `undefined`; it must never substitute the current date
- * or `createdAt`, both of which manufacture data with the wrong meaning.
+ * the document through write paths that strip only `undefined`. A caller must
+ * never substitute the current date or `createdAt` for `undefined`, both of
+ * which manufacture data with the wrong meaning.
  */
 export function normalizeUpdatedAt(value: unknown): string | undefined {
   if (value === null || value === undefined) return undefined;
