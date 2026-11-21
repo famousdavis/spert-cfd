@@ -2,7 +2,12 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-export const APP_VERSION = '0.17.8';
+export const APP_VERSION = '0.17.9';
+
+/** The tagline under the header's title, the About tab's subtitle and the page's
+ *  metadata description (v0.17.9). One constant, so they never disagree:
+ *  SPERT® Forecaster likewise uses one constant for its header and About tab. */
+export const APP_DESCRIPTION = 'Cumulative Flow Diagram tool for agile teams';
 
 /**
  * Maximum file size for CSV and JSON imports (5 MB).

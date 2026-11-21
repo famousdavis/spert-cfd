@@ -7,11 +7,18 @@
 import { useStorage } from '@/contexts/storage-context';
 import { useAuth } from '@/contexts/auth-context';
 import { getFirstName } from '@/lib/user-display';
+import { APP_DESCRIPTION } from '@/lib/constants';
 import { PAGE_COLUMN } from './page-column';
 
 interface AppHeaderProps {
   onOpenModal: () => void;
 }
+
+// The SPERT® blue gradient on the title's words (v0.17.9). The `spert-blue-*`
+// colours are defined in globals.css's @theme block, without which this
+// compiles to transparent text on no background: an invisible title.
+const TITLE_GRADIENT =
+  'font-bold bg-gradient-to-r from-spert-blue-light to-spert-blue-dark bg-clip-text text-transparent';
 
 function CloudIcon() {
   return (
@@ -48,27 +55,42 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
 
   return (
     // In the page's column with the tabs, not a full-width bar (as in GanttApp).
-    <header className={PAGE_COLUMN}>
-      <div className="flex items-center justify-between py-3">
-      <div className="flex items-center gap-2">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/spert-favicon-cfd.png"
-          alt="SPERT CFD icon"
-          className="mr-2 h-7 w-7 rounded-lg ring-1 ring-white/20"
-        />
-        <h1 className="text-lg font-bold whitespace-nowrap">
-          SPERT<sup className="text-[0.5em] text-gray-400 font-normal">®</sup> CFD
-        </h1>
+    // v0.17.9: the SPERT® suite's header, as SPERT® Forecaster draws it: the
+    // blue gradient title over an italic tagline, 60px tall, the sign-in chip
+    // top-right. The spacing is CFD's own, kept compact: 12px above and below
+    // (`my-3`, outside the 60px box; the siblings use 32px above and 24px
+    // below), so the CFD tab's chart and grid lose as little height as they
+    // can. `leading-[normal]` is the CSS `normal` line-height (Tailwind's
+    // own "normal" leading is 1.5). Without it, `md:text-[2.1rem]` sets only the
+    // font size, and the title keeps `text-2xl`'s line-height ratio, 2/1.5.
+    <header className={`${PAGE_COLUMN} my-3 flex items-start justify-between`}>
+      <div>
+        <div className="mb-1 flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/spert-favicon-cfd.png"
+            alt="SPERT CFD icon"
+            className="mr-2 h-7 w-7 rounded-lg ring-1 ring-white/20"
+          />
+          <h1 className="text-2xl sm:text-[1.75rem] md:text-[2.1rem] leading-[normal] whitespace-nowrap">
+            <span className={TITLE_GRADIENT}>SPERT</span>
+            <span className="text-gray-400 font-normal text-base sm:text-lg align-top">®</span>
+            <span className={TITLE_GRADIENT}> CFD</span>
+          </h1>
+        </div>
+        <p className="text-sm leading-[normal] text-gray-500 italic">{APP_DESCRIPTION}</p>
       </div>
 
+      {/* The right-hand group, as Forecaster's: today only the sign-in chip,
+          transparent at rest as in Forecaster (it was white). */}
+      <div className="flex items-center gap-2">
       {isCloudSignedIn ? (
         <button
           type="button"
           aria-haspopup="dialog"
           aria-label="Account menu"
           onClick={onOpenModal}
-          className="flex items-center rounded-full bg-white hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="flex items-center rounded-full hover:bg-gray-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           style={pillBorderStyle}
         >
           {/* Left segment: avatar + first name */}
@@ -102,7 +124,7 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
           aria-haspopup="dialog"
           aria-label="Account menu"
           onClick={onOpenModal}
-          className="flex items-center rounded-full bg-white hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="flex items-center rounded-full hover:bg-gray-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           style={pillBorderStyle}
         >
           {/* Left segment: avatar + first name */}
@@ -135,7 +157,7 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
           type="button"
           aria-label="Sign in"
           onClick={onOpenModal}
-          className="flex items-center rounded-full bg-white hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="flex items-center rounded-full hover:bg-gray-50 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           style={pillBorderStyle}
         >
           {/* Left segment: lock icon + "Local only" */}
