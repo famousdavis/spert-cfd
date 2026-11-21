@@ -307,11 +307,19 @@ Semver-based, matching the pattern from MyScrumBudget:
   - the chart: recharts draws its axes and the Brush's background as SVG attributes, overridden by rules on recharts' class names in
     `globals.css` (`.recharts-brush > rect:first-of-type` depends on recharts' DOM order); its tooltip box is an inline style,
     overridden by `dark:!` classes through `wrapperClassName`; the workflow colours are drawn as chosen in both themes;
-  - the header logo is two `<img>`s, `dark:hidden` and `hidden dark:block`; the browser tab's icon does not change.
+  - the header logo is two `<img>`s, `dark:hidden` and `hidden dark:block`; the browser tab's icon does not change. The
+    hidden one is still downloaded on a light visit (`spert-favicon-cfd-dark.png`, about 4 KB, one request): accepted
+    (PR #110 review -07), since it lets CSS alone choose the logo and the dark one is ready the moment RD2 sets the class;
+  - the browser's own focus ring (`outline: auto`, which Chromium draws in #101010 whatever the colour scheme) takes the dark
+    focus blue `#60a5fa` through one `@layer base` rule on `:where(.dark) *`, below every authored outline colour.
+- **Test files are not scanned for classes** (`@source not "../**/__tests__"` in `globals.css`): strings in a test, such as a
+  guard's fixtures, would otherwise become utilities in the shipped CSS.
 - **Guards.** `dark-partners.test.ts` fails when a class string carries a light colour utility (rest, hover, focus…) with no `dark:`
-  partner of the same property and variants, unless the colour is on its short allowlist of colours kept in both themes.
+  partner of the same property and variants, unless the colour is on its short allowlist of colours kept in both themes,
+  and when a one-side rule (`border-b`, `border-b-2`, `divide-y`) carries no colour at all. Its doc comment lists what it
+  cannot see (inline and JavaScript colours, inherited ones, bare all-sides `border` / `ring-N` / `outline-N`).
   `globals-css.test.ts` compiles `globals.css` with the app's Tailwind and checks the variant, the print exclusion, `color-scheme`
-  and the chart rules.
+  and the chart rules, the focus-ring rule and the test-file exclusion.
 
 ## Test Tiers
 

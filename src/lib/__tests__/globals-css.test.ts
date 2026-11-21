@@ -27,6 +27,11 @@ import { describe, it, expect } from 'vitest';
  *   reach, turns the browser's own parts dark under the class, not in print.
  * - The chart (v0.19.1): recharts draws its axes and the Brush's background as
  *   SVG attributes, which these rules override in dark.
+ * - The browser's focus ring (v0.19.1, PR #110 review -01): Chromium draws
+ *   `outline: auto` in #101010 whatever the colour scheme, invisible on the
+ *   dark page; a base-layer rule gives it the dark focus blue.
+ * - Test files are not scanned for classes (PR #110 review -06): strings in a
+ *   test must not become utilities in the shipped CSS.
  *
  * v0.19.1 replaced v0.17.9's text match of the variant line with a compile of
  * the file by the app's own Tailwind: the variant became a block, and what
@@ -36,8 +41,8 @@ const APP = join(process.cwd(), 'src', 'app');
 const GLOBALS = readFileSync(join(APP, 'globals.css'), 'utf8');
 const resolve = createRequire(join(APP, 'globals.css')).resolve;
 
-async function build(css: string, candidates: string[]): Promise<string> {
-  const compiler = await compile(css, {
+async function compiler(css: string) {
+  return compile(css, {
     base: APP,
     loadStylesheet: async (id: string) => {
       if (id !== 'tailwindcss') throw new Error(`unexpected @import ${id}`);
@@ -45,7 +50,10 @@ async function build(css: string, candidates: string[]): Promise<string> {
       return { path, base: dirname(path), content: readFileSync(path, 'utf8') };
     },
   });
-  return compiler.build(candidates);
+}
+
+async function build(css: string, candidates: string[]): Promise<string> {
+  return (await compiler(css)).build(candidates);
 }
 
 /** Every top-level block of `css` whose text contains `needle`, braces balanced. */
@@ -121,6 +129,20 @@ describe('globals.css', () => {
     // The variables those rules read are emitted.
     expect(css).toMatch(/--color-gray-400:/);
     expect(css).toMatch(/--color-gray-900:/);
+  });
+
+  it("colours the browser's own focus ring in dark only, below authored outlines, outside print", async () => {
+    const css = await build(GLOBALS, ['focus-visible:outline-[#0070f3]']);
+    expect(enclosing(css, 'outline-color: #60a5fa')).toEqual(['@layer base', '@media not print', ':where(.dark) *']);
+    // Nothing else sets an outline colour without a class: light keeps the browser's ring.
+    expect(css.match(/outline-color: #60a5fa/g)).toHaveLength(1);
+    // Control: an authored outline colour is a utility, in the later utilities layer, so it wins.
+    expect(enclosing(css, 'outline-color: #0070f3')[0]).toBe('@layer utilities');
+  });
+
+  it('does not scan test files for class names', async () => {
+    const { sources } = await compiler(GLOBALS);
+    expect(sources).toContainEqual({ base: APP, pattern: '../**/__tests__', negated: true });
   });
 
   it('defines the three SPERT® blues in a plain @theme block', () => {

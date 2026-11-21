@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
@@ -24,19 +25,37 @@ import { describe, it, expect } from 'vitest';
  * partner out (`dark:text-blue-600`, as the footer does) or add it to ALLOWED
  * with the reason.
  *
- * A side rule with no colour at all (`border-b`, `divide-y`) is drawn in
- * `currentColor`, the text colour: black in light, near-white in dark, a light
- * line across a dark window. Such a literal needs a border colour of its own,
- * at least a `dark:` one.
+ * A side rule with no colour at all (`border-b`, `border-b-2`, `divide-y`) is
+ * drawn in `currentColor`, the text colour: black in light, near-white in dark,
+ * a light line across a dark window. Such a literal needs a border colour of
+ * its own, at least a `dark:` one.
  *
- * Not seen by this test: inline `style` colours, colours passed as JavaScript
- * props (recharts), an element with no colour class that inherits one, and a
- * bare all-sides `border` (the shared button fragments take theirs elsewhere).
- * Those are covered by the release's rendered checks.
+ * Colours are every palette the installed Tailwind defines (read from its
+ * theme.css, so a new palette such as 4.3's mauve, mist, olive and taupe is
+ * seen), white and black, the SPERT® blues, and arbitrary colours: `[#…]`,
+ * `[rgb(…)]`, `[hsl(…)]`, `[oklch(…)]`, `[lab(…)]`, `[var(…)]`, `[color:…]` and
+ * named ones such as `[white]`.
+ *
+ * Not seen by this test (v0.19.1, PR #110 review -04, kept as known limits):
+ * inline `style` colours; colours passed as JavaScript props (recharts); an
+ * element with no colour class that inherits one; currentColor drawn by a bare
+ * all-sides `border`, `ring-N` or `outline-N` (the shared button fragments take
+ * their colour in another string); a side rule with an arbitrary width
+ * (`border-b-[3px]`) or whose only colour is a hover one; and the browser's own
+ * focus ring (`outline: auto`), which globals.css colours in dark. Those are
+ * covered by the release's rendered checks and globals-css.test.ts.
  */
 
-const PALETTE =
-  '(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\\d{2,3}|white|black|spert-blue(?:-light|-dark)?|\\[(?:#|rgb|var\\(--color|0_)';
+const require = createRequire(import.meta.url);
+/** The palette names of the installed Tailwind (`--color-<name>-<shade>` in its theme.css). */
+const THEME_PALETTES = [
+  ...new Set(
+    [...readFileSync(require.resolve('tailwindcss/theme.css'), 'utf8').matchAll(/--color-([a-z]+)-\d+\s*:/g)].map((m) => m[1])
+  ),
+];
+
+const ARBITRARY_COLOUR = '\\[(?:#|rgb|hsl|oklch|oklab|lab|lch|hwb|color:|var\\(|0_|[a-z]+\\])';
+const PALETTE = `(?:${THEME_PALETTES.join('|')})-\\d{2,3}|white|black|spert-blue(?:-light|-dark)?|${ARBITRARY_COLOUR}`;
 const PROPERTY =
   '(bg|text|border(?:-[trblxyse])?|ring(?:-offset)?|divide|outline|fill|stroke|from|to|via|placeholder|accent|shadow|decoration|caret)';
 const TOKEN = new RegExp(
@@ -44,8 +63,10 @@ const TOKEN = new RegExp(
   'g'
 );
 /** A one-side rule or divider with no colour of its own: drawn in currentColor. */
-const SIDE_RULE = /(?<![\w:/[-])(border-[trblxy]|divide-[xy])(?=\s)/;
-const RULE_COLOUR = /(?<![\w/[-])(?:[\w-]+:)*(?:border(?:-[trblxy])?|divide)-(?:\[|gray|slate|red|amber|green|blue|white|black|spert|transparent)/;
+const SIDE_RULE = /(?<![\w:/[-])((?:border-[trblxy]|divide-[xy])(?:-[1-9]\d*)?)(?=\s)/;
+const RULE_COLOUR = new RegExp(
+  `(?<![\\w/[-])(?:[\\w-]+:)*!?(?:border(?:-[trblxy])?|divide)-(?:${PALETTE}|transparent)`
+);
 
 /**
  * The string literals of `source`, each as its text and start offset. A template literal's
@@ -119,24 +140,34 @@ function literals(source: string): { text: string; index: number }[] {
   return out;
 }
 
-/** Colours the colour table keeps unchanged in dark (its U rows), and why. */
+/**
+ * Colours the colour table keeps unchanged in dark (its U rows), and why. A pattern that starts with
+ * `^(` names its variants and is matched against the whole token, so it covers only those uses; the
+ * others are matched against the utility without its variants.
+ */
 const ALLOWED: [RegExp, string][] = [
   [/^text-white$/, 'white labels on the blue and red buttons'],
   [/^bg-(blue|red)-(600|700)$/, 'primary and destructive buttons and their hover, in both themes'],
   [/^bg-black\/\d+$/, 'window overlays'],
   [/^ring-white\/\d+$/, 'the logo ring'],
-  [/^(bg|border|border-b)-spert-blue$|^(from-spert-blue-light|to-spert-blue-dark)$/, 'SPERT® brand blue: buttons, the title'],
+  [/^bg-spert-blue$|^border-spert-blue$|^border-b-spert-blue$|^from-spert-blue-light$|^to-spert-blue-dark$/, 'SPERT® brand blue: buttons, the title'],
   [/^bg-\[#005bc4\]$|^border-\[#005bc4\]$/, 'the brand-blue buttons’ hover'],
   [/^accent-blue-600$/, 'checkboxes and radios: the browser draws the box from color-scheme'],
-  [/^ring-blue-500$|^border-blue-500$/, 'focus rings and the focused field’s border (3:1 on every dark surface)'],
+  [
+    /^(focus|focus-visible):(ring-blue-500|border-blue-500)$/,
+    'focus rings and a focused border: 3.9:1 or more on the page, raised surfaces and the WIP tint. Not on a field (#364153, 2.74:1): the sharing textarea, the one field that uses them, takes blue-400 in dark',
+  ],
   [/^ring-amber-400$/, 'the WIP-violation ring'],
-  [/^text-gray-400$/, 'muted text: 5.6:1 or more on every dark surface'],
+  [
+    /^(disabled:hover:)?text-gray-400$/,
+    'muted text: 6.8:1 on the page, 5.6:1 on raised surfaces, 4.6:1 on #2d3748. On a field-coloured surface (#364153) it is 3.96:1: only the header chip’s "Local only" on its hover, Forecaster’s (O30)',
+  ],
   [/^shadow-\[0_20px_60px_rgba\(0,0,0,0\.3\)\]$/, 'the project dialog’s drop shadow'],
   [/^shadow-\[0_0_0_1\.5px_rgba\([\d,.]+\)\]$/, 'the icon buttons’ coloured hover / focus ring, drawn in both themes as Forecaster does'],
 ];
 
-function allowed(bare: string): boolean {
-  return ALLOWED.some(([re]) => re.test(bare));
+function allowed(token: string, bare: string): boolean {
+  return ALLOWED.some(([re]) => re.test(re.source.startsWith('^(') ? token : bare));
 }
 
 const variantsOf = (v: string) =>
@@ -167,7 +198,7 @@ export function unpairedLightColours(source: string): string[] {
       if (t.variants.includes('dark:')) continue;
       if (dark.has(`${variantsOf(t.variants)}|${t.property}`)) continue;
       const bare = `${t.property}-${t.value}`;
-      if (allowed(bare)) continue;
+      if (allowed(`${t.variants}${bare}`, bare)) continue;
       const line = source.slice(0, lit.index).split('\n').length;
       out.push(`${line}:${t.variants}${bare}`);
     }
@@ -211,6 +242,18 @@ describe('every light colour has a dark partner', () => {
     // A side rule drawn in currentColor needs a colour; a dark one is enough.
     expect(unpairedLightColours("const E = 'flex border-b px-4';")).toEqual(['1:border-b (currentColor rule)']);
     expect(unpairedLightColours("const F = 'flex border-b dark:border-gray-700 px-4';")).toEqual([]);
+    // v0.19.1 review -04: a rule with a width, the newer palettes, arbitrary colours.
+    expect(unpairedLightColours("const G = 'flex border-b-2 px-4';")).toEqual(['1:border-b-2 (currentColor rule)']);
+    expect(unpairedLightColours("const H = 'bg-mauve-50 text-taupe-700';")).toEqual(['1:bg-mauve-50', '1:text-taupe-700']);
+    expect(
+      unpairedLightColours("const I = 'text-[var(--link)] bg-[oklch(0.9_0.02_250)] border-[hsl(0,0%,90%)] fill-[white]';")
+    ).toEqual(['1:text-[var(--link)]', '1:bg-[oklch(0.9_0.02_250)]', '1:border-[hsl(0,0%,90%)]', '1:fill-[white]']);
+    // The allowlist covers only the uses it names: muted grey at rest, a blue focus ring.
+    expect(unpairedLightColours("const J = 'text-gray-400 focus-visible:ring-blue-500';")).toEqual([]);
+    expect(unpairedLightColours("const K = 'hover:text-gray-400 ring-blue-500';")).toEqual([
+      '1:hover:text-gray-400',
+      '1:ring-blue-500',
+    ]);
     // A comment is not a class string.
     expect(unpairedLightColours("// write 'hover:bg-gray-50' with a partner\nconst D = 1;")).toEqual([]);
     // A partner under different variants does not count.
@@ -227,6 +270,7 @@ describe('every light colour has a dark partner', () => {
         tokens += [...` ${lit.text} `.matchAll(TOKEN)].length;
       }
     }
+    expect(THEME_PALETTES).toEqual(expect.arrayContaining(['gray', 'amber', 'mauve', 'mist', 'olive', 'taupe']));
     expect(files.length).toBeGreaterThan(90);
     expect(tokens).toBeGreaterThan(600);
   });

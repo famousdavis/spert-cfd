@@ -4,6 +4,11 @@
 
 @import "tailwindcss";
 
+/* v0.19.1 (DASH26 RD1 PR #110 review -06): test files are not scanned for
+   class names. Without this, strings in a test (a guard's regexes and its
+   fixtures) became real utilities in the shipped CSS. */
+@source not "../**/__tests__";
+
 /* v0.17.9: `dark:` classes follow a `dark` class on an ancestor, never the
    operating system's setting. Without this, Tailwind 4's `dark:` follows the
    OS, and copied `dark:` classes turn on for anyone whose computer is dark.
@@ -40,6 +45,21 @@
 @media not print {
   html.dark {
     color-scheme: dark;
+  }
+}
+
+/* v0.19.1 (DASH26 RD1, PR #110 review -01): the browser's own focus ring in
+   dark. Most controls outside the Projects tab carry no focus style of their
+   own, so Chromium draws its default `outline: auto`, in #101010 whatever the
+   colour scheme: 1.07:1 on the dark page, a ring no one can see. In dark it
+   takes SPERT® Forecaster's dark focus blue. `:where()` and `@layer base` keep
+   it below every authored outline colour (R1a's buttons and fields keep
+   theirs); light is untouched, and print excludes it like every dark style. */
+@layer base {
+  @media not print {
+    :where(.dark) * {
+      outline-color: #60a5fa;
+    }
   }
 }
 
