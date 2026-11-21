@@ -223,6 +223,14 @@ describe('Clone, Create and Load Sample, cloud mode (a recording double)', () =>
     expect(result.current.list.projects.map((p) => p.id)).toEqual(['s1', made.id, 'o1']);
   });
 
+  it('on screen at once, after its source, while the create is still in flight (F10)', async () => {
+    driver = { ...cloudDouble(), createProject: vi.fn(() => new Promise<void>(() => {})) };
+    const { result } = await mount();
+    act(() => { void result.current.list.cloneProject(project('s1', 'Shared')); });
+    expect(result.current.list.projects.map((p) => p.name)).toEqual(['Shared', 'Shared (copy)', 'Mine']);
+    expect(result.current.list.activeProjectId).toBeNull();
+  });
+
   it('O23: Create and Load Sample are listed as the person\'s own at once too; neither is placed', async () => {
     const { result } = await mount();
     let a = '';
