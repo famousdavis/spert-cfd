@@ -74,6 +74,13 @@ it('O22 (a)+(d): the moment the create resolves, a fresh client reads the copy a
   await createFirestoreDriver(uid, client(uid)).reorderProjects([s2.id, s1.id, s3.id]) // a device this tab never heard
   await here.createProject(cloneOf(s1, 'S1 (copy)', uid), { after: s1.id, shownIds: shown })
   expect(await freshNames(uid)).toEqual(['S2', 'S1', 'S1 (copy)', 'S3'])
+  // Must-find control, the create-await-reorder design (pre-flight D1): a create with no placement, awaited, then
+  // read: the copy is last, where a reload or another device would show it until a later order write lands.
+  await here.createProject(cloneOf(s3, 'S3 (copy)', uid))
+  expect(await freshNames(uid)).toEqual(['S2', 'S1', 'S1 (copy)', 'S3', 'S3 (copy)'])
+  const s2copy = cloneOf(s2, 'S2 (copy)', uid)
+  await here.createProject(s2copy)
+  expect((await freshNames(uid)).at(-1)).toBe('S2 (copy)')
 })
 
 it('O22 (b), F2: a viewer\'s clone of the SECOND of two unordered shared projects lands right after it, also after a reload', async () => {

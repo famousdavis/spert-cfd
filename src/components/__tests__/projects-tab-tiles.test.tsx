@@ -406,6 +406,21 @@ describe('Clone through the tab (v0.19.0, DASH26 R1b)', () => {
     expect(screen.getByRole('alert').textContent).toContain("This browser's storage is full. Export a project, then delete one to make room.");
   });
 
+  it('O19: another action\'s failure alert clears the clone\'s words too (a failed Load Sample after a clone)', async () => {
+    h.storage.driver.loadProject.mockResolvedValue(stored);
+    h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
+    h.list.loadSampleProject.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
+    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    await act(async () => { fireEvent.click(button('Clone Alpha')); });
+    await settle();
+    expect(region().textContent).toBe('Cloned "Alpha" as "Alpha (copy)".');
+    await act(async () => { fireEvent.click(button('Load Sample')); });
+    await settle();
+    expect(screen.getByRole('alert').textContent).toContain("Couldn't load the sample project");
+    expect(region().textContent).toBe('');
+    expect(screen.queryByRole('button', { name: 'Dismiss clone message' })).toBeNull();
+  });
+
   it('O20: the open project is copied from memory when the LOADED copy is it', async () => {
     const inMemory = { ...stored, snapshots: [{ date: '2026-02-02', counts: { x: 1 } }] };
     activeValue.project = inMemory;

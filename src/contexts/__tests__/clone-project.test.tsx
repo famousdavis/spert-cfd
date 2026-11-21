@@ -133,13 +133,13 @@ describe('Clone, local mode (real driver)', () => {
     expect(localStorage.getItem(LS_ACTIVE_PROJECT)).toBe('p2');
   });
 
-  it('names: "X (copy)" then "X (copy 2)" with "x (copy)" taken; a second clone goes right after the source too', async () => {
-    await driver.createProject(project('p4', 'one (copy)'));
+  it('names: "X (copy)" then "X (copy 2)" with "x (copy)" taken, in another case; the copy goes right after its source', async () => {
+    await driver.createProject(project('p4', 'ONE (COPY)'));
     const { result } = await mount();
     let made = { id: '', name: '' };
     await settle(async () => { made = await result.current.list.cloneProject(project('p1', 'One')); });
     expect(made.name).toBe('One (copy 2)');
-    expect(result.current.list.projects.map((p) => p.name)).toEqual(['One', 'One (copy 2)', 'Two', 'Three', 'one (copy)']);
+    expect(result.current.list.projects.map((p) => p.name)).toEqual(['One', 'One (copy 2)', 'Two', 'Three', 'ONE (COPY)']);
   });
 
   it('names: a 200-character source keeps the name within the limit, and the copy stays readable after a reload', async () => {
