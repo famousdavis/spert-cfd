@@ -46,6 +46,13 @@ export const LS_SUPPRESS_LS_WARNING = 'spert_suppress_ls_warning';
 export const LS_ACTIVE_PROJECT = 'spertcfd-active-project';
 export const LS_STORAGE_MODE = 'spertcfd-storage-mode';
 export const LS_WORKSPACE_ID = 'spertcfd-workspace-id';
+/**
+ * v0.19.0 (DASH26 R26): an invite link opened with no local projects asks for
+ * Cloud at the next sign-in, which takes it only if the local list is still
+ * empty then (`use-invitation-landing.ts`). Until v0.18.0 the link switched the
+ * storage preference to Cloud at once.
+ */
+export const LS_INVITE_CLOUD_PENDING = 'spertcfd-invite-cloud-pending';
 
 /** Firestore document schema version. Written once by createProject.
  *  saveProject intentionally omits it (mergeFields exclusion preserves

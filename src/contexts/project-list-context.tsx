@@ -15,9 +15,10 @@ import {
 import { nanoid } from 'nanoid';
 import { useStorage } from './storage-context';
 import type { Project } from '@/types';
-import type { ProjectListItem } from '@/lib/storage-driver';
+import type { ProjectListItem, ProjectPlacement, StorageDriver } from '@/lib/storage-driver';
 import { MAX_NAME_LENGTH } from '@/lib/constants';
 import { createSampleProject } from '@/lib/sample-data';
+import { buildClone, cloneName } from '@/lib/clone-project';
 import { registerDataReset } from '@/lib/app-data-reset-registry';
 import type {
   ImportDecisions,
@@ -70,6 +71,14 @@ interface ProjectListContextValue {
    * does: no create path checks names (only import does).
    */
   loadSampleProject: () => Promise<string>;
+  /**
+   * v0.19.0 (DASH26 R1b): adds a copy of `source` right after it, on screen at
+   * once and in the stored order, and never changes the open project (O18).
+   * Resolves with the copy's id and name once it is saved; rejects if the save
+   * fails, after removing the copy's tile. The caller chooses the source
+   * (O20: the open project's in-memory copy, or the stored one).
+   */
+  cloneProject: (source: Project) => Promise<{ id: string; name: string }>;
   deleteProject: (id: string) => void;
   switchProject: (id: string) => void;
   renameProject: (id: string, name: string) => void;
@@ -82,6 +91,36 @@ interface ProjectListContextValue {
 }
 
 const ProjectListContext = createContext<ProjectListContextValue | null>(null);
+
+/**
+ * Starts a driver create. A synchronous throw (the local driver when
+ * localStorage is full) becomes a rejection, so the caller's rollback runs.
+ */
+function startCreate(driver: StorageDriver, project: Project, placement?: ProjectPlacement): Promise<void> {
+  try {
+    return driver.createProject(project, placement);
+  } catch (err) {
+    return Promise.reject(err);
+  }
+}
+
+/**
+ * The list entry for a project this browser creates. v0.19.0 (DASH26 O23):
+ * in cloud mode it is the person's own at once, with one member, so its Share
+ * shows without a reload; the list listener never delivers this device's own
+ * create (measured, DASH26 R1b M1).
+ */
+function ownListItem(driver: StorageDriver, id: string, name: string): ProjectListItem {
+  return driver.mode === 'cloud'
+    ? { id, name, owner: driver.workspaceId, role: 'owner', memberCount: 1 }
+    : { id, name };
+}
+
+/** `item` right after `after`, or at the end when `after` is absent or not listed. */
+function insertAfter(list: ProjectListItem[], item: ProjectListItem, after?: string): ProjectListItem[] {
+  const at = after === undefined ? -1 : list.findIndex((p) => p.id === after);
+  return at < 0 ? [...list, item] : [...list.slice(0, at + 1), item, ...list.slice(at + 1)];
+}
 
 export function useProjectList() {
   const ctx = useContext(ProjectListContext);
@@ -99,6 +138,15 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   // Cloud-mode mounts start gated; local-mode mounts need no gate (synchronous read).
   // driver is non-null here — StorageProvider short-circuits until storageReady = driver !== null.
   const [driverLoading, setDriverLoading] = useState(() => driver.mode === 'cloud');
+  // v0.19.0 (DASH26 O21): a swap to a cloud driver is loading from its first
+  // render. Set during render, not in the load effect below: that effect runs
+  // after the first render with the new driver, which showed an empty list as
+  // loaded for one frame, and with it the welcome panel (Opus-R1b-1 -11).
+  const [driverSeen, setDriverSeen] = useState(driver);
+  if (driverSeen !== driver) {
+    setDriverSeen(driver);
+    if (driver.mode === 'cloud') setDriverLoading(true);
+  }
   const [projectUpdateKey, setProjectUpdateKey] = useState(0);
   const [importedActiveProject, setImportedActiveProject] = useState<Project | null>(null);
 
@@ -115,19 +163,14 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
         const list = await driver.loadProjectList();
         if (cancelled) return;
 
-        // Sample project seeding: local mode only (§8.4)
-        // In cloud mode, an empty list shows the empty state.
-        if (list.length === 0 && driver.mode === 'local') {
-          const sample = createSampleProject();
-          await driver.createProject(sample);
-          if (cancelled) return; // guard after second await
-          driver.setActiveProjectId(sample.id);
-          setProjects([{ id: sample.id, name: sample.name }]);
-          setActiveProjectId(sample.id);
-        } else {
-          setProjects(list);
-          setActiveProjectId(driver.getActiveProjectId());
-        }
+        // v0.19.0 (DASH26 R20): an empty list stays empty, in both modes; the
+        // Projects tab shows its welcome panel, and the sample loads only from
+        // Load Sample. Until v0.18.0 an empty local list re-seeded the sample,
+        // on a first visit and after the last project was deleted.
+        // An empty list opens nothing, even when the active-project key still
+        // names a project from an earlier session (Opus-R1b-2 -11).
+        setProjects(list);
+        setActiveProjectId(list.length === 0 ? null : driver.getActiveProjectId());
         setIsLoaded(true);
       } catch (err) {
         if (!cancelled) {
@@ -181,28 +224,26 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Adds a whole project and makes it active at once (createProject and
-  // loadSampleProject both come here).
+  // Adds a whole project (createProject, loadSampleProject and, since
+  // v0.19.0, cloneProject come here). Without a placement it is appended and
+  // made active at once; with one (Clone) it goes right after its source and
+  // the open project stays as it was (DASH26 O18).
   const addProject = useCallback(
-    (project: Project): Promise<string> => {
+    (project: Project, placement?: ProjectPlacement): Promise<string> => {
       const { id, name } = project;
+      const activate = placement === undefined;
       // Called synchronously, BEFORE the new id becomes active: the cloud
       // driver must see this create as in flight by the time the active-
       // project effects read the id. Not Promise.resolve().then(...) as in
       // applyImportMerge — that defers the call past those reads, and the
-      // new project could not be opened again (measured, QC26 Q01). The
-      // try/catch still turns a synchronous throw (the local driver when
+      // new project could not be opened again (measured, QC26 Q01).
+      // startCreate still turns a synchronous throw (the local driver when
       // localStorage is full) into a rejection.
-      let saved: Promise<void>;
-      try {
-        saved = driver.createProject(project);
-      } catch (err) {
-        saved = Promise.reject(err);
-      }
+      const saved = startCreate(driver, project, placement);
       const previousActiveId = activeProjectId;
-      driver.setActiveProjectId(id);
-      setProjects((prev) => [...prev, { id, name }]);
-      setActiveProjectId(id);
+      if (activate) driver.setActiveProjectId(id);
+      setProjects((prev) => insertAfter(prev, ownListItem(driver, id, name), placement?.after));
+      if (activate) setActiveProjectId(id);
 
       return saved.then(
         () => id,
@@ -211,8 +252,9 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
           setProjects((prev) => prev.filter((p) => p.id !== id));
           // Restore the previous project only if the user has not opened
           // another meanwhile. The driver holds the live active id: every
-          // switch writes it synchronously.
-          if (driver.getActiveProjectId() === id) {
+          // switch writes it synchronously. A clone never opened, so there
+          // is nothing to restore.
+          if (activate && driver.getActiveProjectId() === id) {
             driver.setActiveProjectId(previousActiveId);
             setActiveProjectId(previousActiveId);
           }
@@ -251,6 +293,22 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   const loadSampleProject = useCallback(
     (): Promise<string> => addProject(createSampleProject()),
     [addProject]
+  );
+
+  const cloneProject = useCallback(
+    (source: Project): Promise<{ id: string; name: string }> => {
+      const shownName = projects.find((p) => p.id === source.id)?.name ?? source.name;
+      const name = cloneName(shownName, projects.map((p) => p.name));
+      const clone = buildClone(source, {
+        id: nanoid(8),
+        name,
+        now: new Date().toISOString(),
+        cloudActor: driver.mode === 'cloud' ? driver.workspaceId : undefined,
+      });
+      const placement = { after: source.id, shownIds: projects.map((p) => p.id) };
+      return addProject(clone, placement).then((id) => ({ id, name }));
+    },
+    [driver, projects, addProject]
   );
 
   const deleteProject = useCallback(
@@ -462,6 +520,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
         importedActiveProject,
         createProject,
         loadSampleProject,
+        cloneProject,
         deleteProject,
         switchProject,
         renameProject,

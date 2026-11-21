@@ -4,16 +4,18 @@
 
 import { nanoid } from 'nanoid';
 import type { Project, PendingInvite } from '@/types';
-import type { StorageDriver, ProjectListItem } from './storage-driver';
+import type { StorageDriver, ProjectListItem, ProjectPlacement } from './storage-driver';
 import {
   loadIndex,
   saveIndex,
   loadProject,
   saveProject,
+  removeProjectData,
   deleteProject,
   exportProject,
   importProject,
 } from './storage';
+import { placeAfter } from './project-order';
 import { LS_ACTIVE_PROJECT, LS_WORKSPACE_ID } from './constants';
 
 /**
@@ -59,17 +61,30 @@ export function createLocalStorageDriver(): StorageDriver {
       return Promise.resolve(loadProject(id));
     },
 
-    createProject(project: Project): Promise<void> {
-      // Write project data
+    createProject(project: Project, placement?: ProjectPlacement): Promise<void> {
+      // Write project data. A refusal (storage full) throws synchronously;
+      // callers turn it into a rejection.
       saveProject(project);
 
-      // Add to index (this logic was removed from saveProject in Step 2)
+      // Add to index (this logic was removed from saveProject in Step 2).
+      // v0.19.0 (DASH26 O22): with a placement, the id goes right after its
+      // source in the STORED index, so an order another tab wrote survives and
+      // an id this browser cannot read stays where it is.
       const index = loadIndex();
-      if (!index.projectIds.includes(project.id)) {
-        index.projectIds.push(project.id);
-        saveIndex(index);
+      const listed = index.projectIds.includes(project.id);
+      if (listed && !placement) return Promise.resolve();
+      const projectIds = placement
+        ? placeAfter(index.projectIds, [], placement.after, project.id)
+        : [...index.projectIds, project.id];
+      try {
+        saveIndex({ ...index, projectIds });
+      } catch (err) {
+        // v0.19.0 (DASH26 R1b F7): the project fitted but its index entry did
+        // not. Without this the data stayed in storage, listed nowhere, still
+        // using the space the refusal says is full.
+        if (!listed) removeProjectData(project.id);
+        throw err;
       }
-
       return Promise.resolve();
     },
 

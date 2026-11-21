@@ -11,6 +11,10 @@
 // - Edit: one dialog, renames through renameProject; closes if its project
 //   leaves the list (L9).
 // - One Escape in the dialog leaves a waiting import preview alone.
+// v0.19.0 (DASH26 R1b):
+// - R10: the last project may be deleted; focus then goes to New Project (O12).
+// - Clone through the tab: O18 (focus stays, nothing opens), O19 (the status
+//   region and its words, the failure alert), O20 (which copy), O24.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act, within } from '@testing-library/react';
@@ -25,6 +29,7 @@ const h = vi.hoisted(() => ({
     driverLoading: false,
     createProject: vi.fn(),
     loadSampleProject: vi.fn(),
+    cloneProject: vi.fn(),
     deleteProject: vi.fn(),
     renameProject: vi.fn(),
     reorderProjects: vi.fn(),
@@ -36,6 +41,9 @@ const h = vi.hoisted(() => ({
 
 vi.mock('@/contexts/project-list-context', () => ({ useProjectList: () => h.list }));
 vi.mock('@/contexts/storage-context', () => ({ useStorage: () => h.storage }));
+// v0.19.0: the tab reads the loaded project for Clone (O20); none is loaded here.
+const activeValue = vi.hoisted(() => ({ project: null as unknown }));
+vi.mock('@/contexts/active-project-context', () => ({ useActiveProject: () => activeValue }));
 vi.mock('@/hooks/use-import-state', () => ({
   useImportState: () => ({
     flowPhase: h.importPhase,
@@ -70,6 +78,8 @@ beforeEach(() => {
   h.storage.driver.loadProject.mockReset().mockResolvedValue(null);
   h.list.deleteProject.mockReset();
   h.list.renameProject.mockReset();
+  h.list.cloneProject.mockReset();
+  activeValue.project = null;
   h.importPhase = { phase: 'idle' };
   h.previewCancel.mockReset();
 });
@@ -147,15 +157,17 @@ describe('the tiles\' meta lines and the stats load (Char-DASH-1 §B #19, #22)',
   });
 });
 
-describe('the last-project rule (§B #16, unchanged in R1a)', () => {
-  it('Delete on the only tile stays enabled, opens no confirmation and says why', () => {
+describe('the last project may be deleted (v0.19.0, DASH26 R10; Char-DASH-1 §B #16 removed)', () => {
+  it('Delete on the only tile asks, deletes, says nothing else, and focus goes to New Project (O12\'s third branch)', async () => {
     h.list.projects = [THREE[0]];
     render(<ProjectsTab onOpenInCfd={vi.fn()} />);
-    expect(button('Delete Alpha').disabled).toBe(false);
     fireEvent.click(button('Delete Alpha'));
-    expect(screen.queryByRole('alertdialog')).toBeNull();
-    expect(screen.getByRole('alert').textContent).toContain('Cannot delete the last project.');
-    expect(h.list.deleteProject).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('alertdialog');
+    expect(dialog.textContent).toContain('Delete "Alpha"? This cannot be undone.');
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' })); });
+    expect(h.list.deleteProject).toHaveBeenCalledWith('a');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(document.activeElement).toBe(button('New Project'));
   });
 });
 
@@ -306,5 +318,114 @@ describe('one Escape, one surface', () => {
     render(<ProjectsTab onOpenInCfd={vi.fn()} />);
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(h.previewCancel).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Clone through the tab (v0.19.0, DASH26 R1b)', () => {
+  const region = () => document.querySelector('[role="status"][data-clone-status]') as HTMLElement;
+  const stored = { id: 'a', name: 'Alpha', createdAt: '2026-01-01', workflow: [], snapshots: [], settings: {} };
+  const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 5)); });
+
+  it('O19: the polite region is there and empty before the click; then exactly "Cloned "X" as "X (copy)".", read once', async () => {
+    h.storage.driver.loadProject.mockResolvedValue(stored);
+    h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
+    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    expect(region()).not.toBeNull();
+    expect(region().getAttribute('aria-live')).toBe('polite');
+    expect(region().className).toBe('sr-only');
+    expect(region().textContent).toBe('');
+    expect(screen.queryByRole('button', { name: 'Dismiss clone message' })).toBeNull();
+    await act(async () => { fireEvent.click(button('Clone Alpha')); });
+    await settle();
+    expect(region().textContent).toBe('Cloned "Alpha" as "Alpha (copy)".');
+    // The visible line repeats it hidden from screen readers, so it is read once (Q3).
+    const dismiss = button('Dismiss clone message');
+    const visible = dismiss.parentElement!.querySelector('span')!;
+    expect(visible.textContent).toBe('Cloned "Alpha" as "Alpha (copy)".');
+    expect(visible.getAttribute('aria-hidden')).toBe('true');
+    fireEvent.click(dismiss);
+    expect(region().textContent).toBe('');
+    expect(screen.queryByRole('button', { name: 'Dismiss clone message' })).toBeNull();
+  });
+
+  it('F5: the same words twice are announced twice: the region is emptied in between (recorded)', async () => {
+    h.storage.driver.loadProject.mockResolvedValue(stored);
+    h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
+    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    const seen: string[] = [];
+    const observer = new MutationObserver(() => seen.push(region().textContent ?? ''));
+    observer.observe(region(), { childList: true, characterData: true, subtree: true });
+    await act(async () => { fireEvent.click(button('Clone Alpha')); });
+    await settle();
+    await act(async () => { fireEvent.click(button('Clone Alpha')); });
+    await settle();
+    await act(async () => { await Promise.resolve(); });
+    observer.disconnect();
+    const words = 'Cloned "Alpha" as "Alpha (copy)".';
+    expect(seen.filter((t) => t === words).length).toBe(2);
+    expect(seen.lastIndexOf('')).toBeGreaterThan(seen.indexOf(words));
+    expect(seen.at(-1)).toBe(words);
+  });
+
+  it('O18: Clone keeps focus and opens nothing', async () => {
+    h.storage.driver.loadProject.mockResolvedValue(stored);
+    h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
+    const onOpenInCfd = vi.fn();
+    render(<ProjectsTab onOpenInCfd={onOpenInCfd} />);
+    button('Clone Alpha').focus();
+    await act(async () => { fireEvent.click(button('Clone Alpha')); });
+    await settle();
+    expect(document.activeElement).toBe(button('Clone Alpha'));
+    expect(onOpenInCfd).not.toHaveBeenCalled();
+  });
+
+  it('a source that cannot be read: the alert names it, nothing is cloned', async () => {
+    h.storage.driver.loadProject.mockResolvedValue(null);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    await act(async () => { fireEvent.click(button('Clone Beta')); });
+    await settle();
+    expect(screen.getByRole('alert').textContent).toContain('Couldn\'t clone "Beta" — the copy wasn\'t saved. Please try again.');
+    expect(h.list.cloneProject).not.toHaveBeenCalled();
+  });
+
+  it('a refused save: Clone\'s words, or O24\'s when storage is full; either alert clears the clone\'s words', async () => {
+    h.storage.driver.loadProject.mockResolvedValue(stored);
+    h.list.cloneProject.mockResolvedValueOnce({ id: 'k', name: 'Alpha (copy)' });
+    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    await act(async () => { fireEvent.click(button('Clone Alpha')); });
+    await settle();
+    expect(region().textContent).not.toBe('');
+    h.list.cloneProject.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
+    await act(async () => { fireEvent.click(button('Clone Alpha')); });
+    await settle();
+    expect(screen.getByRole('alert').textContent).toContain('Couldn\'t clone "Alpha" — the copy wasn\'t saved. Please try again.');
+    expect(region().textContent).toBe('');
+    h.list.cloneProject.mockRejectedValueOnce(new DOMException('full', 'QuotaExceededError'));
+    await act(async () => { fireEvent.click(button('Clone Alpha')); });
+    await settle();
+    expect(screen.getByRole('alert').textContent).toContain("This browser's storage is full. Export a project, then delete one to make room.");
+  });
+
+  it('O20: the open project is copied from memory when the LOADED copy is it', async () => {
+    const inMemory = { ...stored, snapshots: [{ date: '2026-02-02', counts: { x: 1 } }] };
+    activeValue.project = inMemory;
+    h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
+    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    await act(async () => { fireEvent.click(button('Clone Alpha')); });
+    // The stored copy (the driver here holds none: null) would have failed the clone.
+    expect(h.list.cloneProject).toHaveBeenCalledWith(inMemory);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('O20: with a switch pending (active id a, loaded copy still b), a clone of a is the STORED a', async () => {
+    h.list.activeProjectId = 'a';
+    activeValue.project = { ...stored, id: 'b', name: 'Beta' };
+    h.storage.driver.loadProject.mockResolvedValue(stored);
+    h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
+    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    await act(async () => { fireEvent.click(button('Clone Alpha')); });
+    expect(h.storage.driver.loadProject).toHaveBeenCalledWith('a');
+    expect(h.list.cloneProject).toHaveBeenCalledWith(stored);
+    h.list.activeProjectId = null;
   });
 });

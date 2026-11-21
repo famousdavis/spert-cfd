@@ -1034,3 +1034,109 @@ describe('cloud reads (v0.16.4)', () => {
     expect(warn).not.toHaveBeenCalled();
   });
 });
+
+// v0.19.0 (DASH26 O22, F1, F3): a positioned create (Clone). The emulator tier
+// runs the real SDK and the deployed rules (emulator-tests/clone.test.ts);
+// these pin the driver's own sequencing with the SDK mocked.
+describe('positioned create (v0.19.0, DASH26 O22)', () => {
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  const settingsPath = `spertcfd_settings/${TEST_UID}`;
+  const orderSnap = (projectOrder: unknown, fromCache = false) => ({
+    exists: () => true,
+    metadata: { fromCache, hasPendingWrites: false },
+    data: () => ({ projectOrder }),
+  });
+  /** Every setDoc and getDoc, in call order, as "set:<path>" / "get:<path>". */
+  function journal() {
+    const calls: string[] = [];
+    mockGetDoc.mockImplementation(async (ref: { path: string }) => { calls.push(`get:${ref.path}`); return orderSnap(['a', 'src', 'b']); });
+    mockSetDoc.mockImplementation(async (ref: { path: string }) => { calls.push(`set:${ref.path}`); });
+    return calls;
+  }
+  const wholeOrderWrites = () => mockSetDoc.mock.calls
+    .filter(([ref, data]) => ref.path === settingsPath && Array.isArray((data as { projectOrder: unknown }).projectOrder))
+    .map(([, data]) => (data as { projectOrder: string[] }).projectOrder);
+  const placement = { after: 'src', shownIds: ['a', 'src', 'b'] };
+
+  it('reads the stored order, then writes the project and the order (the copy after its source) in one run; the append follows', async () => {
+    const calls = journal();
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await driver.createProject(sampleProject({ id: 'new' }), placement);
+    expect(calls).toEqual([`get:${settingsPath}`, 'set:spertcfd_projects/new', `set:${settingsPath}`, `set:${settingsPath}`]);
+    expect(wholeOrderWrites()).toEqual([['a', 'src', 'new', 'b']]);
+    expect(mockSetDoc.mock.calls.at(-1)![1]).toEqual({ projectOrder: { _arrayUnion: ['new'] } });
+  });
+
+  it('the order write is issued before the project write settles (same synchronous run, O22 d)', async () => {
+    journal();
+    mockSetDoc.mockImplementationOnce(() => new Promise<void>(() => {})); // the project write never lands
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    void driver.createProject(sampleProject({ id: 'new' }), placement);
+    await flush();
+    expect(wholeOrderWrites()).toEqual([['a', 'src', 'new', 'b']]);
+  });
+
+  it('a failed order read skips the placement and never writes an order built on nothing (O22 c)', async () => {
+    journal();
+    mockGetDoc.mockImplementationOnce(async () => { throw Object.assign(new Error('offline'), { code: 'unavailable' }); });
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await driver.createProject(sampleProject({ id: 'new' }), placement);
+    expect(wholeOrderWrites()).toEqual([]);
+    expect(mockSetDoc.mock.calls.at(-1)![1]).toEqual({ projectOrder: { _arrayUnion: ['new'] } });
+  });
+
+  it('a read served from the cache is not the stored order: the placement is skipped', async () => {
+    journal();
+    mockGetDoc.mockImplementationOnce(async () => orderSnap(['src'], true));
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await driver.createProject(sampleProject({ id: 'new' }), placement);
+    expect(wholeOrderWrites()).toEqual([]);
+  });
+
+  it('a source not in the stored order: the shown ids not stored, through the source, then the copy (O22 b)', async () => {
+    journal();
+    mockGetDoc.mockImplementationOnce(async () => orderSnap(['own']));
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await driver.createProject(sampleProject({ id: 'new' }), { after: 'shB', shownIds: ['own', 'shA', 'shB', 'shC'] });
+    expect(wholeOrderWrites()).toEqual([['own', 'shA', 'shB', 'new']]);
+  });
+
+  it('F3: the create is in flight from the call, so a read during the order read waits for the create instead of asking the server', async () => {
+    const calls = journal();
+    let releaseRead!: () => void;
+    mockGetDoc.mockImplementationOnce((ref: { path: string }) => {
+      calls.push(`get:${ref.path}`);
+      return new Promise((resolve) => { releaseRead = () => resolve(orderSnap(['src'])); });
+    });
+    mockGetDocFromCache.mockRejectedValue(new Error('not in cache'));
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const created = driver.createProject(sampleProject({ id: 'new' }), { after: 'src', shownIds: ['src'] });
+    const read = driver.loadProject('new');
+    await flush();
+    expect(calls.filter((c) => c === 'get:spertcfd_projects/new')).toEqual([]);
+    releaseRead();
+    await created;
+    await read;
+    expect(calls.indexOf('get:spertcfd_projects/new')).toBeGreaterThan(calls.indexOf('set:spertcfd_projects/new'));
+  });
+
+  it('F1: two positioned creates take turns: the second reads the order only after the first issued its order write', async () => {
+    const calls = journal();
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await Promise.all([
+      driver.createProject(sampleProject({ id: 'c1' }), placement),
+      driver.createProject(sampleProject({ id: 'c2' }), placement),
+    ]);
+    const reads = calls.map((c, i) => (c === `get:${settingsPath}` ? i : -1)).filter((i) => i >= 0);
+    const firstOrderWrite = calls.findIndex((c, i) => c === `set:${settingsPath}` && i > calls.indexOf('set:spertcfd_projects/c1'));
+    expect(reads).toHaveLength(2);
+    expect(reads[1]).toBeGreaterThan(firstOrderWrite);
+  });
+
+  it('an unplaced create reads nothing and appends, as before', async () => {
+    const calls = journal();
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await driver.createProject(sampleProject({ id: 'new' }));
+    expect(calls).toEqual(['set:spertcfd_projects/new', `set:${settingsPath}`]);
+  });
+});

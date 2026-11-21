@@ -24,6 +24,7 @@ function renderTile(over: Partial<ProjectTileProps> = {}) {
     onEdit: vi.fn(),
     onDelete: vi.fn(),
     onShare: vi.fn(),
+    onClone: vi.fn(),
     ...over,
   };
   render(<ul><ProjectTile {...props} /></ul>);
@@ -49,7 +50,7 @@ describe('the tile', () => {
   it('shows a placeholder for an empty name, and every action still names it', () => {
     renderTile({ name: '' });
     expect(screen.getByText('Untitled project')).toBeTruthy();
-    for (const name of ['Open CFD for Untitled project', 'Delete Untitled project', 'Export Untitled project', 'Edit Untitled project']) {
+    for (const name of ['Open CFD for Untitled project', 'Delete Untitled project', 'Export Untitled project', 'Edit Untitled project', 'Clone Untitled project']) {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
   });
@@ -69,7 +70,7 @@ describe('the tile', () => {
     const tile = document.querySelector('li[data-tile="true"]') as HTMLElement;
     const stops = [...tile.querySelectorAll<HTMLElement>('*')].filter((el) => el.tabIndex >= 0);
     expect(stops.every((el) => el.tagName === 'BUTTON')).toBe(true);
-    expect(stops.map((b) => b.getAttribute('aria-label'))).toEqual(['Open CFD for Alpha', 'Delete Alpha', 'Export Alpha', 'Edit Alpha']);
+    expect(stops.map((b) => b.getAttribute('aria-label'))).toEqual(['Open CFD for Alpha', 'Delete Alpha', 'Export Alpha', 'Edit Alpha', 'Clone Alpha']);
     expect(tile.querySelector('[role="button"]')).toBeNull();
     expect(tile.hasAttribute('tabindex')).toBe(false);
     expect(tile.querySelector('[title="Drag to reorder"]')?.getAttribute('aria-hidden')).toBe('true');
@@ -110,5 +111,22 @@ describe('the tile', () => {
     expect(edit.title).toBe(VIEW_ONLY_REASON);
     expect(document.getElementById(edit.getAttribute('aria-describedby')!)?.textContent).toBe(VIEW_ONLY_REASON);
     expect((screen.getByRole('button', { name: 'Delete Alpha' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe('Clone (v0.19.0, DASH26 R1b)', () => {
+  it('comes last in the revealed row, after Edit, named for its project and titled "Clone project"; it calls with the id', () => {
+    const props = renderTile();
+    const row = screen.getByRole('button', { name: 'Edit Alpha' }).parentElement as HTMLElement;
+    expect([...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Export Alpha', 'Edit Alpha', 'Clone Alpha']);
+    const clone = screen.getByRole('button', { name: 'Clone Alpha' }) as HTMLButtonElement;
+    expect(clone.title).toBe('Clone project');
+    fireEvent.click(clone);
+    expect(props.onClone).toHaveBeenCalledWith('p1');
+  });
+
+  it.each(['owner', 'editor', 'viewer'] as const)('is offered and enabled for a cloud %s (O9)', (role) => {
+    renderTile({ access: tileAccess('cloud', role, 2) });
+    expect((screen.getByRole('button', { name: 'Clone Alpha' }) as HTMLButtonElement).disabled).toBe(false);
   });
 });

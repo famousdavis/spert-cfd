@@ -23,7 +23,7 @@ import {
   type QuerySnapshot,
 } from 'firebase/firestore';
 import type { Project, ChangeLogEntry, PendingInvite, InvitationStatus } from '@/types';
-import type { StorageDriver, ProjectListItem, ProjectMemberRole } from './storage-driver';
+import type { StorageDriver, ProjectListItem, ProjectMemberRole, ProjectPlacement } from './storage-driver';
 import {
   PROJECTS_COL,
   SETTINGS_COL,
@@ -35,6 +35,7 @@ import { LS_ACTIVE_PROJECT, DEBOUNCE_CLOUD_MS, SCHEMA_VERSION } from './constant
 import { DATA_VERSION } from './migrations';
 import { callRevokeInvite, callResendInvite } from './callables';
 import { normalizeUpdatedAt } from './updated-at';
+import { placeAfter } from './project-order';
 import { cloudProjectData, cloudText, type CloudSetAsideReport } from './cloud-load-guards';
 import { noteCloudSetAside } from './cloud-load-notices';
 
@@ -264,6 +265,70 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     return [];
   }
 
+  /**
+   * The stored order, read strictly for a placement (v0.19.0, DASH26 O22 c):
+   * null when the read failed or did not reach the server, so the caller skips
+   * the placement and never writes an order built on nothing. Unlike
+   * loadProjectOrder, which reads a failure as "no order yet" (`[]`) — written
+   * whole, that would replace the person's order with one or two ids.
+   * A read issued while this client's own order write is pending sees it
+   * (measured, DASH26 R1b M2 and D4).
+   */
+  async function readStoredOrder(): Promise<string[] | null> {
+    try {
+      const snap = await getDoc(doc(db, SETTINGS_COL, uid));
+      if (snap.metadata.fromCache) return null;
+      const order: unknown = snap.exists() ? snap.data().projectOrder : undefined;
+      return Array.isArray(order) ? order.filter((x): x is string => typeof x === 'string') : [];
+    } catch {
+      return null;
+    }
+  }
+
+  // Positioned creates take turns (v0.19.0, DASH26 R1b F1): each reads the
+  // order only once the one before it has ISSUED its order write, so the read
+  // sees it. Without this, two clones started together both read the same
+  // order and the second write dropped the first copy to the end (measured
+  // 3/3, pre-flight D5). A turn ends when the writes are issued, not acked, so
+  // an offline create never holds up the next one.
+  let placementTurn: Promise<void> = Promise.resolve();
+
+  /**
+   * The project write of a positioned create: after a strict read of the
+   * order, the project write and the whole-order write go out in ONE
+   * synchronous run (O22 d), so the moment the create resolves, a fresh client
+   * reads the copy after its source (measured, pre-flight D1; M3). A failed
+   * read skips the order write; the create's arrayUnion append then stands
+   * (O22 c). Resolves or rejects with the project write.
+   */
+  async function placedProjectWrite(
+    id: string,
+    docData: Record<string, unknown>,
+    placement: ProjectPlacement,
+  ): Promise<void> {
+    const previous = placementTurn;
+    let endTurn = () => {};
+    placementTurn = new Promise<void>((resolve) => { endTurn = resolve; });
+    let written: Promise<void>;
+    try {
+      await previous;
+      const stored = await readStoredOrder();
+      written = setDoc(doc(db, PROJECTS_COL, id), docData);
+      if (stored) {
+        setDoc(
+          doc(db, SETTINGS_COL, uid),
+          { projectOrder: placeAfter(stored, placement.shownIds, placement.after, id) },
+          { merge: true },
+        ).catch((err) => {
+          console.error('createProject: placement failed:', (err as { code?: string }).code ?? 'unknown');
+        });
+      }
+    } finally {
+      endTurn();
+    }
+    await written;
+  }
+
   /** Listen to one project doc; a permission-denied error reads as revoked access. */
   function listenToProject(
     id: string,
@@ -352,7 +417,7 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       return mapDocToProject(snap);
     },
 
-    async createProject(project: Project): Promise<void> {
+    async createProject(project: Project, placement?: ProjectPlacement): Promise<void> {
       const now = new Date().toISOString();
       const changeLogEntry: ChangeLogEntry = {
         action: 'created',
@@ -377,9 +442,15 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
         _changeLog: appendChangeLogEntry(project._changeLog, changeLogEntry),
       });
 
-      // Registered in the same synchronous run as the setDoc call, so a read
-      // issued straight after createProject() returns already sees it.
-      const written = setDoc(doc(db, PROJECTS_COL, project.id), docData);
+      // Registered in the same synchronous run as createProject() is called,
+      // so a read issued straight after it returns already sees the create.
+      // v0.19.0 (DASH26 R1b F3): for a positioned create this covers the order
+      // read that comes BEFORE the project write too; a read in that window
+      // waits for the create instead of asking the server for a document that
+      // does not exist yet, which the rules deny.
+      const written = placement
+        ? placedProjectWrite(project.id, docData, placement)
+        : setDoc(doc(db, PROJECTS_COL, project.id), docData);
       inFlightCreates.set(project.id, written);
       try {
         await written;
@@ -412,6 +483,10 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       // calling a saved project unsaved and removing its card; a retry then
       // made a duplicate. Without its entry the project sorts last. Awaited
       // still, so callers that await createProject keep the write order.
+      //
+      // After a positioned create's order write (v0.19.0), this append finds
+      // the id already there and changes nothing; it is the fallback when the
+      // placement was skipped.
       try {
         await setDoc(
           doc(db, SETTINGS_COL, uid),

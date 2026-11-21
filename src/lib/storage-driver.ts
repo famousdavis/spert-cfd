@@ -24,9 +24,12 @@ export interface ProjectListItem {
    * query lists only projects whose `members[uid]` is one of the three
    * roles. Local mode omits it, as it omits `owner`, so no access gate or
    * badge ever shows there, even on a kept local copy of a cloud project.
-   * Absent also on a cloud project this browser is still creating or
-   * importing, until the list listener delivers it: the tile reads absent as
-   * "no gate" (DASH26 R1a D4), never as "not the owner".
+   * v0.19.0 (DASH26 O23): a project this browser creates (Clone, Create, Load
+   * Sample) is listed as the person's own at once, `'owner'` with one member,
+   * by ProjectListContext; the list listener never delivers this device's own
+   * create (measured, DASH26 R1b M1). Absent still on a cloud project this
+   * browser is importing, until a list read: the tile reads absent as "no
+   * gate" (DASH26 R1a D4), never as "not the owner".
    */
   role?: ProjectMemberRole;
   /** v0.18.0: the number of entries in `members`, cloud mode only (the "Shared" badge, DASH26 R9). */
@@ -34,6 +37,16 @@ export interface ProjectListItem {
 }
 
 export type ProjectMemberRole = 'owner' | 'editor' | 'viewer';
+
+/**
+ * Where a new project goes in the person's stored order (v0.19.0, DASH26
+ * O22): right after `after`. `shownIds` is the list on screen, read only when
+ * `after` is not in the stored order (see `placeAfter`, `project-order.ts`).
+ */
+export interface ProjectPlacement {
+  after: string;
+  shownIds: readonly string[];
+}
 
 export interface StorageDriver {
   /** Current storage mode. */
@@ -56,8 +69,16 @@ export interface StorageDriver {
    * Create a new project.
    * In cloud mode, this sets owner/members fields.
    * In local mode, this adds the project ID to the index.
+   *
+   * v0.19.0 (DASH26 O22): with `placement`, the project is placed right after
+   * `placement.after` in the STORED order, which is read at the time, so an
+   * order written elsewhere survives; only the new id moves. Without it, the
+   * new id is appended, as before. Local: one index write with the id in
+   * place; unreadable ids stay where they are. Cloud: a strict read of the
+   * order, then the project write and the whole-order write in one
+   * synchronous run; a failed read skips the placement (the append stands).
    */
-  createProject(project: Project): Promise<void>;
+  createProject(project: Project, placement?: ProjectPlacement): Promise<void>;
 
   /**
    * Save an existing project (data fields only).

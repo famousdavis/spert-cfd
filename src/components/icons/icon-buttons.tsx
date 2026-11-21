@@ -6,7 +6,8 @@
 
 // The tile's icon buttons, v0.18.0 (DASH26 R1a): SPERT® Forecaster's
 // `TrashIconButton`, `ExportIconButton`, `PencilIconButton` and
-// `ShareIconButton` (`src/shared/components/` at df59b2d). Each svg's children
+// `ShareIconButton`, and since v0.19.0 (R1b) its `CloneIconButton`
+// (`src/shared/components/` at df59b2d). Each svg's children
 // are copied whole from those files, attributes included, and
 // `icon-buttons.test.tsx` holds them to that copy. A disabled button carries its
 // reason in `title` and, through `describedBy`, in screen-reader text.
@@ -20,6 +21,7 @@ import {
   ICON_HUE_GREEN,
   ICON_HUE_BLUE,
   ICON_HUE_CYAN,
+  ICON_HUE_VIOLET,
 } from './icon-button-styles';
 
 export interface IconButtonProps {
@@ -109,6 +111,28 @@ export function ShareIconButton(props: IconButtonProps) {
         <circle cx="9" cy="7" r="4" />
         <line x1="19" y1="8" x2="19" y2="14" />
         <line x1="22" y1="11" x2="16" y2="11" />
+      </svg>
+    </IconButton>
+  );
+}
+
+/** Clone (v0.19.0, DASH26 R1b): never disabled; every role that can see a project can copy it (O9). */
+export function CloneIconButton(props: IconButtonProps) {
+  return (
+    <IconButton hue={ICON_HUE_VIOLET} {...props}>
+      <svg
+        width={ICON_GLYPH_SIZE}
+        height={ICON_GLYPH_SIZE}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="9" y="9" width="13" height="13" rx="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
       </svg>
     </IconButton>
   );

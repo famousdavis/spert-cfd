@@ -16,6 +16,8 @@ import type { Project, WorkflowState, Snapshot, ProjectSettings } from '@/types'
 import { useProjectList } from './project-list-context';
 import { useStorage } from './storage-context';
 import { registerDataReset } from '@/lib/app-data-reset-registry';
+import type { StorageDriver } from '@/lib/storage-driver';
+import { isStorageFullError } from '@/lib/storage-errors';
 
 interface ActiveProjectContextValue {
   project: Project | null;
@@ -25,6 +27,14 @@ interface ActiveProjectContextValue {
   updateWorkflow: (states: WorkflowState[]) => void;
   updateSnapshots: (snapshots: Snapshot[]) => void;
   updateSettings: (patch: Partial<ProjectSettings>) => void;
+  /**
+   * v0.19.0 (DASH26 R25, O24): true once a save of an edit was refused because
+   * the browser's storage is full. The edit stays on screen (it is in this
+   * copy) and is saved with the next edit that fits. Cleared by
+   * `dismissStorageFull` and by the next save that succeeds.
+   */
+  storageFull: boolean;
+  dismissStorageFull: () => void;
 }
 
 const DEFAULT_SETTINGS: ProjectSettings = {
@@ -34,6 +44,36 @@ const DEFAULT_SETTINGS: ProjectSettings = {
 };
 
 const ActiveProjectContext = createContext<ActiveProjectContextValue | null>(null);
+
+/**
+ * Saves an edit without ever throwing (v0.19.0, DASH26 R25). It is called
+ * INSIDE a `setProject` updater, and the local driver writes localStorage
+ * synchronously: a refused write (storage full) used to throw out of the
+ * updater, React took it for a render error of ActiveProjectProvider, and the
+ * app's outermost boundary replaced the whole app, the edit lost (measured,
+ * Opus-R1b-2 -01). Here a synchronous throw becomes a rejection like any other.
+ */
+function saveEdit(
+  driver: StorageDriver,
+  project: Project,
+  where: string,
+  onSaved: (storageFull: boolean) => void,
+): void {
+  let saved: Promise<void>;
+  try {
+    saved = driver.saveProject(project);
+  } catch (err) {
+    saved = Promise.reject(err);
+  }
+  saved.then(
+    () => onSaved(false),
+    (err: unknown) => {
+      const { code, name } = (err ?? {}) as { code?: unknown; name?: unknown };
+      console.error(`${where}: saveProject failed`, code ?? name ?? 'unknown');
+      if (isStorageFullError(err)) onSaved(true);
+    },
+  );
+}
 
 export function useActiveProject() {
   const ctx = useContext(ActiveProjectContext);
@@ -47,6 +87,8 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
   const { activeProjectId, projectUpdateKey, projects, importedActiveProject } = useProjectList();
   const { driver } = useStorage();
   const [project, setProject] = useState<Project | null>(null);
+  const [storageFull, setStorageFull] = useState(false);
+  const dismissStorageFull = useCallback(() => setStorageFull(false), []);
   const listedName = projects.find((p) => p.id === activeProjectId)?.name;
 
   // Load project when activeProjectId changes — async with cancellation.
@@ -165,12 +207,7 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
       setProject((prev) => {
         if (!prev) return prev;
         const updated = { ...prev, workflow: states };
-        driver.saveProject(updated).catch((err: unknown) => {
-          console.error(
-            'updateWorkflow: saveProject failed',
-            (err as { code?: string }).code ?? 'unknown',
-          );
-        });
+        saveEdit(driver, updated, 'updateWorkflow', setStorageFull);
         return updated;
       });
     },
@@ -182,12 +219,7 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
       setProject((prev) => {
         if (!prev) return prev;
         const updated = { ...prev, snapshots };
-        driver.saveProject(updated).catch((err: unknown) => {
-          console.error(
-            'updateSnapshots: saveProject failed',
-            (err as { code?: string }).code ?? 'unknown',
-          );
-        });
+        saveEdit(driver, updated, 'updateSnapshots', setStorageFull);
         return updated;
       });
     },
@@ -202,12 +234,7 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
           ...prev,
           settings: { ...prev.settings, ...patch },
         };
-        driver.saveProject(updated).catch((err: unknown) => {
-          console.error(
-            'updateSettings: saveProject failed',
-            (err as { code?: string }).code ?? 'unknown',
-          );
-        });
+        saveEdit(driver, updated, 'updateSettings', setStorageFull);
         return updated;
       });
     },
@@ -224,6 +251,8 @@ export function ActiveProjectProvider({ children }: { children: ReactNode }) {
         updateWorkflow,
         updateSnapshots,
         updateSettings,
+        storageFull,
+        dismissStorageFull,
       }}
     >
       {children}

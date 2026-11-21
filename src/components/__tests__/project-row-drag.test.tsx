@@ -24,7 +24,7 @@ function Harness({ onDragStart }: { onDragStart: (e: { active: { id: string | nu
         <ul>
           <SortableProjectTile
             id="p1" name="Alpha" stats={undefined} access={tileAccess('local', undefined, undefined)}
-            onOpen={vi.fn()} onExport={vi.fn()} onEdit={vi.fn()} onDelete={vi.fn()} onShare={vi.fn()}
+            onOpen={vi.fn()} onExport={vi.fn()} onEdit={vi.fn()} onDelete={vi.fn()} onShare={vi.fn()} onClone={vi.fn()}
           />
         </ul>
       </SortableContext>

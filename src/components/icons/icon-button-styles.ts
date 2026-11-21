@@ -31,6 +31,10 @@ export const ICON_HUE_GREEN =
 export const ICON_HUE_BLUE =
   'enabled:hover:text-[#0070f3] enabled:hover:bg-[#eff6ff] enabled:hover:shadow-[0_0_0_1.5px_rgba(0,112,243,0.5)] enabled:focus:text-[#0070f3] enabled:focus:bg-[#eff6ff] enabled:focus:shadow-[0_0_0_1.5px_rgba(0,112,243,0.5)] dark:enabled:hover:text-[#60a5fa] dark:enabled:hover:bg-[rgba(0,112,243,0.15)] dark:enabled:focus:text-[#60a5fa] dark:enabled:focus:bg-[rgba(0,112,243,0.15)]';
 
+/** Clone (v0.19.0, DASH26 R1b): Forecaster's violet, with its 1.5 px ring. */
+export const ICON_HUE_VIOLET =
+  'enabled:hover:text-[#7c3aed] enabled:hover:bg-[#f5f3ff] enabled:hover:shadow-[0_0_0_1.5px_rgba(139,92,246,0.5)] enabled:focus:text-[#7c3aed] enabled:focus:bg-[#f5f3ff] enabled:focus:shadow-[0_0_0_1.5px_rgba(139,92,246,0.5)] dark:enabled:hover:text-[#a78bfa] dark:enabled:hover:bg-[rgba(139,92,246,0.15)] dark:enabled:focus:text-[#a78bfa] dark:enabled:focus:bg-[rgba(139,92,246,0.15)]';
+
 /** Share. */
 export const ICON_HUE_CYAN =
   'enabled:hover:text-[#0e7490] enabled:hover:bg-[#ecfeff] enabled:hover:shadow-[0_0_0_1.5px_rgba(6,182,212,0.5)] enabled:focus:text-[#0e7490] enabled:focus:bg-[#ecfeff] enabled:focus:shadow-[0_0_0_1.5px_rgba(6,182,212,0.5)] dark:enabled:hover:text-[#22d3ee] dark:enabled:hover:bg-[rgba(6,182,212,0.15)] dark:enabled:focus:text-[#22d3ee] dark:enabled:focus:bg-[rgba(6,182,212,0.15)]';

@@ -11,7 +11,7 @@ import { UNNAMED_PROJECT } from '@/lib/cloud-load-guards';
 import { tileMetaLines, type ProjectStats } from '@/lib/project-tile-meta';
 import type { TileAccess } from '@/lib/tile-access';
 import { DragHandle } from './icons/drag-handle';
-import { ExportIconButton, PencilIconButton, ShareIconButton, TrashIconButton } from './icons/icon-buttons';
+import { CloneIconButton, ExportIconButton, PencilIconButton, ShareIconButton, TrashIconButton } from './icons/icon-buttons';
 import {
   ABOVE_OPEN,
   ACTIONS,
@@ -39,6 +39,8 @@ export interface ProjectTileProps {
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onShare: (id: string) => void;
+  /** v0.19.0 (DASH26 R1b): Clone, offered on every tile, to every role (O9). */
+  onClone: (id: string) => void;
   /** dnd-kit's pointer listeners, spread on the grip only. */
   gripProps?: Record<string, unknown>;
   nodeRef?: Ref<HTMLLIElement>;
@@ -50,7 +52,7 @@ export interface ProjectTileProps {
  * One project's tile (v0.18.0, DASH26 R1a): SPERT® Forecaster's `ProjectTile`
  * anatomy at df59b2d. The grip, the name, its access badge and Delete in the
  * first row; the meta lines (R7); then the revealed row, Share (cloud owner) ·
- * Export · Edit, shown on hover, on focus inside the tile, and always where
+ * Export · Edit · Clone (Clone since v0.19.0, R1b), shown on hover, on focus inside the tile, and always where
  * there is no hover. No open-project marker (R8: the CFD tab names the open
  * project).
  *
@@ -74,6 +76,7 @@ export function ProjectTile({
   onEdit,
   onDelete,
   onShare,
+  onClone,
   gripProps,
   nodeRef,
   style,
@@ -145,6 +148,7 @@ export function ProjectTile({
             disabled={editBlockedReason !== null}
             describedBy={editBlockedReason ? editReasonId : undefined}
           />
+          <CloneIconButton onClick={() => onClone(id)} ariaLabel={`Clone ${display}`} title="Clone project" />
         </div>
       </div>
     </li>

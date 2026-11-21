@@ -9,9 +9,10 @@
 // driver (the real StorageProvider pulls in Firebase Auth).
 //
 // Fixtures use the shape createProject builds. A project with an empty
-// workflow is dropped by validateProjectData on load, and the provider then
-// seeds the sample project instead, so a test with a minimal fixture would be
-// testing the sample.
+// workflow is dropped by validateProjectData on load; until v0.19.0 the
+// provider then seeded the sample project instead, so a minimal fixture
+// tested the sample. Since v0.19.0 (DASH26 R20) an empty list stays empty:
+// pinned at the end of this file.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
@@ -102,5 +103,51 @@ describe('local mode: which project is open', () => {
     const { result } = await mount();
     expect(result.current.list.activeProjectId).toBe(id);
     expect(result.current.active.project?.name).toBe('Four');
+  });
+});
+
+// v0.19.0 (DASH26 R10, R20; Char-DASH-1 §B #37 removed): no sample is seeded,
+// ever. Until v0.18.0 an empty local list at load re-seeded the sample, so the
+// first visit and a reload after deleting the last project both came back with
+// one. Nothing guarded its absence before this block (removing it turned 0 of
+// 836 unit tests red, Opus-R1b-1 -04).
+describe('local mode: an empty list stays empty (R20)', () => {
+  it('empty storage: no projects, nothing open, and nothing written', async () => {
+    localStorage.clear();
+    const { result } = await mount();
+    expect(result.current.list.isLoaded).toBe(true);
+    expect(result.current.list.projects).toEqual([]);
+    expect(result.current.list.activeProjectId).toBeNull();
+    expect(result.current.active.project).toBeNull();
+    expect(localStorage.getItem('cfd-lab')).toBeNull();
+    expect(Object.keys(localStorage).filter((k) => k.startsWith('cfd-lab-project-'))).toEqual([]);
+  });
+
+  it('deleting the last project leaves none, nothing open, and a reload brings none back', async () => {
+    const first = await mount();
+    for (const id of ['p1', 'p2', 'p3']) await settle(() => first.result.current.list.deleteProject(id));
+    expect(first.result.current.list.projects).toEqual([]);
+    expect(first.result.current.list.activeProjectId).toBeNull();
+    expect(first.result.current.active.project).toBeNull();
+    expect(localStorage.getItem(LS_ACTIVE_PROJECT)).toBeNull();
+    first.unmount();
+
+    const { result } = await mount();
+    expect(result.current.list.projects).toEqual([]);
+    expect(result.current.list.activeProjectId).toBeNull();
+  });
+
+  it('an empty list opens nothing, even with a leftover active-project key (Opus-R1b-2 -11)', async () => {
+    localStorage.clear();
+    localStorage.setItem(LS_ACTIVE_PROJECT, 'p2');
+    const { result } = await mount();
+    expect(result.current.list.projects).toEqual([]);
+    expect(result.current.list.activeProjectId).toBeNull();
+    expect(result.current.active.project).toBeNull();
+  });
+
+  it('control: with projects listed, the stored key still opens its project', async () => {
+    const { result } = await mount();
+    expect(result.current.list.activeProjectId).toBe('p2');
   });
 });
