@@ -24,12 +24,14 @@ export interface ProjectListItem {
    * query lists only projects whose `members[uid]` is one of the three
    * roles. Local mode omits it, as it omits `owner`, so no access gate or
    * badge ever shows there, even on a kept local copy of a cloud project.
-   * v0.19.0 (DASH26 O23): a project this browser creates (Clone, Create, Load
-   * Sample) is listed as the person's own at once, `'owner'` with one member,
-   * by ProjectListContext; the list listener never delivers this device's own
-   * create (measured, DASH26 R1b M1). Absent still on a cloud project this
-   * browser is importing, until a list read: the tile reads absent as "no
-   * gate" (DASH26 R1a D4), never as "not the owner".
+   * v0.19.0 (DASH26 O23, amended after PR #109 review -08): a project this
+   * browser creates (Clone, Create, Load Sample) is listed as the person's
+   * own, `'owner'` with one member, by ProjectListContext once its create has
+   * landed (createProject resolved); the list listener never delivers this
+   * device's own create (measured, DASH26 R1b M1). Absent while the create is
+   * in flight, when the document may not exist on the server yet, and on a
+   * cloud project this browser is importing, until a list read: the tile reads
+   * absent as "no gate" (DASH26 R1a D4), never as "not the owner".
    */
   role?: ProjectMemberRole;
   /** v0.18.0: the number of entries in `members`, cloud mode only (the "Shared" badge, DASH26 R9). */

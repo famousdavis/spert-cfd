@@ -421,6 +421,32 @@ describe('Clone through the tab (v0.19.0, DASH26 R1b)', () => {
     expect(screen.queryByRole('button', { name: 'Dismiss clone message' })).toBeNull();
   });
 
+  it('O19 (PR #109 review -04): the import\'s error alert clears the clone\'s words too', async () => {
+    h.storage.driver.loadProject.mockResolvedValue(stored);
+    h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
+    const view = render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    await act(async () => { fireEvent.click(button('Clone Alpha')); });
+    await settle();
+    expect(region().textContent).toBe('Cloned "Alpha" as "Alpha (copy)".');
+    h.importPhase = { phase: 'error', message: 'Invalid JSON. The file may be corrupted.' } as { phase: string };
+    view.rerender(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    expect(screen.getByRole('alert').textContent).toContain('Invalid JSON.');
+    expect(region().textContent).toBe('');
+    expect(screen.queryByRole('button', { name: 'Dismiss clone message' })).toBeNull();
+  });
+
+  it('O25 (PR #109 review -05): Dismiss on the clone\'s line sends focus to New Project, never <body>', async () => {
+    h.storage.driver.loadProject.mockResolvedValue(stored);
+    h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
+    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    await act(async () => { fireEvent.click(button('Clone Alpha')); });
+    await settle();
+    const dismiss = button('Dismiss clone message');
+    dismiss.focus();
+    fireEvent.click(dismiss);
+    expect(document.activeElement).toBe(button('New Project'));
+  });
+
   it('O20: the open project is copied from memory when the LOADED copy is it', async () => {
     const inMemory = { ...stored, snapshots: [{ date: '2026-02-02', counts: { x: 1 } }] };
     activeValue.project = inMemory;

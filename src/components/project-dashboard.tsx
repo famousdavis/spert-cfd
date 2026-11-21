@@ -15,7 +15,7 @@ import { DataGrid } from './grid/data-grid';
 import { CFDChart } from './chart/cfd-chart';
 import { MetricsPanel } from './metrics/metrics-panel';
 import { ErrorBoundary } from './error-boundary';
-import { ProjectPicker } from './project-picker';
+import { ProjectPicker, PICKER_ID } from './project-picker';
 import { ViewErrorNotice } from './view-error-notice';
 import { PAGE_COLUMN } from './page-column';
 
@@ -72,6 +72,13 @@ export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDas
   }, [activeProjectId]);
 
   const open = project !== null;
+  // DASH26 O25 (PR #109 review -05, G5): Dismiss unmounts with its alert, so
+  // focus goes to the project picker first, never to <body>. The alert only
+  // follows an edit, so a project is open and the picker is there.
+  const dismissStorageFullToPicker = () => {
+    document.getElementById(PICKER_ID)?.focus();
+    dismissStorageFull();
+  };
   // DASH26 O15: with projects but none open, the picker still shows, above
   // today's empty state.
   const showPicker = projects.length > 0;
@@ -82,7 +89,7 @@ export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDas
       {storageFull && (
         <div role="alert" className="mb-4 flex flex-none items-center justify-between rounded bg-red-50 px-4 py-2 text-sm text-red-700">
           <span>{STORAGE_FULL_MESSAGE}</span>
-          <button type="button" onClick={dismissStorageFull} className="ml-4 text-red-500 hover:text-red-700">
+          <button type="button" onClick={dismissStorageFullToPicker} className="ml-4 text-red-500 hover:text-red-700">
             Dismiss
           </button>
         </div>

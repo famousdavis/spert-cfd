@@ -10,6 +10,8 @@ import {
   useState,
   useCallback,
   useEffect,
+  useLayoutEffect,
+  useRef,
   type ReactNode,
 } from 'react';
 import { nanoid } from 'nanoid';
@@ -92,28 +94,23 @@ interface ProjectListContextValue {
 
 const ProjectListContext = createContext<ProjectListContextValue | null>(null);
 
-/**
- * Starts a driver create. A synchronous throw (the local driver when
- * localStorage is full) becomes a rejection, so the caller's rollback runs.
- */
-function startCreate(driver: StorageDriver, project: Project, placement?: ProjectPlacement): Promise<void> {
-  try {
-    return driver.createProject(project, placement);
-  } catch (err) {
-    return Promise.reject(err);
-  }
+function logCreateFailure(err: unknown): void {
+  console.error('Failed to create project:', (err as { code?: string }).code ?? 'unknown');
 }
 
 /**
- * The list entry for a project this browser creates. v0.19.0 (DASH26 O23):
- * in cloud mode it is the person's own at once, with one member, so its Share
- * shows without a reload; the list listener never delivers this device's own
- * create (measured, DASH26 R1b M1).
+ * The list entry for a project this browser created, once its create has
+ * landed. v0.19.0 (DASH26 O23, amended by Orch-DASH-2 after PR #109 review
+ * -08): in cloud mode it is then the person's own, with one member, so its
+ * Share shows without a reload; the list listener never delivers this
+ * device's own create (measured, DASH26 R1b M1). Not before the create lands:
+ * until then the document may not exist on the server, and Forecaster
+ * withholds Share for the same reason. A role the listener already delivered
+ * is kept. Local entries carry no role.
  */
-function ownListItem(driver: StorageDriver, id: string, name: string): ProjectListItem {
-  return driver.mode === 'cloud'
-    ? { id, name, owner: driver.workspaceId, role: 'owner', memberCount: 1 }
-    : { id, name };
+function ownedOnceCreated(driver: StorageDriver, item: ProjectListItem): ProjectListItem {
+  if (driver.mode !== 'cloud' || item.role !== undefined) return item;
+  return { ...item, owner: driver.workspaceId, role: 'owner', memberCount: 1 };
 }
 
 /** `item` right after `after`, or at the end when `after` is absent or not listed. */
@@ -149,6 +146,15 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   }
   const [projectUpdateKey, setProjectUpdateKey] = useState(0);
   const [importedActiveProject, setImportedActiveProject] = useState<Project | null>(null);
+  // v0.19.0 (DASH26 PR #109 review -02, G2): the list as it is NOW, for a Clone
+  // that names its copy after an await (the source's read). Kept in step after
+  // each commit, and at once by addProject, so a second Clone inside the first
+  // one's read sees the first copy. A Clone that named from the list of the
+  // render its click happened in gave both copies "X (copy)".
+  const projectsRef = useRef(projects);
+  useLayoutEffect(() => {
+    projectsRef.current = projects;
+  }, [projects]);
 
   // Load project list from driver on mount
   useEffect(() => {
@@ -237,18 +243,33 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
       // project effects read the id. Not Promise.resolve().then(...) as in
       // applyImportMerge — that defers the call past those reads, and the
       // new project could not be opened again (measured, QC26 Q01).
-      // startCreate still turns a synchronous throw (the local driver when
-      // localStorage is full) into a rejection.
-      const saved = startCreate(driver, project, placement);
+      let saved: Promise<void>;
+      try {
+        saved = driver.createProject(project, placement);
+      } catch (err) {
+        // v0.19.0 (DASH26 PR #109 review -01, G1): a synchronous refusal (the
+        // local driver when localStorage is full) rejects here, BEFORE
+        // anything is listed or activated. Activating first, then rolling
+        // back, made ActiveProjectProvider reload the open project from
+        // storage, which threw away an edit kept in memory after an earlier
+        // refused save (R25).
+        logCreateFailure(err);
+        return Promise.reject(err);
+      }
       const previousActiveId = activeProjectId;
+      const item: ProjectListItem = { id, name };
       if (activate) driver.setActiveProjectId(id);
-      setProjects((prev) => insertAfter(prev, ownListItem(driver, id, name), placement?.after));
+      setProjects((prev) => insertAfter(prev, item, placement?.after));
+      projectsRef.current = insertAfter(projectsRef.current, item, placement?.after);
       if (activate) setActiveProjectId(id);
 
       return saved.then(
-        () => id,
+        () => {
+          setProjects((prev) => prev.map((p) => (p.id === id ? ownedOnceCreated(driver, p) : p)));
+          return id;
+        },
         (err) => {
-          console.error('Failed to create project:', (err as { code?: string }).code ?? 'unknown');
+          logCreateFailure(err);
           setProjects((prev) => prev.filter((p) => p.id !== id));
           // Restore the previous project only if the user has not opened
           // another meanwhile. The driver holds the live active id: every
@@ -297,18 +318,20 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
 
   const cloneProject = useCallback(
     (source: Project): Promise<{ id: string; name: string }> => {
-      const shownName = projects.find((p) => p.id === source.id)?.name ?? source.name;
-      const name = cloneName(shownName, projects.map((p) => p.name));
+      // Named, and placed, against the list as it is now (G2).
+      const listed = projectsRef.current;
+      const shownName = listed.find((p) => p.id === source.id)?.name ?? source.name;
+      const name = cloneName(shownName, listed.map((p) => p.name));
       const clone = buildClone(source, {
         id: nanoid(8),
         name,
         now: new Date().toISOString(),
         cloudActor: driver.mode === 'cloud' ? driver.workspaceId : undefined,
       });
-      const placement = { after: source.id, shownIds: projects.map((p) => p.id) };
+      const placement = { after: source.id, shownIds: listed.map((p) => p.id) };
       return addProject(clone, placement).then((id) => ({ id, name }));
     },
-    [driver, projects, addProject]
+    [driver, addProject]
   );
 
   const deleteProject = useCallback(

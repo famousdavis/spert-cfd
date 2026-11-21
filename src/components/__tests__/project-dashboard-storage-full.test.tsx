@@ -5,8 +5,13 @@
 
 // v0.19.0 (DASH26 R25, O24, F4): the CFD tab's storage-full alert sits ABOVE the
 // bordered panel, outside `main`'s scroll area, so an edit made in the grid
-// (usually scrolled below the chart) shows it in view. Dismiss clears it.
-// The panel's boxes with no alert are measured in the browser (unchanged).
+// (usually scrolled below the chart) shows it in view. Dismiss clears it and
+// sends focus to the project picker (O25).
+// ⚠️ jsdom lays nothing out: these tests pin the DOM ORDER and the column's
+// flex-col class (PR #109 review -07), not where the alert renders. What guards
+// the layout is the browser measurement (exec-dash-r1b `measure-r1b.mjs`, the
+// `full.addRow` alert box above the panel; `cfd-panel-box.mjs`). Without
+// flex-col the alert sat BESIDE the panel, 598 px wide, measured by the review.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -50,7 +55,20 @@ describe('the CFD tab\'s storage-full alert', () => {
     expect(main.contains(alert)).toBe(false);
     const panel = main.parentElement!;
     expect(alert.nextElementSibling).toBe(panel);
+    // The column stacks the alert above the panel only while it is a flex COLUMN.
+    expect(panel.parentElement!.className.split(/\s+/)).toEqual(expect.arrayContaining(['flex', 'flex-col']));
+    expect(panel.className.split(/\s+/)).toEqual(expect.arrayContaining(['min-h-0', 'flex-1']));
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(h.active.dismissStorageFull).toHaveBeenCalledTimes(1);
+  });
+
+  it('O25 (PR #109 review -05): Dismiss sends focus to the project picker, never <body>', () => {
+    h.active.storageFull = true;
+    render(<ProjectDashboard />);
+    const dismiss = screen.getByRole('button', { name: 'Dismiss' });
+    dismiss.focus();
+    fireEvent.click(dismiss);
+    expect(document.activeElement).toBe(document.getElementById('cfd-project-picker'));
+    expect(document.activeElement?.tagName).toBe('SELECT');
   });
 });

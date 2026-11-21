@@ -14,8 +14,9 @@
 // - O22 (e): local placement with an unreadable id in the index.
 // - O18: the open project and the active key stay as they were.
 // - O19 / O24: a refused save leaves no tile and no stored data.
-// - O23: in cloud, Clone, Create and Load Sample are listed as the person's own
-//   at once.
+// - O23 (amended after PR #109 review -08): in cloud, Clone, Create and Load
+//   Sample are listed as the person's own once the create has landed, not
+//   before (the document may not exist on the server yet).
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
@@ -229,19 +230,30 @@ describe('Clone, Create and Load Sample, cloud mode (a recording double)', () =>
     act(() => { void result.current.list.cloneProject(project('s1', 'Shared')); });
     expect(result.current.list.projects.map((p) => p.name)).toEqual(['Shared', 'Shared (copy)', 'Mine']);
     expect(result.current.list.activeProjectId).toBeNull();
+    expect(result.current.list.projects[1].role).toBeUndefined(); // not the person's own until it lands (O23 amended)
   });
 
-  it('O23: Create and Load Sample are listed as the person\'s own at once too; neither is placed', async () => {
+  it('O23 (amended): Clone, Create and Load Sample are the person\'s own once the create lands, not while it is in flight', async () => {
+    const land: Array<() => void> = [];
+    driver = {
+      ...cloudDouble(),
+      createProject: vi.fn((p: Project, placement?: unknown) => {
+        created.push({ project: p, placement });
+        return new Promise<void>((resolve) => { land.push(resolve); });
+      }),
+    };
     const { result } = await mount();
-    let a = '';
-    let b = '';
-    await settle(async () => { a = await result.current.list.createProject('New'); });
-    await settle(async () => { b = await result.current.list.loadSampleProject(); });
-    for (const id of [a, b]) {
-      expect(result.current.list.projects.find((p) => p.id === id)).toMatchObject({ owner: 'uid-me', role: 'owner', memberCount: 1 });
-    }
-    expect(created.map((c) => c.placement)).toEqual([undefined, undefined]);
-    expect(created.every((c) => c.project._changeLog === undefined)).toBe(true);
+    act(() => { void result.current.list.createProject('New'); });
+    act(() => { void result.current.list.loadSampleProject(); });
+    act(() => { void result.current.list.cloneProject(project('s1', 'Shared')); });
+    const ids = created.map((c) => c.project.id);
+    const item = (id: string) => result.current.list.projects.find((p) => p.id === id);
+    expect(ids).toHaveLength(3);
+    for (const id of ids) expect(item(id)).toEqual({ id, name: item(id)!.name }); // no owner, role or member count yet
+    await settle(() => { for (const f of land) f(); });
+    for (const id of ids) expect(item(id)).toMatchObject({ owner: 'uid-me', role: 'owner', memberCount: 1 });
+    expect(created.map((c) => c.placement === undefined)).toEqual([true, true, false]);
+    expect(created.slice(0, 2).every((c) => c.project._changeLog === undefined)).toBe(true);
   });
 
   it('an empty cloud list is never seeded', async () => {

@@ -123,6 +123,15 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     handleDismissBanner: onDismissImportBanner,
   } = useImportState();
 
+  // O19: the import's error alert clears the clone's words too, as every
+  // failure alert does (PR #109 review -04, G4). Adjusted during render on the
+  // move into the error phase, as the dialog's close below is.
+  const [seenImportPhase, setSeenImportPhase] = useState(importFlowPhase.phase);
+  if (seenImportPhase !== importFlowPhase.phase) {
+    setSeenImportPhase(importFlowPhase.phase);
+    if (importFlowPhase.phase === 'error') setCloneStatus('');
+  }
+
   // v0.18.0: reordering is by pointer drag on the grip only, as in the
   // siblings. The KeyboardSensor is gone: it never worked (no
   // sortableKeyboardCoordinates, and its key listener sat on an element that
@@ -390,7 +399,13 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
             <span aria-hidden="true">{cloneStatus}</span>
             <button
               type="button"
-              onClick={() => setCloneStatus('')}
+              onClick={() => {
+                // DASH26 O25 (PR #109 review -05, G5): this button unmounts with
+                // its line, so focus goes to the toolbar's New Project first,
+                // never to <body>.
+                newProjectButtonRef.current?.focus();
+                setCloneStatus('');
+              }}
               aria-label="Dismiss clone message"
               className="ml-4 text-green-600 hover:text-green-800"
             >
