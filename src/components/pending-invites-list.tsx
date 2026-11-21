@@ -36,10 +36,10 @@ export function PendingInvitesList({
 
   return (
     <div className="space-y-1.5">
-      <h4 className="text-xs font-medium text-gray-700">
+      <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300">
         Pending invitations ({pendingInvites.length})
       </h4>
-      <ul className="divide-y divide-gray-200 rounded-md border border-gray-200">
+      <ul className="divide-y divide-gray-200 dark:divide-gray-700 rounded-md border border-gray-200 dark:border-gray-700">
         {pendingInvites.map((p) => {
           const sendCount = p.emailSendCount ?? 0;
           const rowBusy = actionBusy === p.tokenId;
@@ -50,8 +50,8 @@ export function PendingInvitesList({
               className="flex items-center justify-between gap-2 px-3 py-2 text-xs"
             >
               <div className="min-w-0 flex-1">
-                <div className="truncate text-gray-900">{p.inviteeEmail}</div>
-                <div className="text-[11px] text-gray-500">
+                <div className="truncate text-gray-900 dark:text-gray-100">{p.inviteeEmail}</div>
+                <div className="text-[11px] text-gray-500 dark:text-gray-400">
                   {p.role}
                   {p.lastEmailSentAt
                     ? ` · sent ${formatDate(p.lastEmailSentAt)} (${sendCount}/5)`
@@ -64,7 +64,7 @@ export function PendingInvitesList({
                   type="button"
                   onClick={() => onResend(p.tokenId)}
                   disabled={anyBusy}
-                  className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                  className="text-xs text-blue-600 dark:text-blue-300 hover:underline disabled:opacity-50"
                   aria-label={`Resend invitation to ${p.inviteeEmail}`}
                 >
                   {rowBusy ? 'Working…' : 'Resend'}
@@ -73,7 +73,7 @@ export function PendingInvitesList({
                   type="button"
                   onClick={() => onRevoke(p.tokenId)}
                   disabled={anyBusy}
-                  className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                  className="text-xs text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
                   aria-label={`Revoke invitation to ${p.inviteeEmail}`}
                 >
                   Revoke

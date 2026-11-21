@@ -71,7 +71,7 @@ export const CFDChart = memo(function CFDChart() {
       // v0.18.0 (DASH26 O13): no label row here; the CFD tab's project picker,
       // above this section, names the open project in both branches.
       <section>
-        <div className="flex h-48 items-center justify-center rounded border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-400">
+        <div className="flex h-48 items-center justify-center rounded border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm text-gray-400">
           Add snapshot data to see the CFD chart
         </div>
       </section>
@@ -80,7 +80,7 @@ export const CFDChart = memo(function CFDChart() {
 
   return (
     <section>
-      <div className="rounded border border-gray-200 bg-white p-2" aria-label="Cumulative Flow Diagram">
+      <div className="rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-2" aria-label="Cumulative Flow Diagram">
         <ResponsiveContainer width="100%" height={300}>
           <AreaChart data={data}>
             <XAxis
@@ -89,10 +89,16 @@ export const CFDChart = memo(function CFDChart() {
               tickLine={false}
             />
             <YAxis tick={{ fontSize: 11 }} tickLine={false} width={40} />
+            {/* v0.19.1 (DASH26 RD1): recharts draws the tooltip box white with a
+                #ccc border as INLINE styles, which only `!important` overrides:
+                hence `dark:!`. The label takes the box's text colour; each line
+                keeps its state's colour in both themes (O28). The axes and the
+                Brush background are dark through globals.css. */}
             <Tooltip
               formatter={tooltipFormatter}
               labelFormatter={(label) => `Date: ${label}`}
               contentStyle={{ fontSize: 12 }}
+              wrapperClassName="dark:!bg-gray-900 dark:!border-gray-600 dark:text-gray-100"
             />
             {data.length > 14 && (
               <Brush

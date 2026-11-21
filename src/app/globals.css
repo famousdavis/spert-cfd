@@ -5,11 +5,20 @@
 @import "tailwindcss";
 
 /* v0.17.9: `dark:` classes follow a `dark` class on an ancestor, never the
-   operating system's setting. CFD has no dark mode yet, so every `dark:` class
-   stays off until one is added for every screen at once. Without this line,
-   Tailwind 4's `dark:` follows the OS, and the two `dark:` classes already
-   here turned grey text lighter for anyone whose computer is set to dark. */
-@custom-variant dark (&:is(.dark *));
+   operating system's setting. Without this, Tailwind 4's `dark:` follows the
+   OS, and copied `dark:` classes turn on for anyone whose computer is dark.
+   v0.19.1 (DASH26 RD1, O31): and never in print, so a page printed in dark
+   comes out light. Every screen carries its dark colours from v0.19.1, but
+   nothing sets the `dark` class yet: they stay off until the theme switch.
+   `&:is(.dark *)` needs a `.dark` ANCESTOR, so it never matches `<html>`
+   itself: the `html.dark` rule below is written out for that reason. */
+@custom-variant dark {
+  @media not print {
+    &:is(.dark *) {
+      @slot;
+    }
+  }
+}
 
 /* v0.17.9: the SPERT® blues, as in SPERT® Forecaster, for the header's
    gradient title and the active tab (`from-spert-blue-light`,
@@ -22,4 +31,42 @@
   --color-spert-blue: #0070f3;
   --color-spert-blue-light: #0099ff;
   --color-spert-blue-dark: #0051cc;
+}
+
+/* v0.19.1 (DASH26 RD1, O27): native parts the browser draws (scrollbars,
+   select lists, the date picker, number spinners, checkboxes) follow the
+   theme. Inert until something sets the `dark` class on <html>; never in
+   print (O31). */
+@media not print {
+  html.dark {
+    color-scheme: dark;
+  }
+}
+
+/* v0.19.1 (DASH26 RD1): the CFD chart's dark colours. recharts draws these as
+   SVG presentation attributes (axis #666, Brush background #fff), which any
+   CSS rule overrides, so no JavaScript has to know the theme. The tooltip's
+   colours are inline styles and are set in cfd-chart.tsx instead.
+   ⚠️ A rule written with `@variant dark` here compiles OUTSIDE
+   `@layer utilities`, and unlayered CSS beats every Tailwind utility whatever
+   its specificity. Harmless for recharts' own class names; do not style an
+   element that also carries utilities this way.
+   ⚠️ The Brush background is the one `<rect>` recharts gives no class: it is
+   picked by its position (`> rect:first-of-type`, recharts 3.10.1's DOM
+   order). After a recharts upgrade, check that the Brush (drawn only beyond
+   14 snapshots) is still dark. */
+.recharts-cartesian-axis-line {
+  @variant dark {
+    stroke: var(--color-gray-400);
+  }
+}
+.recharts-cartesian-axis-tick-value {
+  @variant dark {
+    fill: var(--color-gray-400);
+  }
+}
+.recharts-brush > rect:first-of-type {
+  @variant dark {
+    fill: var(--color-gray-900);
+  }
 }

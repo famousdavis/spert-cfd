@@ -78,11 +78,11 @@ export function StorageSection() {
 
   return (
     <section className="mb-8">
-      <h3 className="text-lg font-semibold mb-3 text-gray-900">Storage</h3>
+      <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">Storage</h3>
 
       {/* Current mode display */}
       <div className="flex gap-4 mb-4">
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm dark:text-gray-200">
           <input
             type="radio"
             name="storage-mode"
@@ -92,7 +92,7 @@ export function StorageSection() {
           />
           Local Storage
         </label>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm dark:text-gray-200">
           <input
             type="radio"
             name="storage-mode"
@@ -117,31 +117,31 @@ export function StorageSection() {
         <div className="mb-4">
           {user ? (
             <div className="flex items-center gap-3 text-sm">
-              <span className="text-gray-600">
+              <span className="text-gray-600 dark:text-gray-400">
                 Signed in as <strong>{user.displayName ?? user.email}</strong>
               </span>
               <button
                 onClick={signOut}
-                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                className="rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600"
               >
                 Sign out
               </button>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              <p className="text-sm text-gray-500 mb-1">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                 Sign in to enable Cloud Storage:
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={signInWithGoogle}
-                  className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100"
+                  className="rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600"
                 >
                   Sign in with Google
                 </button>
                 <button
                   onClick={signInWithMicrosoft}
-                  className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100"
+                  className="rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600"
                 >
                   Sign in with Microsoft
                 </button>
@@ -153,12 +153,12 @@ export function StorageSection() {
               {signInError && (
                 <div
                   role="alert"
-                  className="mt-2 flex items-center justify-between rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+                  className="mt-2 flex items-center justify-between rounded border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-200"
                 >
                   <span>{signInError}</span>
                   <button
                     onClick={clearSignInError}
-                    className="ml-3 text-amber-700 hover:text-amber-900 underline"
+                    className="ml-3 text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-200 underline"
                   >
                     Dismiss
                   </button>

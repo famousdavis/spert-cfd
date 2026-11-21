@@ -75,18 +75,18 @@ export function ImportPreviewSection({
     <section
       role="region"
       aria-labelledby="import-preview-heading"
-      className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+      className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm"
     >
       <header className="mb-3 flex items-baseline justify-between">
         <h2
           ref={headingRef}
           id="import-preview-heading"
           tabIndex={-1}
-          className="text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="text-sm font-semibold dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           Import preview
         </h2>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-gray-500 dark:text-gray-400">
           {incoming.length} project{incoming.length === 1 ? '' : 's'} in file
         </span>
       </header>
@@ -95,7 +95,7 @@ export function ImportPreviewSection({
           announces content changes, not the empty state on mount. */}
       <div role="status" aria-live="polite">
         {driverLoading && (
-          <p className="mb-3 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          <p className="mb-3 rounded bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-700 dark:text-gray-100">
             Project list is updating — please wait before confirming.
           </p>
         )}
@@ -111,7 +111,7 @@ export function ImportPreviewSection({
           must not fire in that case. */}
       <div role="status" aria-live="polite">
         {mode === 'cloud' && existingCount === 0 && incoming.length > 0 && (
-          <p className="mb-3 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          <p className="mb-3 rounded bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-700 dark:text-gray-100">
             If you just enabled cloud sync, your existing projects may still be
             loading. Cancel and try again once the dashboard shows your projects.
           </p>
@@ -121,18 +121,18 @@ export function ImportPreviewSection({
       {/* Non-conflicting projects */}
       {cleanProjects.length > 0 && (
         <div className="mb-4">
-          <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">
+          <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
             Will be added ({cleanProjects.length})
           </h3>
           <ul className="space-y-1">
             {cleanProjects.map((p) => (
               <li
                 key={p.id}
-                className="flex items-center gap-2 text-sm text-gray-700"
+                className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200"
               >
                 <span
                   aria-label="will be added"
-                  className="inline-block rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700"
+                  className="inline-block rounded bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 text-xs text-green-700 dark:text-green-100"
                 >
                   Add
                 </span>
@@ -146,7 +146,7 @@ export function ImportPreviewSection({
       {/* Conflicts */}
       {conflicts.length > 0 && (
         <div className="mb-4">
-          <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">
+          <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
             Conflicts ({conflicts.length}) — choose how to resolve each
           </h3>
           <ul className="space-y-3">
@@ -157,14 +157,14 @@ export function ImportPreviewSection({
               return (
                 <li
                   key={inc.id}
-                  className="rounded border border-gray-200 p-3"
+                  className="rounded border border-gray-200 dark:border-gray-600 p-3"
                 >
                   <div className="mb-2 flex items-baseline justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <span className="truncate text-sm font-medium text-gray-800">
+                      <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">
                         {inc.name}
                       </span>
-                      <p className="mt-0.5 text-xs text-gray-500">
+                      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                         {c.type === 'id'
                           ? `ID matches existing project "${c.existing.name}"`
                           : `Name matches existing project "${c.existing.name}"`}
@@ -174,7 +174,7 @@ export function ImportPreviewSection({
                       aria-label={
                         c.type === 'id' ? 'id conflict' : 'name conflict'
                       }
-                      className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700"
+                      className="shrink-0 rounded bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 text-xs text-amber-700 dark:text-amber-200"
                     >
                       {c.type === 'id' ? 'ID conflict' : 'Name conflict'}
                     </span>
@@ -187,7 +187,7 @@ export function ImportPreviewSection({
                     {RESOLUTION_OPTIONS.map((opt) => (
                       <label
                         key={opt.value}
-                        className="flex items-center gap-1.5 text-gray-700"
+                        className="flex items-center gap-1.5 text-gray-700 dark:text-gray-200"
                       >
                         <input
                           type="radio"
@@ -214,7 +214,7 @@ export function ImportPreviewSection({
         <button
           onClick={onCancel}
           disabled={applying}
-          className="rounded px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50"
+          className="rounded px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-50"
         >
           Cancel
         </button>

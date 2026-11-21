@@ -45,21 +45,21 @@ export function GridTable({
   };
 
   return (
-    <div className="overflow-x-auto rounded border border-gray-200" role="grid">
+    <div className="overflow-x-auto rounded border border-gray-200 dark:border-gray-700" role="grid">
       <table className="w-full text-sm border-collapse">
         <thead>
-          <tr className="bg-gray-50 text-left">
-            <th className="px-3 py-2 font-medium text-gray-600 whitespace-nowrap sticky left-0 bg-gray-50 z-10">
+          <tr className="bg-gray-50 dark:bg-gray-800 text-left">
+            <th className="px-3 py-2 font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap sticky left-0 bg-gray-50 dark:bg-gray-800 z-10">
               Date
             </th>
             {sortedWorkflow.map((state) => (
               <th
                 key={state.id}
-                className="px-2 py-2 font-medium text-gray-600 whitespace-nowrap text-right"
+                className="px-2 py-2 font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap text-right"
               >
                 <span className="flex items-center justify-end gap-1">
                   <span
-                    className="inline-block h-2.5 w-2.5 rounded-sm flex-shrink-0"
+                    className="inline-block h-2.5 w-2.5 rounded-sm flex-shrink-0 dark:ring-1 dark:ring-gray-500"
                     style={{ backgroundColor: state.color }}
                   />
                   {state.name}
@@ -78,13 +78,13 @@ export function GridTable({
           {snapshots.map((snap, rowIdx) => {
             if (deletingDate === snap.date) {
               return (
-                <tr key={snap.date} className="border-t border-gray-100">
+                <tr key={snap.date} className="border-t border-gray-100 dark:border-gray-800">
                   <td
                     colSpan={sortedWorkflow.length + 2}
                     className="px-3 py-2"
                   >
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="text-red-700">
+                      <span className="text-red-700 dark:text-red-300">
                         Delete snapshot for {formatDate(snap.date)}?
                       </span>
                       <button
@@ -95,7 +95,7 @@ export function GridTable({
                       </button>
                       <button
                         onClick={onCancelDelete}
-                        className="rounded px-2 py-0.5 text-gray-600 hover:text-gray-900"
+                        className="rounded px-2 py-0.5 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
                       >
                         Cancel
                       </button>
@@ -106,8 +106,8 @@ export function GridTable({
             }
 
             return (
-              <tr key={snap.date} className="border-t border-gray-100" role="row">
-                <td className="px-3 py-1.5 text-gray-700 whitespace-nowrap sticky left-0 bg-white z-10">
+              <tr key={snap.date} className="border-t border-gray-100 dark:border-gray-800" role="row">
+                <td className="px-3 py-1.5 text-gray-700 dark:text-gray-300 whitespace-nowrap sticky left-0 bg-white dark:bg-gray-900 z-10">
                   {formatDate(snap.date)}
                 </td>
                 {sortedWorkflow.map((state, colIdx) => {
@@ -129,7 +129,7 @@ export function GridTable({
                 <td className="px-1">
                   <button
                     onClick={() => onDeleteRow(snap.date)}
-                    className="rounded p-1 text-gray-300 hover:text-red-600"
+                    className="rounded p-1 text-gray-300 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"
                     title="Delete row"
                     aria-label={`Delete snapshot for ${snap.date}`}
                   >

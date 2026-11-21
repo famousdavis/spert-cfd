@@ -31,8 +31,8 @@ export function LocalWarningSetting() {
   };
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white p-6 mt-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-3">Notifications</h3>
+    <section className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 mt-6">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Notifications</h3>
       <div className="flex items-start gap-3">
         <input
           id="settings-warn-local-storage"
@@ -43,10 +43,10 @@ export function LocalWarningSetting() {
           className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-blue-600"
         />
         <div>
-          <label htmlFor="settings-warn-local-storage" className="cursor-pointer text-sm text-gray-900">
+          <label htmlFor="settings-warn-local-storage" className="cursor-pointer text-sm text-gray-900 dark:text-gray-100">
             Warn me on startup when using local storage
           </label>
-          <p className="mt-0.5 text-xs text-gray-500">
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
             Shows a caution banner each time the app opens while your data is stored locally in this browser.
           </p>
         </div>

@@ -32,7 +32,7 @@ export function ConsentModal({ onAccept, onCancel }: ConsentModalProps) {
       <div
         ref={modalRef}
         tabIndex={-1}
-        className="w-full max-w-md rounded-lg bg-white shadow-xl outline-none"
+        className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 shadow-xl outline-none"
         role="dialog"
         aria-modal="true"
         aria-labelledby="consent-modal-title"
@@ -40,12 +40,12 @@ export function ConsentModal({ onAccept, onCancel }: ConsentModalProps) {
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 id="consent-modal-title" className="text-sm font-semibold">
+          <h2 id="consent-modal-title" className="text-sm font-semibold dark:text-gray-100">
             Enable Cloud Storage
           </h2>
           <button
             onClick={onCancel}
-            className="rounded p-1 text-gray-400 hover:text-gray-700"
+            className="rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             aria-label="Close"
           >
             <X size={16} />
@@ -54,14 +54,14 @@ export function ConsentModal({ onAccept, onCancel }: ConsentModalProps) {
 
         {/* Body */}
         <div className="space-y-4 p-4">
-          <p id="consent-modal-description" className="text-sm text-gray-600">
+          <p id="consent-modal-description" className="text-sm text-gray-600 dark:text-gray-400">
             Cloud Storage stores your project planning data in
             Firebase/Firestore on Google Cloud. Use is governed by the{' '}
             <a
               href={TOS_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 underline hover:text-blue-700"
+              className="text-blue-600 dark:text-blue-500 underline hover:text-blue-700 dark:hover:text-blue-600"
             >
               Terms of Service
             </a>
@@ -70,14 +70,14 @@ export function ConsentModal({ onAccept, onCancel }: ConsentModalProps) {
               href={PRIVACY_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 underline hover:text-blue-700"
+              className="text-blue-600 dark:text-blue-500 underline hover:text-blue-700 dark:hover:text-blue-600"
             >
               Privacy Policy
             </a>
             {' '}for SPERT&reg; Suite web apps.
           </p>
 
-          <label className="flex items-start gap-2 text-sm text-gray-700">
+          <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-200">
             <input
               id="consent-modal-agree"
               name="consent-modal-agree"
@@ -96,7 +96,7 @@ export function ConsentModal({ onAccept, onCancel }: ConsentModalProps) {
         <div className="flex justify-end gap-2 border-t px-4 py-3">
           <button
             onClick={onCancel}
-            className="rounded px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
+            className="rounded px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
           >
             Cancel
           </button>

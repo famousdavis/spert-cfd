@@ -87,17 +87,17 @@ export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDas
     // A bordered panel in the page's column, under the header and the tabs.
     <div className={`${PAGE_COLUMN} flex flex-1 flex-col overflow-hidden py-4`}>
       {storageFull && (
-        <div role="alert" className="mb-4 flex flex-none items-center justify-between rounded bg-red-50 px-4 py-2 text-sm text-red-700">
+        <div role="alert" className="mb-4 flex flex-none items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100">
           <span>{STORAGE_FULL_MESSAGE}</span>
-          <button type="button" onClick={dismissStorageFullToPicker} className="ml-4 text-red-500 hover:text-red-700">
+          <button type="button" onClick={dismissStorageFullToPicker} className="ml-4 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200">
             Dismiss
           </button>
         </div>
       )}
-      <div className={open ? 'flex min-h-0 w-full flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white' : 'flex min-h-0 w-full flex-1 overflow-hidden'}>
+      <div className={open ? 'flex min-h-0 w-full flex-1 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900' : 'flex min-h-0 w-full flex-1 overflow-hidden'}>
         {/* Left sidebar, remounted for each project */}
         {open && (
-          <aside key={project.id} className="w-64 border-r border-gray-200 bg-gray-50 p-4 overflow-y-auto">
+          <aside key={project.id} className="w-64 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-4 overflow-y-auto">
             <WorkflowEditor />
 
             <MetricsPanel />
@@ -110,9 +110,9 @@ export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDas
                   <span
                     className={
                       usage.status === 'critical'
-                        ? 'text-red-600 font-medium'
+                        ? 'text-red-600 dark:text-red-400 font-medium'
                         : usage.status === 'warning'
-                          ? 'text-amber-600 font-medium'
+                          ? 'text-amber-600 dark:text-amber-400 font-medium'
                           : ''
                     }
                   >
@@ -135,7 +135,7 @@ export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDas
               <DataGrid />
             </ErrorBoundary>
           ) : (
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 text-gray-500">
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 text-gray-500 dark:text-gray-400">
               <p>Open a project from the Projects tab to view its CFD.</p>
               {onGoToProjects && (
                 <button

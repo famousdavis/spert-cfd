@@ -107,9 +107,9 @@ export function GridCell({
         onFocus={handleFocus}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        className={`w-full h-8 px-2 py-1.5 text-[13px] font-mono text-right border-0 outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 ${
+        className={`w-full h-8 px-2 py-1.5 text-[13px] font-mono text-right border-0 outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 dark:text-gray-100 ${
           isWipViolation
-            ? 'bg-amber-50 ring-1 ring-inset ring-amber-400'
+            ? 'bg-amber-50 ring-1 ring-inset ring-amber-400 dark:bg-amber-900/30'
             : 'bg-transparent'
         }`}
         title={

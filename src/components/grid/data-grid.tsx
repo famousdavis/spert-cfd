@@ -92,7 +92,7 @@ export function DataGrid() {
       )}
 
       {snapshots.length === 0 ? (
-        <div className="flex h-32 items-center justify-center rounded border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-400">
+        <div className="flex h-32 items-center justify-center rounded border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm text-gray-400">
           No snapshots yet. Click &quot;Add Row&quot; to begin tracking.
         </div>
       ) : (

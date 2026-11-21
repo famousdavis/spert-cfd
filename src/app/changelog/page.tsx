@@ -22,31 +22,31 @@ export default function ChangelogPage() {
       <header className="mb-8">
         <Link
           href="/"
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
         >
           &larr; Back to SPERT&reg; CFD
         </Link>
-        <h1 className="mt-4 text-2xl font-bold text-gray-900">Changelog</h1>
+        <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-100">Changelog</h1>
       </header>
 
       <section className="space-y-6">
         {entries.map((entry) => (
           <article key={entry.version}>
             <div className="flex items-baseline gap-3">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {entry.version}
-                <span className="ml-2 text-sm font-normal text-gray-500">
+                <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
                   {entry.subtitle}
                 </span>
               </h2>
               <span className="text-sm text-gray-400">{entry.date}</span>
             </div>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700 dark:text-gray-300">
               {entry.items.map((item, i) => (
                 <li key={i}>
                   {splitBold(item).map((segment, j) =>
                     segment.bold ? (
-                      <strong key={j} className="font-semibold text-gray-900">
+                      <strong key={j} className="font-semibold text-gray-900 dark:text-gray-100">
                         {segment.text}
                       </strong>
                     ) : (

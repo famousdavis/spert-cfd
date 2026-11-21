@@ -49,9 +49,9 @@ export function AddRowDialog({
   };
 
   return (
-    <div className="rounded border border-blue-200 bg-blue-50 p-3 mb-3">
+    <div className="rounded border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 p-3 mb-3">
       <div className="flex items-center gap-2 mb-2">
-        <label htmlFor="add-row-date" className="text-xs font-medium text-gray-700">
+        <label htmlFor="add-row-date" className="text-xs font-medium text-gray-700 dark:text-gray-300">
           Date:
         </label>
         <input
@@ -60,24 +60,24 @@ export function AddRowDialog({
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="rounded border border-gray-300 px-2 py-1 text-sm"
+          className="rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 py-1 text-sm"
         />
       </div>
 
       {previous && (
-        <p className="text-xs text-gray-500 mb-2">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
           Copies values from {formatDate(previous.date)}
         </p>
       )}
 
       {!previous && snapshots.length === 0 && (
-        <p className="text-xs text-gray-500 mb-2">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
           First snapshot — all counts start at 0
         </p>
       )}
 
       {isDuplicate && (
-        <p className="text-xs text-amber-700 mb-2">
+        <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">
           A snapshot for this date already exists and will be overwritten.
         </p>
       )}
@@ -92,7 +92,7 @@ export function AddRowDialog({
         </button>
         <button
           onClick={onClose}
-          className="rounded px-3 py-1 text-xs text-gray-600 hover:text-gray-900"
+          className="rounded px-3 py-1 text-xs text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
         >
           Cancel
         </button>

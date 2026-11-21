@@ -156,16 +156,16 @@ export function CsvImportModal({
       <div
         ref={modalRef}
         tabIndex={-1}
-        className="w-full max-w-lg rounded-lg bg-white shadow-xl outline-none max-h-[80vh] flex flex-col"
+        className="w-full max-w-lg rounded-lg bg-white dark:bg-gray-800 shadow-xl outline-none max-h-[80vh] flex flex-col"
         role="dialog"
         aria-label="Import CSV"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 className="text-sm font-semibold">Import CSV</h2>
+          <h2 className="text-sm font-semibold dark:text-gray-100">Import CSV</h2>
           <button
             onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:text-gray-700"
+            className="rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             aria-label="Close"
           >
             <X size={16} />
@@ -180,7 +180,7 @@ export function CsvImportModal({
 
           {stage === 'mapping' && parsed && (
             <div>
-              <p className="text-sm text-gray-600 mb-3">
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
                 Map each CSV column to a workflow state. Set one column as Date.
               </p>
 
@@ -188,7 +188,7 @@ export function CsvImportModal({
               <div className="space-y-2 mb-4">
                 {parsed.headers.map((header, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <span className="w-28 truncate text-sm text-gray-700 font-medium">
+                    <span className="w-28 truncate text-sm text-gray-700 dark:text-gray-200 font-medium">
                       {header}
                     </span>
                     <span className="text-gray-400 text-xs">→</span>
@@ -199,7 +199,7 @@ export function CsvImportModal({
                       onChange={(e) =>
                         handleMappingChange(i, e.target.value as ColumnTarget)
                       }
-                      className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
+                      className="flex-1 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 py-1 text-sm"
                       aria-label={`Mapping for column ${header}`}
                     >
                       <option value="skip">Skip this column</option>
@@ -216,17 +216,17 @@ export function CsvImportModal({
 
               {/* Validation messages */}
               {dateColumnCount === 0 && (
-                <p className="text-xs text-red-600 mb-2">
+                <p className="text-xs text-red-600 dark:text-red-400 mb-2">
                   You must map exactly one column to Date.
                 </p>
               )}
               {dateColumnCount > 1 && (
-                <p className="text-xs text-red-600 mb-2">
+                <p className="text-xs text-red-600 dark:text-red-400 mb-2">
                   Only one column can be mapped to Date.
                 </p>
               )}
               {mappedStateCount === 0 && dateColumnCount === 1 && (
-                <p className="text-xs text-amber-600 mb-2">
+                <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
                   Map at least one column to a workflow state.
                 </p>
               )}
@@ -234,15 +234,15 @@ export function CsvImportModal({
               {/* Preview */}
               {parsed.rows.length > 0 && (
                 <div className="mt-3">
-                  <p className="text-xs text-gray-500 mb-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                     Preview (first {Math.min(3, parsed.rows.length)} rows):
                   </p>
-                  <div className="overflow-x-auto rounded border border-gray-200 text-xs">
+                  <div className="overflow-x-auto rounded border border-gray-200 dark:border-gray-700 text-xs">
                     <table className="w-full">
                       <thead>
-                        <tr className="bg-gray-50">
+                        <tr className="bg-gray-50 dark:bg-gray-700">
                           {parsed.headers.map((h, i) => (
-                            <th key={i} className="px-2 py-1 text-left font-medium text-gray-500">
+                            <th key={i} className="px-2 py-1 text-left font-medium text-gray-500 dark:text-gray-300">
                               {h}
                             </th>
                           ))}
@@ -250,9 +250,9 @@ export function CsvImportModal({
                       </thead>
                       <tbody>
                         {parsed.rows.slice(0, 3).map((row, i) => (
-                          <tr key={i} className="border-t border-gray-100">
+                          <tr key={i} className="border-t border-gray-100 dark:border-gray-700">
                             {row.map((cell, j) => (
-                              <td key={j} className="px-2 py-1 text-gray-600">
+                              <td key={j} className="px-2 py-1 text-gray-600 dark:text-gray-300">
                                 {cell}
                               </td>
                             ))}
@@ -276,7 +276,7 @@ export function CsvImportModal({
           {stage !== 'upload' && (
             <button
               onClick={() => setStage(stage === 'confirm' ? 'mapping' : 'upload')}
-              className="rounded px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
+              className="rounded px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
             >
               Back
             </button>
@@ -284,7 +284,7 @@ export function CsvImportModal({
 
           <button
             onClick={onClose}
-            className="ml-auto rounded px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
+            className="ml-auto rounded px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
           >
             Cancel
           </button>
@@ -329,7 +329,7 @@ function UploadStage({ dragging, error, onFile }: UploadStageProps) {
     <div>
       <div
         className={`flex flex-col items-center rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors ${
-          dragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'
+          dragging ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/30' : 'border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-700/40'
         }`}
       >
         <FileSpreadsheet size={32} className="mb-3 text-gray-400" aria-hidden="true" />
@@ -340,7 +340,7 @@ function UploadStage({ dragging, error, onFile }: UploadStageProps) {
         >
           Choose CSV file
         </button>
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
           {dragging ? 'Drop the file to import it' : 'or drag and drop it here'}
         </p>
       </div>
@@ -361,13 +361,13 @@ function UploadStage({ dragging, error, onFile }: UploadStageProps) {
         aria-label="CSV file to import"
       />
 
-      <p className="mt-3 text-xs text-gray-500">
+      <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
         The first row must be column headers: a Date column plus one column per
         workflow state. Dates as {CSV_DATE_FORMATS}.
       </p>
 
       {error && (
-        <p role="alert" className="mt-2 text-xs text-red-600">
+        <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-400">
           {error}
         </p>
       )}
@@ -386,8 +386,8 @@ function ImportSummary({ result }: { result: ImportResult }) {
     <div>
       {importedCount > 0 ? (
         <>
-          <p className="text-sm text-gray-600 mb-3">Ready to import:</p>
-          <ul className="text-sm text-gray-700 space-y-1 mb-3">
+          <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">Ready to import:</p>
+          <ul className="text-sm text-gray-700 dark:text-gray-200 space-y-1 mb-3">
             <li>{count(importedCount, 'row')} to import</li>
             {dateRange && (
               <li>
@@ -395,20 +395,20 @@ function ImportSummary({ result }: { result: ImportResult }) {
               </li>
             )}
             {overwrittenCount > 0 && (
-              <li className="text-amber-700">
+              <li className="text-amber-700 dark:text-amber-300">
                 {count(overwrittenCount, 'existing snapshot')} will be overwritten
               </li>
             )}
           </ul>
         </>
       ) : (
-        <p role="alert" className="text-sm font-medium text-red-700 mb-3">
+        <p role="alert" className="text-sm font-medium text-red-700 dark:text-red-300 mb-3">
           Nothing can be imported — no row has a recognized date.
         </p>
       )}
 
       {skippedCount > 0 && (
-        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <div className="rounded border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
           <p>
             {count(skippedCount, 'row')} skipped — date not recognized: {examples}
             {skippedDates.length > 3 && ', …'}

@@ -35,10 +35,10 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="flex h-screen flex-col items-center justify-center p-8 text-center">
-          <h1 className="text-xl font-bold text-red-600 mb-2">
+          <h1 className="text-xl font-bold text-red-600 dark:text-red-400 mb-2">
             Something went wrong
           </h1>
-          <p className="text-gray-600 mb-4">
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
             The application encountered an error. Your data is safe in local storage.
           </p>
           <button

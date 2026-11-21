@@ -374,11 +374,11 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
 
         {/* A failed create, Load Sample or Clone (v0.19.0: storage full in O24's words) */}
         {uiError && (
-          <div role="alert" className="flex items-center justify-between rounded bg-red-50 px-4 py-2 text-sm text-red-700">
+          <div role="alert" className="flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100">
             <span>{uiError}</span>
             <button
               onClick={() => setUiError(null)}
-              className="ml-4 text-red-500 hover:text-red-700"
+              className="ml-4 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200"
             >
               Dismiss
             </button>
@@ -395,7 +395,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
           {cloneStatus}
         </div>
         {cloneStatus && (
-          <div className="flex items-center justify-between rounded bg-green-50 px-4 py-2 text-sm text-green-700">
+          <div className="flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100">
             <span aria-hidden="true">{cloneStatus}</span>
             <button
               type="button"
@@ -407,7 +407,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
                 setCloneStatus('');
               }}
               aria-label="Dismiss clone message"
-              className="ml-4 text-green-600 hover:text-green-800"
+              className="ml-4 text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200"
             >
               Dismiss
             </button>
@@ -418,12 +418,12 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
         {importFlowPhase.phase === 'error' && (
           <div
             role="alert"
-            className="flex items-center justify-between rounded bg-red-50 px-4 py-2 text-sm text-red-700"
+            className="flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100"
           >
             <span>{importFlowPhase.message}</span>
             <button
               onClick={onDismissImportBanner}
-              className="ml-4 text-red-500 hover:text-red-700"
+              className="ml-4 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200"
             >
               Dismiss
             </button>
@@ -434,12 +434,12 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
         {importFlowPhase.phase === 'banner' && (
           <div
             role="status"
-            className="flex items-center justify-between rounded bg-green-50 px-4 py-2 text-sm text-green-700"
+            className="flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100"
           >
             <span>{buildBannerText(importFlowPhase.outcome)}</span>
             <button
               onClick={onDismissImportBanner}
-              className="ml-4 text-green-600 hover:text-green-800"
+              className="ml-4 text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200"
             >
               Dismiss
             </button>

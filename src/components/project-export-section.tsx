@@ -85,9 +85,9 @@ export function ProjectExportSection() {
   }, [projects, selectedIds, driver]);
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white p-6 mt-6">
-      <h3 className="text-lg font-semibold text-gray-900">Export Projects</h3>
-      <p className="mt-1 text-sm text-gray-500">
+    <section className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 mt-6">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Export Projects</h3>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
         Download selected projects as a JSON file for backup or sharing.
       </p>
 
@@ -96,14 +96,14 @@ export function ProjectExportSection() {
       ) : (
         <div className="mt-4 space-y-3">
           {/* Select all toggle */}
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
               id="export-select-all"
               name="export-select-all"
               type="checkbox"
               checked={allSelected}
               onChange={toggleAll}
-              className="rounded border-gray-300 accent-blue-600"
+              className="rounded border-gray-300 dark:border-gray-500 accent-blue-600"
             />
             <span className="font-medium">
               {allSelected ? 'Deselect all' : 'Select all'}
@@ -111,14 +111,14 @@ export function ProjectExportSection() {
           </label>
 
           {/* Project list (name-only) */}
-          <div className="max-h-64 overflow-y-auto rounded-md border border-gray-100 divide-y divide-gray-100">
+          <div className="max-h-64 overflow-y-auto rounded-md border border-gray-100 dark:border-gray-600 divide-y divide-gray-100 dark:divide-gray-700">
             {projects.map((project) => {
               const checkboxId = `export-project-${project.id}`;
               return (
                 <label
                   key={project.id}
                   htmlFor={checkboxId}
-                  className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
                 >
                   <input
                     id={checkboxId}
@@ -127,9 +127,9 @@ export function ProjectExportSection() {
                     aria-label={`Select ${project.name} for export`}
                     checked={selectedIds.has(project.id)}
                     onChange={() => toggleProject(project.id)}
-                    className="rounded border-gray-300 accent-blue-600"
+                    className="rounded border-gray-300 dark:border-gray-500 accent-blue-600"
                   />
-                  <span className="text-sm font-medium text-gray-900 truncate">
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                     {project.name}
                   </span>
                 </label>
@@ -140,7 +140,7 @@ export function ProjectExportSection() {
           {error && (
             <div
               role="alert"
-              className="rounded bg-red-50 px-3 py-2 text-sm text-red-700"
+              className="rounded bg-red-50 dark:bg-red-900/20 px-3 py-2 text-sm text-red-700 dark:text-red-300"
             >
               {error}
             </div>

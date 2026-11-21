@@ -31,17 +31,17 @@ export function AboutTab() {
     // reading width.
     <div className="flex-1 overflow-y-auto py-4">
       <div className={`${PAGE_COLUMN} *:max-w-4xl`}>
-        <h2 className="text-2xl mb-2 text-gray-900">
+        <h2 className="text-2xl mb-2 text-gray-900 dark:text-gray-100">
           About <TrademarkedName name="SPERT" /> CFD
         </h2>
         {/* The header's tagline (v0.17.9): one constant for both. */}
-        <p className="text-gray-500 italic mb-8">{APP_DESCRIPTION}</p>
+        <p className="text-gray-500 dark:text-gray-400 italic mb-8">{APP_DESCRIPTION}</p>
 
         <section className="mb-8">
-          <h3 className="text-xl mb-3 text-blue-600">
+          <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">
             What is <TrademarkedName name="SPERT" /> CFD?
           </h3>
-          <p className="leading-relaxed text-gray-600">
+          <p className="leading-relaxed text-gray-600 dark:text-gray-300">
             <TrademarkedName name="SPERT" /> CFD is a lightweight, browser-based
             tool for building and analyzing Cumulative Flow Diagrams. CFDs are a
             standard agile visualization that shows how work items flow through
@@ -51,8 +51,8 @@ export function AboutTab() {
         </section>
 
         <section className="mb-8">
-          <h3 className="text-xl mb-3 text-blue-600">How It Works</h3>
-          <ul className="pl-8 leading-loose text-gray-600 list-disc">
+          <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">How It Works</h3>
+          <ul className="pl-8 leading-loose text-gray-600 dark:text-gray-300 list-disc">
             <li>
               Create a project and define your workflow states (e.g., Backlog,
               In Dev, Done)
@@ -76,15 +76,15 @@ export function AboutTab() {
         </section>
 
         <section className="mb-8">
-          <h3 className="text-xl mb-3 text-blue-600">Flow Metrics</h3>
-          <p className="leading-relaxed text-gray-600 mb-4">
+          <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">Flow Metrics</h3>
+          <p className="leading-relaxed text-gray-600 dark:text-gray-300 mb-4">
             The metrics panel calculates Work in Progress (WIP), throughput
             (items completed per day), start rate (items starting work per
             day) and arrival rate (new requests entering the backlog per day).
             It estimates two times with Little&apos;s Law, each the
             period&apos;s average number of items &divide; its throughput:
           </p>
-          <ul className="pl-8 leading-loose text-gray-600 list-disc mb-4">
+          <ul className="pl-8 leading-loose text-gray-600 dark:text-gray-300 list-disc mb-4">
             <li>
               <strong>Cycle time</strong> runs from when work on an item
               first starts until it is done. It averages the items in your
@@ -97,20 +97,20 @@ export function AboutTab() {
               backlog and active states.
             </li>
           </ul>
-          <p className="leading-relaxed text-gray-600 mb-4">
+          <p className="leading-relaxed text-gray-600 dark:text-gray-300 mb-4">
             The WIP card shows the period&apos;s average number of active
             items, the figure cycle time divides by throughput, with
             today&apos;s count beneath it. The lead time card notes its own
             average, of backlog and active items.
           </p>
-          <p className="leading-relaxed text-gray-600 mb-4">
+          <p className="leading-relaxed text-gray-600 dark:text-gray-300 mb-4">
             Keep the Backlog to real requests. Little&apos;s Law assumes every
             item is eventually finished, so a long tail of ideas that will
             never be done inflates lead time. Rates come from the change in
             counts, so a request removed without being done cancels out a new
             one, and if more are removed than arrive, arrival rate shows 0.
           </p>
-          <p className="leading-relaxed text-gray-600 mb-4">
+          <p className="leading-relaxed text-gray-600 dark:text-gray-300 mb-4">
             Both times assume a steady flow. When work starts more than{" "}
             {tolerancePercent}% faster or slower than it finishes, the panel
             warns that cycle time will understate or overstate how long new
@@ -123,7 +123,7 @@ export function AboutTab() {
             wider than chance alone usually explains. If a Done count goes
             down, the panel warns you of that instead.
           </p>
-          <p className="leading-relaxed text-gray-600">
+          <p className="leading-relaxed text-gray-600 dark:text-gray-300">
             Metrics can be filtered by time period: all data, or the last 7,
             14, 30 or 90 days. A project imported with another period, such as
             a custom date range, keeps it, and the panel names it.
@@ -131,18 +131,18 @@ export function AboutTab() {
         </section>
 
         <section className="mb-8">
-          <h3 className="text-xl mb-3 text-blue-600">
+          <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">
             Your Data &amp; Storage
           </h3>
-          <p className="leading-relaxed text-gray-600 mb-4">
+          <p className="leading-relaxed text-gray-600 dark:text-gray-300 mb-4">
             <TrademarkedName name="SPERT" /> CFD supports two storage modes,
             configurable in the <strong>Settings</strong> tab.
           </p>
 
-          <h4 className="text-lg mb-2 text-gray-900 font-semibold">
+          <h4 className="text-lg mb-2 text-gray-900 dark:text-gray-100 font-semibold">
             Local Storage
           </h4>
-          <ul className="pl-8 leading-loose text-gray-600 list-disc">
+          <ul className="pl-8 leading-loose text-gray-600 dark:text-gray-300 list-disc">
             <li>
               Data is stored in your browser&apos;s localStorage and{" "}
               <strong>never leaves your device</strong>
@@ -166,10 +166,10 @@ export function AboutTab() {
             </li>
           </ul>
 
-          <h4 className="text-lg mb-2 mt-4 text-gray-900 font-semibold">
+          <h4 className="text-lg mb-2 mt-4 text-gray-900 dark:text-gray-100 font-semibold">
             Cloud Storage
           </h4>
-          <ul className="pl-8 leading-loose text-gray-600 list-disc">
+          <ul className="pl-8 leading-loose text-gray-600 dark:text-gray-300 list-disc">
             <li>
               Opt-in cloud sync via Google sign-in, or Microsoft work/school
               sign-in
@@ -182,10 +182,10 @@ export function AboutTab() {
         </section>
 
         <section className="mb-8">
-          <h3 className="text-xl mb-3 text-blue-600">
+          <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">
             Author &amp; Source Code
           </h3>
-          <p className="leading-relaxed text-gray-600 mb-2">
+          <p className="leading-relaxed text-gray-600 dark:text-gray-300 mb-2">
             Created by <strong>William W. Davis, MSPM, PMP</strong>
           </p>
           <a
@@ -199,13 +199,13 @@ export function AboutTab() {
         </section>
 
         <section className="mb-8">
-          <h3 className="text-xl mb-3 text-blue-600">Version</h3>
-          <p className="leading-relaxed text-gray-600">v{APP_VERSION}</p>
+          <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">Version</h3>
+          <p className="leading-relaxed text-gray-600 dark:text-gray-300">v{APP_VERSION}</p>
         </section>
 
         <section className="mb-8">
-          <h3 className="text-xl mb-3 text-blue-600">Trademark</h3>
-          <p className="leading-relaxed text-gray-600">
+          <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">Trademark</h3>
+          <p className="leading-relaxed text-gray-600 dark:text-gray-300">
             <TrademarkedName name="SPERT" /> and{" "}
             <TrademarkedName name="Statistical PERT" /> are registered
             trademarks with the United States Patent and Trademark Office.
@@ -213,8 +213,8 @@ export function AboutTab() {
         </section>
 
         <section className="mb-8">
-          <h3 className="text-xl mb-3 text-blue-600">License</h3>
-          <p className="leading-relaxed text-gray-600">
+          <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">License</h3>
+          <p className="leading-relaxed text-gray-600 dark:text-gray-300">
             This software is licensed under the GNU General Public License v3.0
             (GPL-3.0). You are free to use, modify, and distribute this software
             under the terms of the GPL-3.0 license.
@@ -222,8 +222,8 @@ export function AboutTab() {
         </section>
 
         <section className="mb-8">
-          <h3 className="text-xl mb-3 text-blue-600">No Warranty Disclaimer</h3>
-          <p className="leading-relaxed text-gray-600">
+          <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">No Warranty Disclaimer</h3>
+          <p className="leading-relaxed text-gray-600 dark:text-gray-300">
             THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
             APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE
             COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM &quot;AS
