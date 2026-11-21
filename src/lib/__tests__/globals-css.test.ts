@@ -140,9 +140,11 @@ describe('globals.css', () => {
     expect(enclosing(css, 'outline-color: #0070f3')[0]).toBe('@layer utilities');
   });
 
-  it('does not scan test files for class names', async () => {
+  it('does not scan test files or the Markdown documents for class names', async () => {
     const { sources } = await compiler(GLOBALS);
     expect(sources).toContainEqual({ base: APP, pattern: '../**/__tests__', negated: true });
+    // Nor the Markdown documents (the changelog's prose, "outline" among it).
+    expect(sources).toContainEqual({ base: APP, pattern: '../../*.md', negated: true });
   });
 
   it('defines the three SPERT® blues in a plain @theme block', () => {

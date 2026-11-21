@@ -4,10 +4,12 @@
 
 @import "tailwindcss";
 
-/* v0.19.1 (DASH26 RD1 PR #110 review -06): test files are not scanned for
-   class names. Without this, strings in a test (a guard's regexes and its
-   fixtures) became real utilities in the shipped CSS. */
+/* v0.19.1 (DASH26 RD1 PR #110 review -06): test files and the Markdown
+   documents are not scanned for class names. Without this, strings in a test
+   (a guard's regexes and its fixtures) and words in prose ("outline") became
+   real utilities in the shipped CSS. */
 @source not "../**/__tests__";
+@source not "../../*.md";
 
 /* v0.17.9: `dark:` classes follow a `dark` class on an ancestor, never the
    operating system's setting. Without this, Tailwind 4's `dark:` follows the
