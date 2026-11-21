@@ -81,13 +81,27 @@ describe('TabNavigation: the Help Center link', () => {
 });
 
 describe('TabNavigation: the Help Center link is not a tab', () => {
-  it('is a plain <a>, with no role and no tab styling', () => {
-    const { link } = renderBar();
-    expect(link.tagName).toBe('A');
-    expect(link.hasAttribute('role')).toBe(false);
-    expect(link.classList.contains('rounded-full')).toBe(false);
-    expect(link.classList.contains('bg-blue-600')).toBe(false);
-  });
+  // v0.17.9: the tab look is READ FROM THE RENDERED ACTIVE TAB, never listed
+  // here. v0.17.8 asserted the link lacked `rounded-full` and `bg-blue-600`,
+  // the old pill's classes; once the tabs were restyled those two assertions
+  // passed whatever the link looked like, even with the active tab's classes
+  // pasted onto it (measured). "Look" is the shape and fill: every rounded*,
+  // bg-*, border*, px-* and py-* class. Typography is left out on purpose:
+  // the link and the tabs may share a text size. The must-find keeps the
+  // check from passing on a tab that has no look to compare.
+  for (const active of ALL_TABS) {
+    it(`is a plain <a>, with no role and none of the active tab's shape or fill, with ${active} active`, () => {
+      const { bar, link } = renderBar(active);
+      expect(link.tagName).toBe('A');
+      expect(link.hasAttribute('role')).toBe(false);
+      const tab = bar.querySelector('[aria-current]') as HTMLElement;
+      const look = [...tab.classList].filter((c) => /^(rounded|bg-|border|px-|py-)/.test(c));
+      expect(look.some((c) => c.startsWith('rounded')), 'must-find: a rounded* class on the active tab').toBe(true);
+      expect(look.some((c) => c.startsWith('bg-')), 'must-find: a bg-* class on the active tab').toBe(true);
+      expect(look.some((c) => c.startsWith('border')), 'must-find: a border* class on the active tab').toBe(true);
+      expect(look.filter((c) => link.classList.contains(c))).toEqual([]);
+    });
+  }
 
   it('leaves exactly four buttons in the bar, the four tabs, in order', () => {
     const { bar } = renderBar();
