@@ -210,7 +210,7 @@ export function ImportPreviewSection({
       )}
 
       {/* Footer actions */}
-      <div className="flex justify-end gap-2 border-t pt-3">
+      <div className="flex justify-end gap-2 border-t dark:border-gray-700 pt-3">
         <button
           onClick={onCancel}
           disabled={applying}

@@ -161,7 +161,7 @@ export function CsvImportModal({
         aria-label="Import CSV"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b px-4 py-3">
+        <div className="flex items-center justify-between border-b dark:border-gray-700 px-4 py-3">
           <h2 className="text-sm font-semibold dark:text-gray-100">Import CSV</h2>
           <button
             onClick={onClose}
@@ -272,7 +272,7 @@ export function CsvImportModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-2 border-t px-4 py-3">
+        <div className="flex items-center gap-2 border-t dark:border-gray-700 px-4 py-3">
           {stage !== 'upload' && (
             <button
               onClick={() => setStage(stage === 'confirm' ? 'mapping' : 'upload')}

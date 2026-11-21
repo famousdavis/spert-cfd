@@ -142,7 +142,7 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
         aria-labelledby={TITLE_ID}
         className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 shadow-xl"
       >
-        <div className="flex items-center justify-between border-b px-5 py-3">
+        <div className="flex items-center justify-between border-b dark:border-gray-700 px-5 py-3">
           <h2 id={TITLE_ID} className="text-base font-semibold text-gray-900 dark:text-gray-100">
             Cloud Storage
           </h2>

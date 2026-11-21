@@ -183,7 +183,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
           aria-modal="true"
           aria-labelledby="sharing-modal-title"
         >
-          <div className="flex items-center justify-between border-b px-4 py-3">
+          <div className="flex items-center justify-between border-b dark:border-gray-700 px-4 py-3">
             <h2 id="sharing-modal-title" className="text-sm font-semibold dark:text-gray-100">
               Share
             </h2>
@@ -220,7 +220,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
         aria-labelledby="sharing-modal-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b px-4 py-3">
+        <div className="flex items-center justify-between border-b dark:border-gray-700 px-4 py-3">
           <h2 id="sharing-modal-title" className="text-sm font-semibold dark:text-gray-100">
             Share — {project.name || UNNAMED_PROJECT}
           </h2>

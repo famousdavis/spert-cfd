@@ -24,8 +24,14 @@ import { describe, it, expect } from 'vitest';
  * partner out (`dark:text-blue-600`, as the footer does) or add it to ALLOWED
  * with the reason.
  *
+ * A side rule with no colour at all (`border-b`, `divide-y`) is drawn in
+ * `currentColor`, the text colour: black in light, near-white in dark, a light
+ * line across a dark window. Such a literal needs a border colour of its own,
+ * at least a `dark:` one.
+ *
  * Not seen by this test: inline `style` colours, colours passed as JavaScript
- * props (recharts), and an element with no colour class that inherits one.
+ * props (recharts), an element with no colour class that inherits one, and a
+ * bare all-sides `border` (the shared button fragments take theirs elsewhere).
  * Those are covered by the release's rendered checks.
  */
 
@@ -37,6 +43,10 @@ const TOKEN = new RegExp(
   `(?<![\\w\\[/:!-])((?:[\\w\\-/\\[\\]@()&*.,=]+?:)*)!?${PROPERTY}-((?:${PALETTE})[^\\s'"\`}]*)`,
   'g'
 );
+/** A one-side rule or divider with no colour of its own: drawn in currentColor. */
+const SIDE_RULE = /(?<![\w:/[-])(border-[trblxy]|divide-[xy])(?=\s)/;
+const RULE_COLOUR = /(?<![\w/[-])(?:[\w-]+:)*(?:border(?:-[trblxy])?|divide)-(?:\[|gray|slate|red|amber|green|blue|white|black|spert|transparent)/;
+
 /**
  * The string literals of `source`, each as its text and start offset. A template literal's
  * `${…}` expressions are cut out of its text and scanned on their own, so each branch of
@@ -149,6 +159,10 @@ export function unpairedLightColours(source: string): string[] {
     const dark = new Set(
       tokens.filter((t) => t.variants.includes('dark:')).map((t) => `${variantsOf(t.variants)}|${t.property}`)
     );
+    const side = body.match(SIDE_RULE);
+    if (side && !RULE_COLOUR.test(body)) {
+      out.push(`${source.slice(0, lit.index).split('\n').length}:${side[1]} (currentColor rule)`);
+    }
     for (const t of tokens) {
       if (t.variants.includes('dark:')) continue;
       if (dark.has(`${variantsOf(t.variants)}|${t.property}`)) continue;
@@ -194,6 +208,9 @@ describe('every light colour has a dark partner', () => {
     expect(
       unpairedLightColours("const T = `w-full border ${ok ? 'border-gray-300' : 'border-red-400 dark:border-red-400'}`;")
     ).toEqual(['1:border-gray-300']);
+    // A side rule drawn in currentColor needs a colour; a dark one is enough.
+    expect(unpairedLightColours("const E = 'flex border-b px-4';")).toEqual(['1:border-b (currentColor rule)']);
+    expect(unpairedLightColours("const F = 'flex border-b dark:border-gray-700 px-4';")).toEqual([]);
     // A comment is not a class string.
     expect(unpairedLightColours("// write 'hover:bg-gray-50' with a partner\nconst D = 1;")).toEqual([]);
     // A partner under different variants does not count.

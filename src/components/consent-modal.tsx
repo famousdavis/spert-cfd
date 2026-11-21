@@ -39,7 +39,7 @@ export function ConsentModal({ onAccept, onCancel }: ConsentModalProps) {
         aria-describedby="consent-modal-description"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b px-4 py-3">
+        <div className="flex items-center justify-between border-b dark:border-gray-700 px-4 py-3">
           <h2 id="consent-modal-title" className="text-sm font-semibold dark:text-gray-100">
             Enable Cloud Storage
           </h2>
@@ -93,7 +93,7 @@ export function ConsentModal({ onAccept, onCancel }: ConsentModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 border-t px-4 py-3">
+        <div className="flex justify-end gap-2 border-t dark:border-gray-700 px-4 py-3">
           <button
             onClick={onCancel}
             className="rounded px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
