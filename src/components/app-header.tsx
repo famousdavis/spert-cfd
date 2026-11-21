@@ -61,7 +61,7 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
     // (`my-3`, outside the 60px box; the siblings use 32px above and 24px
     // below), so the CFD tab's chart and grid lose as little height as they
     // can. `leading-[normal]` is the CSS `normal` line-height (Tailwind's
-    // `leading-normal` is 1.5). Without it, `md:text-[2.1rem]` sets only the
+    // own "normal" leading is 1.5). Without it, `md:text-[2.1rem]` sets only the
     // font size, and the title keeps `text-2xl`'s line-height ratio, 2/1.5.
     <header className={`${PAGE_COLUMN} my-3 flex items-start justify-between`}>
       <div>

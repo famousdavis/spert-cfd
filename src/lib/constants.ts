@@ -4,8 +4,9 @@
 
 export const APP_VERSION = '0.17.9';
 
-/** The tagline under the header's title, and the About tab's subtitle (v0.17.9):
- *  one constant, so the two never disagree (as SPERT® Forecaster does). */
+/** The tagline under the header's title, the About tab's subtitle and the page's
+ *  metadata description (v0.17.9). One constant, so they never disagree:
+ *  SPERT® Forecaster likewise uses one constant for its header and About tab. */
 export const APP_DESCRIPTION = 'Cumulative Flow Diagram tool for agile teams';
 
 /**

@@ -4,6 +4,7 @@
 
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { APP_DESCRIPTION } from "@/lib/constants";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -19,7 +20,8 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: "SPERT® CFD",
-  description: "SPERT® CFD — Cumulative Flow Diagram tool for agile teams",
+  // The header's tagline, so the two cannot drift apart (v0.17.9).
+  description: `SPERT® CFD — ${APP_DESCRIPTION}`,
   icons: {
     icon: '/spert-favicon-cfd.png',
     apple: '/spert-favicon-cfd.png',

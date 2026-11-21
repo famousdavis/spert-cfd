@@ -25,7 +25,7 @@ const TABS: { id: TabId; label: string }[] = [
 // (TabNavigation.tsx), itself matched to GanttApp: 37px tabs with 8px top
 // corners over a 2px #eee rule, the active tab filled blue with a 3px border of
 // the same blue, the others grey with a light grey hover. `leading-[normal]` is
-// the CSS `normal` line-height (Tailwind's `leading-normal` is 1.5). The blue
+// the CSS `normal` line-height (Tailwind's own "normal" leading is 1.5). The blue
 // comes from globals.css's @theme block; Forecaster's other token colours are
 // written here as hex (#666, #f5f5f5, #eee).
 const TAB =

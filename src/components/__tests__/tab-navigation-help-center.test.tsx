@@ -80,26 +80,45 @@ describe('TabNavigation: the Help Center link', () => {
   }
 });
 
+// v0.17.9: "shape and fill" is every rounded*, bg-*, border* and padding class,
+// read after stripping any state or screen prefix (hover:, focus:, md:), so a
+// link that turns into a tab only on hover still counts. The resets draw
+// nothing and are left out. Typography is left out on purpose: the link and
+// the tabs may share a text size.
+const SHAPE_OR_FILL = /^(rounded|bg-|border|p[xytblrse]?-)/;
+const RESETS = new Set(['border-0', 'bg-transparent', 'border-b-transparent']);
+function shapeAndFill(el: Element): string[] {
+  return [...el.classList]
+    .map((c) => c.replace(/^(?:[\w-]+:)+/, ''))
+    .filter((c) => SHAPE_OR_FILL.test(c) && !RESETS.has(c));
+}
+
 describe('TabNavigation: the Help Center link is not a tab', () => {
-  // v0.17.9: the tab look is READ FROM THE RENDERED ACTIVE TAB, never listed
-  // here. v0.17.8 asserted the link lacked `rounded-full` and `bg-blue-600`,
-  // the old pill's classes; once the tabs were restyled those two assertions
-  // passed whatever the link looked like, even with the active tab's classes
-  // pasted onto it (measured). "Look" is the shape and fill: every rounded*,
-  // bg-*, border*, px-* and py-* class. Typography is left out on purpose:
-  // the link and the tabs may share a text size. The must-find keeps the
-  // check from passing on a tab that has no look to compare.
+  // v0.17.9: the tabs' look is READ FROM THE RENDERED TABS, never listed here,
+  // and the link may carry no shape or fill at all. v0.17.8 asserted the link
+  // lacked `rounded-full` and `bg-blue-600`, the old pill's classes; once the
+  // tabs were restyled those two assertions passed whatever the link looked
+  // like, even with the active tab's classes pasted onto it (measured). The
+  // first version of this check compared exact class names with the active tab
+  // only, and passed a link that filled on hover, one drawn with equivalent
+  // classes (rounded-t-lg, pl-5 …) and the old pill (measured in PR #107's
+  // review). The must-finds keep the check from passing on tabs with no look
+  // to compare: the active tab carries a real corner, fill and border, not
+  // only a reset such as border-0.
   for (const active of ALL_TABS) {
-    it(`is a plain <a>, with no role and none of the active tab's shape or fill, with ${active} active`, () => {
+    it(`is a plain <a>, with no role and no tab shape or fill, with ${active} active`, () => {
       const { bar, link } = renderBar(active);
       expect(link.tagName).toBe('A');
       expect(link.hasAttribute('role')).toBe(false);
       const tab = bar.querySelector('[aria-current]') as HTMLElement;
-      const look = [...tab.classList].filter((c) => /^(rounded|bg-|border|px-|py-)/.test(c));
+      const look = shapeAndFill(tab);
       expect(look.some((c) => c.startsWith('rounded')), 'must-find: a rounded* class on the active tab').toBe(true);
-      expect(look.some((c) => c.startsWith('bg-')), 'must-find: a bg-* class on the active tab').toBe(true);
+      expect(look.some((c) => c.startsWith('bg-')), 'must-find: a fill (bg-*) on the active tab').toBe(true);
       expect(look.some((c) => c.startsWith('border')), 'must-find: a border* class on the active tab').toBe(true);
-      expect(look.filter((c) => link.classList.contains(c))).toEqual([]);
+      const everyTab = new Set([...bar.querySelectorAll('button')].flatMap(shapeAndFill));
+      const linkLook = shapeAndFill(link);
+      expect(linkLook.filter((c) => everyTab.has(c)), 'the link wears none of the tabs’ shape or fill').toEqual([]);
+      expect(linkLook, 'the link has no shape or fill of its own').toEqual([]);
     });
   }
 
