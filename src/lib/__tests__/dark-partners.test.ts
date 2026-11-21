@@ -37,7 +37,71 @@ const TOKEN = new RegExp(
   `(?<![\\w\\[/:!-])((?:[\\w\\-/\\[\\]@()&*.,=]+?:)*)!?${PROPERTY}-((?:${PALETTE})[^\\s'"\`}]*)`,
   'g'
 );
-const LITERAL = /'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g;
+/**
+ * The string literals of `source`, each as its text and start offset. A template literal's
+ * `${…}` expressions are cut out of its text and scanned on their own, so each branch of
+ * `${ok ? 'a' : 'b'}` is its own literal: a partner in the other branch does not count.
+ * Comments are skipped.
+ */
+function literals(source: string): { text: string; index: number }[] {
+  const out: { text: string; index: number }[] = [];
+  let i = 0;
+  // Reads code from i up to an unmatched `}` (when inTemplate) or the end; returns where it stopped.
+  const code = (inTemplate: boolean): void => {
+    let depth = 0;
+    while (i < source.length) {
+      const c = source[i];
+      if (c === '/' && source[i + 1] === '/') {
+        i = source.indexOf('\n', i);
+        if (i < 0) i = source.length;
+      } else if (c === '/' && source[i + 1] === '*') {
+        const end = source.indexOf('*/', i + 2);
+        i = end < 0 ? source.length : end + 2;
+      } else if (c === "'" || c === '"') {
+        const start = i++;
+        let text = '';
+        while (i < source.length && source[i] !== c && source[i] !== '\n') {
+          if (source[i] === '\\') i++;
+          text += source[i++] ?? '';
+        }
+        i++;
+        out.push({ text, index: start });
+      } else if (c === '`') {
+        template();
+      } else if (c === '{') {
+        depth++;
+        i++;
+      } else if (c === '}') {
+        if (inTemplate && depth === 0) return;
+        depth--;
+        i++;
+      } else {
+        i++;
+      }
+    }
+  };
+  const template = (): void => {
+    const start = i++;
+    let text = '';
+    while (i < source.length && source[i] !== '`') {
+      if (source[i] === '\\') {
+        text += source[i + 1] ?? '';
+        i += 2;
+      } else if (source[i] === '$' && source[i + 1] === '{') {
+        i += 2;
+        text += ' ';
+        code(true);
+        i++; // the closing }
+      } else {
+        text += source[i++];
+      }
+    }
+    i++;
+    out.push({ text, index: start });
+  };
+  code(false);
+  return out;
+}
 
 /** Colours the colour table keeps unchanged in dark (its U rows), and why. */
 const ALLOWED: [RegExp, string][] = [
@@ -68,8 +132,8 @@ const variantsOf = (v: string) =>
 /** The light colour utilities in `source` that have no dark partner, as `line:token`. */
 export function unpairedLightColours(source: string): string[] {
   const out: string[] = [];
-  for (const lit of source.matchAll(LITERAL)) {
-    const body = ` ${lit[0].slice(1, -1)} `;
+  for (const lit of literals(source)) {
+    const body = ` ${lit.text} `;
     const tokens = [...body.matchAll(TOKEN)].map((m) => ({
       variants: m[1],
       property: m[2],
@@ -84,7 +148,7 @@ export function unpairedLightColours(source: string): string[] {
       if (dark.has(`${variantsOf(t.variants)}|${t.property}`)) continue;
       const bare = `${t.property}-${t.value}`;
       if (allowed(bare)) continue;
-      const line = source.slice(0, lit.index! + t.offset).split('\n').length;
+      const line = source.slice(0, lit.index).split('\n').length;
       out.push(`${line}:${t.variants}${bare}`);
     }
   }
@@ -117,10 +181,15 @@ describe('every light colour has a dark partner', () => {
       "const A = 'bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-700 text-white';\n" +
       "const B = ok ? 'border-gray-300 dark:border-gray-600' : 'border-red-400 dark:border-red-400';";
     expect(unpairedLightColours(good)).toEqual([]);
-    // A partner in the OTHER branch does not count.
+    // A partner in the OTHER branch does not count, also inside a template literal.
     expect(unpairedLightColours("const B = ok ? 'border-gray-300' : 'dark:border-gray-600';")).toEqual([
       '1:border-gray-300',
     ]);
+    expect(
+      unpairedLightColours("const T = `w-full border ${ok ? 'border-gray-300' : 'border-red-400 dark:border-red-400'}`;")
+    ).toEqual(['1:border-gray-300']);
+    // A comment is not a class string.
+    expect(unpairedLightColours("// write 'hover:bg-gray-50' with a partner\nconst D = 1;")).toEqual([]);
     // A partner under different variants does not count.
     expect(unpairedLightColours("const C = 'hover:text-gray-900 dark:text-gray-100';")).toEqual([
       '1:hover:text-gray-900',
@@ -131,8 +200,8 @@ describe('every light colour has a dark partner', () => {
     const files = productionFiles(SRC);
     let tokens = 0;
     for (const f of files) {
-      for (const lit of readFileSync(f, 'utf8').matchAll(LITERAL)) {
-        tokens += [...` ${lit[0].slice(1, -1)} `.matchAll(TOKEN)].length;
+      for (const lit of literals(readFileSync(f, 'utf8'))) {
+        tokens += [...` ${lit.text} `.matchAll(TOKEN)].length;
       }
     }
     expect(files.length).toBeGreaterThan(90);
