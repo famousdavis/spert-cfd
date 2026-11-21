@@ -28,14 +28,21 @@ interface ProjectDashboardProps {
  * The CFD tab.
  *
  * v0.18.0 (DASH26 R1a D1): the per-project key is HERE, below the project
- * picker, no longer on the tab's error boundary in `app-shell.tsx`. A switch
- * still gives the sidebar, the chart and the grid a fresh mount, and the chart
- * and the grid a fresh error boundary (v0.16.4: one project's bad data never
- * blocks another), but the picker and the scroll area stay mounted, so a switch
- * made from the picker keeps its focus and the browser's type-ahead. A crash in
- * the chart or the grid shows its notice inside the panel, with the picker
- * still above it. The scroll area goes back to the top on a switch, as the
- * remount used to make it.
+ * picker, no longer on the tab's error boundary in `app-shell.tsx`. Each
+ * project gets a fresh sidebar, chart and grid, and the chart and the grid a
+ * fresh error boundary (v0.16.4: one project's bad data never blocks another),
+ * but the picker and the scroll area stay mounted, so a switch made from the
+ * picker keeps its focus and the browser's type-ahead. A crash in the chart or
+ * the grid shows its notice inside the panel, with the picker still above it.
+ * The scroll area goes back to the top on a switch, as the remount used to.
+ *
+ * ⚠️ The key is the LOADED project's id (`project.id`), never the list's
+ * `activeProjectId`. A switch changes `activeProjectId` at once, while
+ * `active-project-context` keeps the previous project until the new one has
+ * loaded. Keyed by `activeProjectId`, a fresh boundary rendered the PREVIOUS
+ * project's data first, caught its crash again, and stayed failed when the
+ * good project arrived: after a chart crash, choosing a good project left the
+ * notice in place (DASH26 PR #108 review, -01; measured).
  *
  * The tree keeps the same shape with and without an open project (the aside
  * slot and `main` are always at the same positions), so the picker also
@@ -69,7 +76,7 @@ export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDas
       <div className={open ? 'flex w-full overflow-hidden rounded-lg border border-gray-200 bg-white' : 'flex w-full overflow-hidden'}>
         {/* Left sidebar, remounted for each project */}
         {open && (
-          <aside key={activeProjectId ?? ''} className="w-64 border-r border-gray-200 bg-gray-50 p-4 overflow-y-auto">
+          <aside key={project.id} className="w-64 border-r border-gray-200 bg-gray-50 p-4 overflow-y-auto">
             <WorkflowEditor />
 
             <MetricsPanel />
@@ -101,7 +108,7 @@ export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDas
           {showPicker && <ProjectPicker takeFocus={takePickerFocus} />}
 
           {open ? (
-            <ErrorBoundary key={activeProjectId ?? ''} fallback={<ViewErrorNotice />}>
+            <ErrorBoundary key={project.id} fallback={<ViewErrorNotice />}>
               <CFDChart />
 
               <DataGrid />

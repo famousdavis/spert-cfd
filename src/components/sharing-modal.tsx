@@ -12,7 +12,7 @@ import { db, type SendInvitationEmailResult } from '@/lib/firebase';
 import { callSendInvitationEmail } from '@/lib/callables';
 import { useAuth } from '@/contexts/auth-context';
 import { useStorage } from '@/contexts/storage-context';
-import { useEscapeKey } from '@/lib/use-dismiss';
+import { useModalEscape } from '@/lib/use-dismiss';
 import { PROJECTS_COL } from '@/lib/firestore-helpers';
 import { useMemberProfiles } from '@/lib/use-member-profiles';
 import { UNNAMED_PROJECT } from '@/lib/cloud-load-guards';
@@ -54,7 +54,10 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
   // Confirmation dialog for member removal (replaces window.confirm).
   const [removeUid, setRemoveUid] = useState<string | null>(null);
 
-  useEscapeKey(onClose);
+  // v0.18.0 (DASH26 R1a): Escape closes this window only, never a waiting
+  // import preview behind it; its own confirmations, opened over it, close
+  // first (useModalEscape closes the innermost).
+  useModalEscape(onClose);
 
   // Focus modal on mount
   useEffect(() => {

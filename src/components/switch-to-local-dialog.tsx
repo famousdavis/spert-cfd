@@ -5,7 +5,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useEscapeKey } from '@/lib/use-dismiss';
+import { useModalEscape } from '@/lib/use-dismiss';
 import { X } from 'lucide-react';
 
 interface SwitchToLocalDialogProps {
@@ -24,7 +24,9 @@ export function SwitchToLocalDialog({
   const modalRef = useRef<HTMLDivElement>(null);
   const [copying, setCopying] = useState(false);
 
-  useEscapeKey(() => {
+  // v0.18.0 (DASH26 R1a): Escape closes this dialog only, never the Cloud
+  // Storage window it opens over, nor a waiting import preview behind both.
+  useModalEscape(() => {
     if (!copying) onCancel();
   });
 

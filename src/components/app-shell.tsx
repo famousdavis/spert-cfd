@@ -47,6 +47,14 @@ function AppContent() {
     [switchProject]
   );
 
+  // Any other tab change drops a request the picker never took (it does not
+  // mount when the CFD tab fails as a whole), so it cannot pull focus to the
+  // picker on a later, unrelated visit (DASH26 PR #108 review, -07).
+  const handleTabChange = useCallback((tab: TabId) => {
+    pickerFocusPending.current = false;
+    setActiveTab(tab);
+  }, []);
+
   if (!isLoaded) {
     return (
       <div className="flex h-screen items-center justify-center text-gray-400">
@@ -61,7 +69,7 @@ function AppContent() {
           tab share one column (see page-column.ts), with no full-width bars. */}
       <div className="flex h-screen flex-col bg-white">
         <AppHeader onOpenModal={() => setCloudModalOpen(true)} />
-        <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+        <TabNavigation activeTab={activeTab} onTabChange={handleTabChange} />
         {/* InvitationBanner uses next/navigation hooks (useSearchParams)
             which require a Suspense boundary in the App Router or
             `next build` will fail. Mounted above FirstRunBanner since
@@ -91,7 +99,7 @@ function AppContent() {
             )}
             {activeTab === 'cfd' && (
               <ProjectDashboard
-                onGoToProjects={() => setActiveTab('projects')}
+                onGoToProjects={() => handleTabChange('projects')}
                 takePickerFocus={takePickerFocus}
               />
             )}

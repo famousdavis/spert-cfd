@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useEscapeKey } from '@/lib/use-dismiss';
+import { useModalEscape } from '@/lib/use-dismiss';
 import { TOS_URL, PRIVACY_URL } from '@/lib/constants';
 import { X } from 'lucide-react';
 
@@ -18,7 +18,9 @@ export function ConsentModal({ onAccept, onCancel }: ConsentModalProps) {
   const [agreed, setAgreed] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  useEscapeKey(onCancel);
+  // v0.18.0 (DASH26 R1a): Escape closes this window only (it opens over the
+  // Cloud Storage window), never a waiting import preview behind it.
+  useModalEscape(onCancel);
 
   // Focus modal on mount
   useEffect(() => {

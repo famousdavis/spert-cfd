@@ -58,7 +58,7 @@ vi.mock('../import-preview-section', () => ({
     return <section aria-label="Import preview">Preview</section>;
   },
 }));
-vi.mock('../sharing-modal', () => ({ SharingModal: () => <div role="dialog" aria-label="Sharing" /> }));
+vi.mock('../sharing-modal', () => ({ SharingModal: ({ projectId }: { projectId: string }) => <div role="dialog" aria-label={`Sharing ${projectId}`} /> }));
 
 import { ProjectsTab } from '../projects-tab';
 
@@ -156,6 +156,61 @@ describe('the last-project rule (§B #16, unchanged in R1a)', () => {
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(screen.getByRole('alert').textContent).toContain('Cannot delete the last project.');
     expect(h.list.deleteProject).not.toHaveBeenCalled();
+  });
+});
+
+describe('Share and the member count, wired through the tab (PR #108 review, -05)', () => {
+  it('a cloud owner\'s Share opens the sharing window for that project, and nothing before', () => {
+    h.storage.driver.mode = 'cloud';
+    h.list.projects = [{ id: 'o', name: 'Own', role: 'owner', memberCount: 1 }, { id: 'p', name: 'Two', role: 'owner', memberCount: 1 }];
+    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    expect(screen.queryByRole('dialog', { name: 'Sharing o' })).toBeNull();
+    fireEvent.click(button('Share Own'));
+    expect(screen.getByRole('dialog', { name: 'Sharing o' })).toBeTruthy();
+  });
+
+  it('a sole cloud owner shows no "Shared"; with a second member, "Shared"', () => {
+    h.storage.driver.mode = 'cloud';
+    h.list.projects = [{ id: 'o', name: 'Own', role: 'owner', memberCount: 1 }, { id: 'p', name: 'Two', role: 'owner', memberCount: 2 }];
+    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    const tile = (id: string) => within(document.querySelector(`li[data-project-id="${id}"]`) as HTMLElement);
+    expect(tile('o').queryByText('Shared')).toBeNull();
+    expect(tile('p').getByText('Shared')).toBeTruthy();
+  });
+});
+
+// jsdom loads no CSS, so these pin the CLASS PAIRS that make the dashboard behave,
+// not the pixels (SPERT® Forecaster's ProjectList.test.tsx does the same). Each
+// half of a pair is useless alone; the browser measured the rendering (P1).
+describe('the dashboard\'s class pairs (PR #108 review, -05)', () => {
+  const classes = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/);
+  const tiles = () => [...document.querySelectorAll<HTMLElement>('li[data-tile="true"]')];
+
+  it('the grid\'s column queries are answered by an ANCESTOR carrying @container, never by the grid itself', () => {
+    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    const grid = document.querySelector('ul[aria-label="Projects"]')!;
+    expect(classes(grid)).toEqual(expect.arrayContaining(['grid-cols-1', '@min-[560px]:grid-cols-2', '@min-[860px]:grid-cols-3', 'gap-4']));
+    expect(classes(grid)).not.toContain('@container');
+    expect(grid.parentElement!.closest('.\\@container')).not.toBeNull();
+  });
+
+  it('the revealed row shows on tile hover, on focus inside the tile and without hover, and the tile root is the group it reads', () => {
+    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    const tile = tiles()[0];
+    const row = tile.querySelector('button[aria-label^="Export "]')!.parentElement!;
+    expect(classes(row)).toEqual(expect.arrayContaining(['opacity-0', 'group-hover/tile:opacity-100', 'group-focus-within/tile:opacity-100', '[@media(hover:none)]:opacity-100']));
+    expect(row.closest('.group\\/tile')).toBe(tile);
+    expect(classes(tile)).toEqual(expect.arrayContaining(['group/tile', 'relative']));
+  });
+
+  it('the name button\'s ::after covers the tile, and the grip, Delete and the revealed row sit above it', () => {
+    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    const tile = tiles()[0];
+    expect(classes(tile.querySelector('h3 button')!)).toEqual(expect.arrayContaining(['after:absolute', 'after:inset-0']));
+    const grip = tile.querySelector('[title="Drag to reorder"]')!;
+    const del = tile.querySelector('button[aria-label^="Delete "]')!.parentElement!;
+    const row = tile.querySelector('button[aria-label^="Export "]')!.parentElement!;
+    for (const above of [grip, del, row]) expect(classes(above)).toEqual(expect.arrayContaining(['relative', 'z-[1]']));
   });
 });
 

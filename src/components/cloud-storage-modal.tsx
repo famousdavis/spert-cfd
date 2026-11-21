@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useStorage } from "@/contexts/storage-context";
 import { useProjectList } from "@/contexts/project-list-context";
 import { createLocalStorageDriver } from "@/lib/local-storage-driver";
-import { useEscapeKey } from "@/lib/use-dismiss";
+import { useModalEscape } from "@/lib/use-dismiss";
 import { normalizeDisplayName } from "@/lib/user-display";
 import { LS_ACTIVE_PROJECT, LS_SUPPRESS_LS_WARNING } from "@/lib/constants";
 import { GoogleLogo } from "./icons/google-logo";
@@ -60,11 +60,12 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
     onClose();
   }, [signingOut, onClose]);
 
-  useEscapeKey(
-    useCallback(() => {
-      if (open) guardedClose();
-    }, [open, guardedClose]),
-  );
+  // v0.18.0 (DASH26 R1a): Escape closes this window only, and only while it
+  // is open (it stays mounted when closed). With the bubble-phase useEscapeKey
+  // it had, one Escape here also discarded the Projects tab's waiting import
+  // preview (measured), and, by reading, closed this window together with the
+  // switch-to-local dialog opened over it.
+  useModalEscape(guardedClose, open);
 
   const handleSignOut = useCallback(async () => {
     if (signingOut) return;

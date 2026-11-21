@@ -59,7 +59,7 @@ src/
 │   ├── first-run-banner.tsx      # First-run informational banner
 │   ├── local-storage-warning-banner.tsx  # Data persistence caution; "Got it" hides it until the next page load (v0.4.7; card, v0.17.0)
 │   ├── footer.tsx                # App footer (version, copyright, license, legal links)
-│   ├── project-dashboard.tsx     # CFD tab layout: sidebar + chart + grid, a bordered panel in the page column; the per-project key sits here, below the picker (v0.18.0)
+│   ├── project-dashboard.tsx     # CFD tab layout: sidebar + chart + grid, a bordered panel in the page column; the per-project key (the LOADED project's id) and the chart-and-grid error boundary sit here, below the picker (v0.18.0)
 │   ├── project-picker.tsx        # "Cumulative flow for [project ▾]": names and switches the open project, above the chart (v0.18.0)
 │   ├── chart/
 │   │   ├── cfd-chart.tsx         # Memo'd Recharts AreaChart (Done bottom, Backlog top)
@@ -106,7 +106,7 @@ src/
 │   ├── colors.ts                 # 12 preset colors + W3C contrast calculation
 │   ├── dates.ts                  # Date formatting + collection helpers (sort, merge)
 │   ├── download.ts               # Browser file download + standardized export filenames
-│   ├── use-dismiss.ts            # useModalEscape() (capture phase, for a modal) + useEscapeKey() + useClickOutside() hooks
+│   ├── use-dismiss.ts            # useModalEscape() (one capture-phase listener over a stack of open modals; closes the innermost) + useEscapeKey() + useClickOutside() hooks
 │   ├── project-tile-meta.ts      # A tile's stats and meta lines: counts, the latest snapshot's date (v0.18.0)
 │   ├── tile-access.ts            # What a tile offers: badges, Share, the Delete and Edit gates; cloud only (v0.18.0)
 │   ├── tile-focus.ts             # Finding a tile's controls by project id; focus after a delete (v0.18.0)
@@ -282,7 +282,7 @@ Semver-based, matching the pattern from MyScrumBudget:
 - **Discriminated unions** use `kind` (not `type`) as the discriminant field
 - **IDs** are `nanoid(8)` — 8-character random strings
 - **Shared helpers** live in `dates.ts`: `sortSnapshots()`, `sortWorkflow()`, `mergeSnapshots()`, `daySpanBetween()`
-- **Dismiss hooks** in `use-dismiss.ts`: `useEscapeKey()`, `useClickOutside()`; a modal that can open over another Escape-listening surface (the import preview) uses `useModalEscape()` (or, in `ProjectDialog`, its own listener): one capture-phase `document` listener with `preventDefault` + `stopPropagation`, so one Escape closes only it (v0.18.0). A modal that makes the page `inert` returns focus in its close cleanup, after `inert` is removed: a `focus()` from a submit or cancel handler does nothing while the page is inert
+- **Dismiss hooks** in `use-dismiss.ts`: `useEscapeKey()` (bubble phase) for a popover or panel, `useClickOutside()`; every modal window uses `useModalEscape()` (v0.18.0): the project dialog, the confirmation, the Cloud Storage, sharing and consent windows and the switch-to-local dialog. One capture-phase `document` listener serves all open modals, closes only the innermost (the last opened) and calls `preventDefault` + `stopPropagation`, so one Escape closes one window and never reaches the import preview's bubble-phase listener. Not one capture listener per modal: two listeners on the same node both run, so nested windows would close together. A modal that stays mounted while closed passes `active` false. A modal that makes the page `inert` returns focus in its close cleanup, after `inert` is removed: a `focus()` from a submit or cancel handler does nothing while the page is inert
 - **Version constant** `APP_VERSION` in `constants.ts` — used by footer and migration system
 - **CFD band order**: Done on bottom, Backlog on top (bands rise as work flows through)
 

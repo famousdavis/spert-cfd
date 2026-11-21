@@ -17,11 +17,12 @@
 // - Escape closes it, and focus goes back where the caller says, after
 //   `inert` is removed.
 //
-// ⚠️ Escape is handled in ONE document keydown listener in the CAPTURE phase,
-// which calls preventDefault and stopPropagation (see `useModalEscape` in
-// `use-dismiss.ts`): the import preview's own Escape listens on `document` in
-// the bubble phase, and without the stop one Escape here closed the dialog AND
-// discarded a waiting import (measured).
+// ⚠️ Escape is handled by `useModalEscape` (`use-dismiss.ts`): ONE document
+// keydown listener in the CAPTURE phase, shared by every open modal, which
+// closes only the innermost and calls preventDefault and stopPropagation. The
+// import preview's own Escape listens on `document` in the bubble phase, and
+// without the stop one Escape here closed the dialog AND discarded a waiting
+// import (measured).
 //
 // ⚠️ Focus returns in the close cleanup, after `inert` is removed. Focusing
 // from a submit or cancel handler is a silent no-op in a browser: the page is
@@ -31,6 +32,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { MAX_NAME_LENGTH } from '@/lib/constants';
+import { useModalEscape } from '@/lib/use-dismiss';
 import {
   DIALOG,
   DIALOG_BG,
@@ -129,18 +131,15 @@ export function ProjectDialog({
     };
   }, [identity]);
 
-  // Capture phase, registered once: this dialog's keys never reach a document
-  // listener belonging to a surface behind it. Removed with the same flag.
+  // Escape: the shared capture-phase listener for modals, which closes only
+  // the innermost one and stops the key there (use-dismiss.ts).
+  useModalEscape(() => cancelRef.current());
+
+  // Tab, in the capture phase, registered once. Removed with the same flag.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const root = dialogRef.current;
       if (!root) return;
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        cancelRef.current();
-        return;
-      }
       if (e.key === 'Tab') wrapTab(e, root);
     };
     document.addEventListener('keydown', onKey, true);
