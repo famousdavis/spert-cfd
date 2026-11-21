@@ -143,6 +143,20 @@ describe('Clone, local mode (real driver)', () => {
     expect(result.current.list.projects.map((p) => p.name)).toEqual(['One', 'One (copy 2)', 'Two', 'Three', 'ONE (COPY)']);
   });
 
+  it('G2: two clones started in one run are named against the list as it is when each is added: "X (copy)", then "X (copy 2)"', async () => {
+    const { result } = await mount();
+    let first!: Promise<{ id: string; name: string }>;
+    let second!: Promise<{ id: string; name: string }>;
+    act(() => {
+      first = result.current.list.cloneProject(project('p1', 'One'));
+      second = result.current.list.cloneProject(project('p1', 'One'));
+    });
+    let names: string[] = [];
+    await settle(async () => { names = [(await first).name, (await second).name]; });
+    expect(names).toEqual(['One (copy)', 'One (copy 2)']);
+    expect(result.current.list.projects.map((p) => p.name)).toEqual(['One', 'One (copy 2)', 'One (copy)', 'Two', 'Three']);
+  });
+
   it('names: a 200-character source keeps the name within the limit, and the copy stays readable after a reload', async () => {
     const long = 'L'.repeat(MAX_NAME_LENGTH);
     await driver.createProject(project('p9', long));
