@@ -5,7 +5,7 @@ A Cumulative Flow Diagram tool for agile teams. Part of the SPERT® Suite. Core 
 ## Features
 
 - **Tab-based navigation** — Projects (default), CFD, and About tabs
-- **Projects tab** — tile-style project cards with drag-to-reorder and per-project export, under a toolbar of Export All, Import, Load Sample and New Project
+- **Projects tab** — tile-style project cards with drag-to-reorder and per-project Export, Edit and Clone, under a toolbar of Export All, Import, Load Sample and New Project; with no projects, a welcome panel offers Create New Project and Load Sample Project
 - **Multi-project support** with localStorage persistence
 - **Customizable workflow states** — drag-to-reorder, color picker, category assignment (backlog/active/done)
 - **WIP limits** on active states with visual warnings
@@ -28,7 +28,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). A sample project with demo data is created on first visit.
+Open [http://localhost:3000](http://localhost:3000). A first visit shows the welcome panel; Load Sample Project adds a sample project with demo data.
 
 ## Scripts
 

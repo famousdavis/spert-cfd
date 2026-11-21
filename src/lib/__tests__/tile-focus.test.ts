@@ -4,8 +4,9 @@
 // @vitest-environment jsdom
 
 // v0.18.0 (DASH26 O12): after a delete, focus goes to the next tile, else the
-// previous, else New Project. The third branch cannot happen in the app while
-// the last-project rule stands (R21), so it is pinned here only.
+// previous, else New Project. Since v0.19.0 the last project may be deleted
+// (R10), so the third branch happens on every delete of the last tile (measured
+// in the browser; projects-tab-tiles.test.tsx pins it through the tab).
 
 import { describe, it, expect } from 'vitest';
 import { findTileControl, focusAfterTileLeaves, resolveFocusTarget } from '../tile-focus';

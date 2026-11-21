@@ -9,11 +9,33 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useStorage } from '@/contexts/storage-context';
 import { INVITATIONS_ENABLED } from '@/lib/feature-flags';
+import { LS_INVITE_CLOUD_PENDING } from '@/lib/constants';
 import {
   captureInviteTokenFromUrl,
   SESSION_KEY,
   QUERY_PARAM,
 } from '@/lib/invite-capture';
+
+/** Records that an invite link asked for Cloud (v0.19.0, DASH26 R26). */
+function requestCloudAtSignIn(): void {
+  try {
+    localStorage.setItem(LS_INVITE_CLOUD_PENDING, 'true');
+  } catch {
+    // localStorage unavailable or full: the link then changes nothing, as
+    // for a person with local projects.
+  }
+}
+
+/** Reads and clears an invite link's request for Cloud; true if there was one. */
+function takeCloudRequest(): boolean {
+  try {
+    if (localStorage.getItem(LS_INVITE_CLOUD_PENDING) === null) return false;
+    localStorage.removeItem(LS_INVITE_CLOUD_PENDING);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // Grace window for an unsigned-in invitee to complete sign-in before
 // we auto-dismiss the pre_auth banner. 30 seconds matches the suite
@@ -68,10 +90,10 @@ export function handleModelsChanged(
  *  1. On mount, if the URL carries ?invite=, persist the token to
  *     sessionStorage (so it survives the OAuth popup round-trip and
  *     the consent-modal dance), strip the param via the App Router so
- *     reloads don't replay the banner, optionally pre-flip the storage
- *     mode preference to 'cloud' (only when no local projects exist
- *     — see below), and surface a 'pre_auth' state so the shell can
- *     render a banner with sign-in CTAs.
+ *     reloads don't replay the banner, record a request for Cloud at the
+ *     next sign-in (only when no local projects exist — see below), and
+ *     surface a 'pre_auth' state so the shell can render a banner with
+ *     sign-in CTAs.
  *  2. Once the user signs in, AuthContext fires `spert:models-changed`
  *     (which we listen for here too). We transition to 'claimed' with
  *     the names of any newly-claimed projects, then clear sessionStorage.
@@ -82,12 +104,19 @@ export function handleModelsChanged(
  * flag is off, so production is unchanged.
  *
  * Storage-mode auto-flip is gated on `localProjectCount === 0` (Lessons
- * 7, 28, 53). A user with local projects who clicks an invite link
+ * 7, 28, 53), twice. A user with local projects who clicks an invite link
  * MUST be given a chance to migrate before the cloud-mode preference
  * flips, otherwise their next sign-in renders an apparently-empty
- * project list and the local data appears lost. Project count is
- * passed in by the consumer rather than read inside the hook so the
- * hook stays decoupled from project-list context.
+ * project list and the local data appears lost. v0.19.0 (DASH26 R26):
+ * the link no longer flips the preference; it records a request, and the
+ * flip happens at sign-in only if the local list is STILL empty then.
+ * Until v0.18.0 the flip happened at the link, and a first-time invitee
+ * who worked locally before signing in went straight to Cloud at sign-in
+ * with no upload prompt; their local projects vanished from view. (That
+ * life was unreachable while an empty local list re-seeded a sample; R20
+ * removed the re-seed.) Project count is passed in by the consumer rather
+ * than read inside the hook so the hook stays decoupled from project-list
+ * context.
  *
  * App Router note: usePathname() / useSearchParams() require the
  * consuming component tree to be wrapped in <Suspense> at build
@@ -130,15 +159,15 @@ export function useInvitationLanding({
       router.replace(qs ? `${pathname}?${qs}` : (pathname ?? '/'), {
         scroll: false,
       });
-      // Pre-flip the storage preference so that whatever path the
-      // user takes to sign in (banner CTA or header AuthChip), they
-      // end up in cloud mode and can see the freshly-claimed shared
-      // project. Only safe when the user has no local projects —
-      // otherwise the post-sign-in cloud view replaces a populated
-      // local list and the data appears to vanish (Lessons 7, 28).
-      // The migration prompt path stays available either way: the
-      // user can flip modes manually after sign-in.
-      if (isCloudAvailable && localProjectCount === 0) switchMode('cloud');
+      // Ask for Cloud at sign-in, so that whatever path the user takes to
+      // sign in (banner CTA or header AuthChip), they end up in cloud mode
+      // and can see the freshly-claimed shared project. Only when the user
+      // has no local projects — otherwise the post-sign-in cloud view
+      // replaces a populated local list and the data appears to vanish
+      // (Lessons 7, 28). Checked again at sign-in (effect 5). The
+      // migration prompt path stays available either way: the user can
+      // flip modes manually after sign-in.
+      if (isCloudAvailable && localProjectCount === 0) requestCloudAtSignIn();
     }
 
     if (token && !user) {
@@ -211,6 +240,18 @@ export function useInvitationLanding({
     }, GRACE_MS);
     return () => clearTimeout(timer);
   }, [state.kind]);
+
+  // 5) At sign-in (v0.19.0, DASH26 R26): take a link's request for Cloud
+  //    only if the local list is still empty; otherwise nothing changes and
+  //    the usual path (Cloud Storage → upload prompt) stays. The request is
+  //    used once either way. The list here is still the local one: the
+  //    preference stayed local, so no cloud driver has loaded.
+  useEffect(() => {
+    if (!INVITATIONS_ENABLED) return;
+    if (!user) return;
+    if (!takeCloudRequest()) return;
+    if (isCloudAvailable && localProjectCount === 0) switchMode('cloud');
+  }, [user, isCloudAvailable, localProjectCount, switchMode]);
 
   return {
     state,

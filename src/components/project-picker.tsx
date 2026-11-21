@@ -10,7 +10,8 @@ import { UNNAMED_PROJECT } from '@/lib/cloud-load-guards';
 import { PICKER_ROW, PICKER_SELECT } from './dashboard-styles';
 
 /** A singleton on the CFD tab, so a fixed id is safe. */
-const PICKER_ID = 'cfd-project-picker';
+/** The picker's id: also where the CFD tab's storage-full alert sends focus on Dismiss (v0.19.0, DASH26 O25). */
+export const PICKER_ID = 'cfd-project-picker';
 
 interface ProjectPickerProps {
   /** True once when focus should land here as the picker mounts (a tile's Open, or Load Sample: DASH26 O14). */

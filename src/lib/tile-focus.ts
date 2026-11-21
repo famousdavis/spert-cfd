@@ -34,9 +34,9 @@ export type TileFocusTarget = { kind: TileControl; projectId: string } | { kind:
 
 /**
  * Where focus goes when a tile leaves the grid (DASH26 O12): the next tile's
- * name button, else the previous tile's, else New Project. While the
- * last-project rule stands (R21) a delete always leaves a tile, so the third
- * branch is reached only by this function's own test.
+ * name button, else the previous tile's, else New Project. Since v0.19.0 the
+ * last project may be deleted (R10), so the third branch is the delete of the
+ * last tile: focus goes to New Project, above the welcome panel.
  */
 export function focusAfterTileLeaves(shown: { id: string }[], leavingId: string): TileFocusTarget {
   const index = shown.findIndex((p) => p.id === leavingId);

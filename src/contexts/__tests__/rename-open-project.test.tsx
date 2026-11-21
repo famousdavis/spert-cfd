@@ -102,7 +102,8 @@ import { ActiveProjectProvider, useActiveProject } from '../active-project-conte
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 // The shape createProject builds: a project with an empty workflow is dropped
-// on a local load and the provider seeds the sample project instead.
+// on a local load (until v0.19.0 the provider then seeded the sample project
+// in its place; since then the list is just shorter).
 function project(id: string, name: string): Project {
   return {
     id,

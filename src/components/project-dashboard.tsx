@@ -9,12 +9,13 @@ import { useActiveProject } from '@/contexts/active-project-context';
 import { useProjectList } from '@/contexts/project-list-context';
 import { useStorage } from '@/contexts/storage-context';
 import { getStorageUsage } from '@/lib/storage-health';
+import { STORAGE_FULL_MESSAGE } from '@/lib/storage-errors';
 import { WorkflowEditor } from './workflow/workflow-editor';
 import { DataGrid } from './grid/data-grid';
 import { CFDChart } from './chart/cfd-chart';
 import { MetricsPanel } from './metrics/metrics-panel';
 import { ErrorBoundary } from './error-boundary';
-import { ProjectPicker } from './project-picker';
+import { ProjectPicker, PICKER_ID } from './project-picker';
 import { ViewErrorNotice } from './view-error-notice';
 import { PAGE_COLUMN } from './page-column';
 
@@ -47,9 +48,14 @@ interface ProjectDashboardProps {
  * The tree keeps the same shape with and without an open project (the aside
  * slot and `main` are always at the same positions), so the picker also
  * survives the moment a project first opens.
+ *
+ * v0.19.0 (DASH26 R25, O24, F4): an edit refused because the browser's storage
+ * is full shows an alert ABOVE the bordered panel, outside `main`'s scroll
+ * area, so it is seen wherever the edit was made (the grid is usually
+ * scrolled below the chart). Dismiss, or the next save that succeeds, clears it.
  */
 export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDashboardProps) {
-  const { project } = useActiveProject();
+  const { project, storageFull, dismissStorageFull } = useActiveProject();
   const { projects, activeProjectId } = useProjectList();
   const { driver } = useStorage();
   const mainRef = useRef<HTMLElement>(null);
@@ -66,14 +72,29 @@ export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDas
   }, [activeProjectId]);
 
   const open = project !== null;
+  // DASH26 O25 (PR #109 review -05, G5): Dismiss unmounts with its alert, so
+  // focus goes to the project picker first, never to <body>. The alert only
+  // follows an edit, so a project is open and the picker is there.
+  const dismissStorageFullToPicker = () => {
+    document.getElementById(PICKER_ID)?.focus();
+    dismissStorageFull();
+  };
   // DASH26 O15: with projects but none open, the picker still shows, above
   // today's empty state.
   const showPicker = projects.length > 0;
 
   return (
     // A bordered panel in the page's column, under the header and the tabs.
-    <div className={`${PAGE_COLUMN} flex flex-1 overflow-hidden py-4`}>
-      <div className={open ? 'flex w-full overflow-hidden rounded-lg border border-gray-200 bg-white' : 'flex w-full overflow-hidden'}>
+    <div className={`${PAGE_COLUMN} flex flex-1 flex-col overflow-hidden py-4`}>
+      {storageFull && (
+        <div role="alert" className="mb-4 flex flex-none items-center justify-between rounded bg-red-50 px-4 py-2 text-sm text-red-700">
+          <span>{STORAGE_FULL_MESSAGE}</span>
+          <button type="button" onClick={dismissStorageFullToPicker} className="ml-4 text-red-500 hover:text-red-700">
+            Dismiss
+          </button>
+        </div>
+      )}
+      <div className={open ? 'flex min-h-0 w-full flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white' : 'flex min-h-0 w-full flex-1 overflow-hidden'}>
         {/* Left sidebar, remounted for each project */}
         {open && (
           <aside key={project.id} className="w-64 border-r border-gray-200 bg-gray-50 p-4 overflow-y-auto">

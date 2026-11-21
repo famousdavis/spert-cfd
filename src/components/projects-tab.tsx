@@ -19,7 +19,11 @@ import {
 } from '@dnd-kit/sortable';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useProjectList } from '@/contexts/project-list-context';
+import { useActiveProject } from '@/contexts/active-project-context';
 import { useStorage } from '@/contexts/storage-context';
+import { UNNAMED_PROJECT } from '@/lib/cloud-load-guards';
+import { cloneSource } from '@/lib/clone-project';
+import { isStorageFullError, STORAGE_FULL_MESSAGE } from '@/lib/storage-errors';
 import { exportFilename, exportAllFilename, downloadFile } from '@/lib/download';
 import { buildBannerText } from '@/lib/import-utils';
 import { projectStats as statsOf, type ProjectStats } from '@/lib/project-tile-meta';
@@ -28,6 +32,7 @@ import { findTileControl, focusAfterTileLeaves, resolveFocusTarget, type TileFoc
 import { useImportState } from '@/hooks/use-import-state';
 import { ConfirmDialog } from './confirm-dialog';
 import { ProjectDialog } from './project-dialog';
+import { ProjectsEmptyState } from './projects-empty-state';
 import { ToolbarIcon } from './icons/toolbar-icon';
 import { TOOLBAR_ICON_PATHS } from './icons/toolbar-icon-paths';
 import { ImportPreviewSection } from './import-preview-section';
@@ -53,20 +58,35 @@ type DialogState = { kind: 'new' } | { kind: 'edit'; projectId: string; name: st
 const SECONDARY = `${TOOLBAR_BUTTON} ${TOOLBAR_SECONDARY}`;
 const PRIMARY = `${TOOLBAR_BUTTON} ${TOOLBAR_PRIMARY}`;
 
+/** Forecaster's pending line while the first cloud load is out (DASH26 O21). */
+export const CLOUD_PENDING_TEXT = 'Loading your cloud projects — import will be available shortly.';
+
+/** O24's words for a refused local save, else the action's own. */
+function failureText(err: unknown, own: string): string {
+  return isStorageFullError(err) ? STORAGE_FULL_MESSAGE : own;
+}
+
+const cloneFailedText = (name: string) => `Couldn't clone "${name}" — the copy wasn't saved. Please try again.`;
+
 export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
   const {
     projects,
     driverLoading,
     createProject,
     loadSampleProject,
+    cloneProject,
     deleteProject,
     renameProject,
     reorderProjects,
   } = useProjectList();
+  const { project: loadedProject } = useActiveProject();
   const { driver } = useStorage();
 
   // New Project, always rendered: where focus goes when a New Project dialog closes.
   const newProjectButtonRef = useRef<HTMLButtonElement>(null);
+  // The toolbar's Load Sample: where focus goes before the welcome panel's own
+  // Load Sample Project unmounts under it (v0.19.0).
+  const loadSampleButtonRef = useRef<HTMLButtonElement>(null);
   // The tab's root, where a tile's controls are found by project id when focus must land on one.
   const rootRef = useRef<HTMLDivElement>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -75,6 +95,19 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
   const [sharingProjectId, setSharingProjectId] = useState<string | null>(null);
   const [projectStats, setProjectStats] = useState<Map<string, ProjectStats>>(new Map());
   const [uiError, setUiError] = useState<string | null>(null);
+  // v0.19.0 (DASH26 O19): the last clone's words, "" when none. Read by an
+  // always-mounted sr-only status region; a visible line repeats them only
+  // while there is text, so an empty one adds no space.
+  const [cloneStatus, setCloneStatus] = useState('');
+  const cloneStatusTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(cloneStatusTimer.current), []);
+
+  // Every failure alert clears the clone's words (O19).
+  const showError = useCallback((text: string) => {
+    window.clearTimeout(cloneStatusTimer.current);
+    setCloneStatus('');
+    setUiError(text);
+  }, []);
 
   const {
     flowPhase: importFlowPhase,
@@ -89,6 +122,15 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     dismissReplaceConfirm: onDismissReplaceConfirm,
     handleDismissBanner: onDismissImportBanner,
   } = useImportState();
+
+  // O19: the import's error alert clears the clone's words too, as every
+  // failure alert does (PR #109 review -04, G4). Adjusted during render on the
+  // move into the error phase, as the dialog's close below is.
+  const [seenImportPhase, setSeenImportPhase] = useState(importFlowPhase.phase);
+  if (seenImportPhase !== importFlowPhase.phase) {
+    setSeenImportPhase(importFlowPhase.phase);
+    if (importFlowPhase.phase === 'error') setCloneStatus('');
+  }
 
   // v0.18.0: reordering is by pointer drag on the grip only, as in the
   // siblings. The KeyboardSensor is gone: it never worked (no
@@ -159,10 +201,10 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
 
   const handleCreate = useCallback((name: string) => {
     setDialog(null);
-    createProject(name).catch(() => {
-      setUiError(`Couldn't create "${name}" — it wasn't saved. Please try again.`);
+    createProject(name).catch((err: unknown) => {
+      showError(failureText(err, `Couldn't create "${name}" — it wasn't saved. Please try again.`));
     });
-  }, [createProject]);
+  }, [createProject, showError]);
 
   // Edit renames through renameProject, which v0.17.6 keeps the open copy in
   // step with. An unchanged name saves nothing, as the inline rename did.
@@ -179,10 +221,47 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
   // v0.17.0: a fresh sample, in either storage mode, opened the way a tile
   // opens a project once it is saved.
   const handleLoadSample = useCallback(() => {
-    loadSampleProject().then(onOpenInCfd, () => {
-      setUiError("Couldn't load the sample project — it wasn't saved. Please try again.");
+    loadSampleProject().then(onOpenInCfd, (err: unknown) => {
+      showError(failureText(err, "Couldn't load the sample project — it wasn't saved. Please try again."));
     });
-  }, [loadSampleProject, onOpenInCfd]);
+  }, [loadSampleProject, onOpenInCfd, showError]);
+
+  // The welcome panel's Load Sample Project (v0.19.0): focus moves to the
+  // toolbar's Load Sample first. The insert unmounts the panel, and focus
+  // would sit on <body> while the save is pending and after a failed one
+  // rolls back (Opus-R1b-1 -12).
+  const handlePanelLoadSample = useCallback(() => {
+    loadSampleButtonRef.current?.focus();
+    handleLoadSample();
+  }, [handleLoadSample]);
+
+  // A clone's words, after a macrotask (DASH26 R1b F5): the region is emptied
+  // first (in handleClone, and by every failure), so the same words twice are
+  // announced twice. The macrotask is a margin, not load-bearing today: the
+  // click's own update commits the empty before the clone's asynchronous
+  // refill can land (a mutant without it passed every test; equivalent by
+  // reading). It guards a future path that empties and refills in one run.
+  const announceClone = useCallback((text: string) => {
+    window.clearTimeout(cloneStatusTimer.current);
+    cloneStatusTimer.current = window.setTimeout(() => setCloneStatus(text), 0);
+  }, []);
+
+  // v0.19.0 (DASH26 R1b): Clone. The open project stays open (O18) and focus
+  // stays on Clone. What it copies is cloneSource's choice (O20).
+  const handleClone = useCallback(async (id: string) => {
+    window.clearTimeout(cloneStatusTimer.current);
+    setCloneStatus('');
+    const shown = projects.find((p) => p.id === id)?.name || UNNAMED_PROJECT;
+    const source = await cloneSource(loadedProject, id, driver);
+    if (!source) {
+      showError(cloneFailedText(shown));
+      return;
+    }
+    cloneProject(source).then(
+      ({ name }) => announceClone(`Cloned "${shown}" as "${name}".`),
+      (err: unknown) => showError(failureText(err, cloneFailedText(shown))),
+    );
+  }, [projects, loadedProject, driver, cloneProject, announceClone, showError]);
 
   const handleExport = useCallback(async (id: string) => {
     const project = await driver.loadProject(id);
@@ -207,18 +286,10 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     downloadFile(json, exportAllFilename('json'), 'application/json');
   }, [projects, driver]);
 
-  // The last-project rule (since v0.1.0), unchanged in R1a: Delete stays
-  // enabled on the last tile and says why it did nothing.
-  const handleDeleteClick = useCallback(
-    (id: string) => {
-      if (projects.length <= 1) {
-        setUiError('Cannot delete the last project.');
-        return;
-      }
-      setDeleteConfirmId(id);
-    },
-    [projects.length]
-  );
+  // v0.19.0 (DASH26 R10): the last project may be deleted, like any other.
+  // The last-project rule (since v0.1.0) is gone; an emptied list shows the
+  // welcome panel, and focus goes to New Project (O12).
+  const handleDeleteClick = useCallback((id: string) => setDeleteConfirmId(id), []);
 
   const handleConfirmDelete = useCallback(() => {
     if (deleteConfirmId) {
@@ -271,6 +342,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
               Import
             </button>
             <button
+              ref={loadSampleButtonRef}
               type="button"
               onClick={handleLoadSample}
               className={SECONDARY}
@@ -300,13 +372,42 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
           />
         </div>
 
-        {/* Non-import UI error (e.g. last-project delete) */}
+        {/* A failed create, Load Sample or Clone (v0.19.0: storage full in O24's words) */}
         {uiError && (
           <div role="alert" className="flex items-center justify-between rounded bg-red-50 px-4 py-2 text-sm text-red-700">
             <span>{uiError}</span>
             <button
               onClick={() => setUiError(null)}
               className="ml-4 text-red-500 hover:text-red-700"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* v0.19.0 (DASH26 O19, Q3): Clone's words. The status region is always
+            mounted, so its first message is announced, and sr-only, so an
+            empty one takes no space in this column (+16 px measured with a
+            visible empty one). The visible line repeats the words, hidden
+            from screen readers so they are read once, beside a Dismiss that
+            stays reachable; it renders only while there is text. */}
+        <div role="status" aria-live="polite" className="sr-only" data-clone-status="">
+          {cloneStatus}
+        </div>
+        {cloneStatus && (
+          <div className="flex items-center justify-between rounded bg-green-50 px-4 py-2 text-sm text-green-700">
+            <span aria-hidden="true">{cloneStatus}</span>
+            <button
+              type="button"
+              onClick={() => {
+                // DASH26 O25 (PR #109 review -05, G5): this button unmounts with
+                // its line, so focus goes to the toolbar's New Project first,
+                // never to <body>.
+                newProjectButtonRef.current?.focus();
+                setCloneStatus('');
+              }}
+              aria-label="Dismiss clone message"
+              className="ml-4 text-green-600 hover:text-green-800"
             >
               Dismiss
             </button>
@@ -360,11 +461,21 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
           />
         )}
 
-        {/* Project grid (v0.18.0: SPERT® Forecaster's tiles and grid) */}
+        {/* Project grid (v0.18.0: SPERT® Forecaster's tiles and grid). With no
+            projects (v0.19.0, DASH26 R11, O21): Forecaster's pending line while
+            the cloud list loads, else the welcome panel once it has loaded,
+            unless an import preview is open. 24 px below the row above, as
+            Forecaster's mt-6 sections (16 px gap + 8). */}
         {projects.length === 0 ? (
-          <p className="text-sm text-gray-400">
-            No projects yet. Use New Project, Load Sample or Import.
-          </p>
+          driverLoading ? (
+            <p role="status" aria-live="polite" className="mt-2 text-sm text-[#666] dark:text-gray-400">
+              {CLOUD_PENDING_TEXT}
+            </p>
+          ) : importFlowPhase.phase !== 'preview' && (
+            <div className="mt-2">
+              <ProjectsEmptyState onCreateNew={() => setDialog({ kind: 'new' })} onLoadSample={handlePanelLoadSample} />
+            </div>
+          )
         ) : (
           <DndContext
             sensors={sensors}
@@ -385,6 +496,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
                       onExport={handleExport}
                       onEdit={handleEdit}
                       onShare={setSharingProjectId}
+                      onClone={handleClone}
                       onDelete={handleDeleteClick}
                     />
                   ))}

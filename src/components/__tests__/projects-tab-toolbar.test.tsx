@@ -38,6 +38,9 @@ vi.mock('@/contexts/project-list-context', () => ({
 vi.mock('@/contexts/storage-context', () => ({
   useStorage: () => h.storageValue,
 }));
+// v0.19.0: the tab reads the loaded project for Clone (O20); none is loaded here.
+const activeValue = vi.hoisted(() => ({ project: null as unknown }));
+vi.mock('@/contexts/active-project-context', () => ({ useActiveProject: () => activeValue }));
 const authValue = vi.hoisted(() => ({ user: null }));
 vi.mock('@/contexts/auth-context', () => ({
   useAuth: () => authValue,
@@ -98,7 +101,9 @@ describe('Projects tab: the heading and toolbar row', () => {
     render(<ProjectsTab onOpenInCfd={vi.fn()} />);
     expect(toolbarLabels()).toEqual(TOOLBAR);
     expect((screen.getByRole('button', { name: 'Export all projects as JSON' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText('No projects yet. Use New Project, Load Sample or Import.')).toBeTruthy();
+    // v0.19.0 (DASH26 R11; Char-DASH-1 §B #33 changed): the welcome panel replaces "No projects yet…".
+    expect(screen.getByRole('region', { name: 'Welcome to SPERT® CFD' })).toBeTruthy();
+    expect(screen.queryByText('No projects yet. Use New Project, Load Sample or Import.')).toBeNull();
   });
 
   it('keeps every button while the project list is loading; only Import is disabled', () => {

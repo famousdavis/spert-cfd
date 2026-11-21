@@ -240,9 +240,10 @@ export function conflictsEqual(
 /**
  * Generate a unique "(copy)" / "(copy N)" name that doesn't collide with
  * the provided taken-names set (normalized). Truncates the base to fit
- * within MAX_NAME_LENGTH including the suffix.
+ * within MAX_NAME_LENGTH including the suffix. Exported in v0.19.0 for Clone
+ * (DASH26 R15), which names its copies the same way.
  */
-function generateUniqueCopyName(originalName: string, taken: Set<string>): string {
+export function generateUniqueCopyName(originalName: string, taken: Set<string>): string {
   const SUFFIX_RESERVE = ' (copy 999)'.length;
   const maxBaseLen = MAX_NAME_LENGTH - SUFFIX_RESERVE;
   const base =

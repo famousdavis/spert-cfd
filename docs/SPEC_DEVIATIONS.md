@@ -128,6 +128,8 @@ when stacked.
 
 ## Deviation 6 — Mid-session driver swap may write sample project to prior driver
 
+**Resolved in v0.19.0 (DASH26 R20):** the sample-seeding branch is gone, so no sample is written at load in any mode; the text below is kept as history.
+
 **Context:** Sample-seeding branch calls `await
 driver.createProject(sample)`. If the driver swaps between this await and
 the subsequent state setters, the write targets the prior driver.

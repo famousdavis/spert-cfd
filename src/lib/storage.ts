@@ -102,6 +102,16 @@ export function saveProject(project: Project): void {
   localStorage.setItem(projectKey(project.id), JSON.stringify(toSave));
 }
 
+/**
+ * Removes one project's data and nothing else (v0.19.0): the local create's
+ * clean-up when its index write is refused, so no unlisted copy keeps using
+ * the space that refusal says is full (DASH26 R1b F7).
+ */
+export function removeProjectData(id: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(projectKey(id));
+}
+
 export function deleteProject(id: string): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(projectKey(id));

@@ -316,3 +316,43 @@ describe('LocalStorageDriver', () => {
     });
   });
 });
+
+// v0.19.0 (DASH26 O22 e, R1b F7): the positioned create (Clone), and a create
+// whose index write is refused.
+describe('LocalStorageDriver createProject, v0.19.0', () => {
+  const sample = (id: string, name = id) => ({ ...createSampleProject(), id, name });
+  const ids = () => JSON.parse(store[INDEX_KEY]).projectIds as string[];
+
+  it('with a placement, the id goes right after its source in the STORED index; an unreadable id stays where it is', async () => {
+    const driver = createLocalStorageDriver();
+    for (const id of ['a', 'b']) await driver.createProject(sample(id));
+    store[INDEX_KEY] = JSON.stringify({ ...JSON.parse(store[INDEX_KEY]), projectIds: ['a', 'unread', 'b'] });
+    await driver.createProject(sample('c'), { after: 'a', shownIds: ['a', 'b'] });
+    expect(ids()).toEqual(['a', 'c', 'unread', 'b']);
+  });
+
+  it('with a placement whose source is not stored, the id is appended', async () => {
+    const driver = createLocalStorageDriver();
+    await driver.createProject(sample('a'));
+    await driver.createProject(sample('c'), { after: 'gone', shownIds: [] });
+    expect(ids()).toEqual(['a', 'c']);
+  });
+
+  it('F7: an index write refused (storage full) removes the project data it just wrote, and throws', () => {
+    const driver = createLocalStorageDriver();
+    void driver.createProject(sample('a'));
+    const setItem = localStorageMock.setItem;
+    localStorageMock.setItem = (key: string, value: string) => {
+      if (key === INDEX_KEY) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+      setItem(key, value);
+    };
+    try {
+      expect(() => driver.createProject(sample('b'))).toThrow('The quota has been exceeded.');
+    } finally {
+      localStorageMock.setItem = setItem;
+    }
+    expect(store['cfd-lab-project-b']).toBeUndefined();
+    expect(store['cfd-lab-project-a']).toBeDefined();
+    expect(ids()).toEqual(['a']);
+  });
+});

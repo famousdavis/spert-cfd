@@ -29,8 +29,12 @@ const OPEN: TileAccess = { badge: null, showShare: false, deleteBlockedReason: n
  * the stats load.
  * - Local mode: nothing gated and no badge (O11), even on a kept local copy of a
  *   shared cloud project, which still stores `owner` and `members`.
- * - Cloud, role not known yet (a project this browser is still creating or
- *   importing): nothing gated, no Share, no badge (D4).
+ * - Cloud, role not known yet (a project this browser is still creating, or
+ *   is importing until a list read): nothing gated, no Share, no badge (D4).
+ *   Since v0.19.0 (DASH26 O23, amended) a project this browser creates (Clone,
+ *   Create, Load Sample) is listed as the person's own once its create has
+ *   landed, so its Share shows then, without a reload; not before, while the
+ *   document may not exist on the server yet (as in Forecaster).
  * - Cloud owner: Share; "Shared" with more than one member (R9).
  * - Cloud editor: Delete disabled (the owner deletes); "Shared".
  * - Cloud viewer: Delete and Edit disabled; "View only" alone, never "Shared"

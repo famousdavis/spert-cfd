@@ -38,15 +38,16 @@ src/
 │   ├── icons/google-logo.tsx     # Inline native-color Google G mark
 │   ├── icons/microsoft-logo.tsx  # Inline native-color Microsoft four-square mark
 │   ├── icons/toolbar-icon.tsx    # Dashboard toolbar icon (v0.17.0; paths in toolbar-icon-paths.ts, copied from GanttApp; 18 px since v0.18.0)
-│   ├── icons/icon-buttons.tsx    # The tile's 28 px icon buttons, Trash · Export · Pencil · Share, SPERT® Forecaster's glyphs (v0.18.0)
+│   ├── icons/icon-buttons.tsx    # The tile's 28 px icon buttons, Trash · Export · Pencil · Share (v0.18.0) · Clone (v0.19.0), SPERT® Forecaster's glyphs
 │   ├── icons/icon-button-styles.ts  # Their look: box, resting grey, one hue per action (Forecaster's, v0.18.0)
 │   ├── icons/drag-handle.tsx     # The tile's six-dot grip (Forecaster's DragHandle, v0.18.0)
 │   ├── dashboard-styles.ts       # The Projects dashboard's and the CFD-tab picker's class strings, Forecaster's at df59b2d (v0.18.0)
 │   ├── toolbar-button-styles.ts  # The Projects toolbar's labelled buttons, Forecaster's (v0.18.0)
 │   ├── tab-navigation.tsx        # The suite's tab bar, 8px top corners over a 2px rule (v0.17.9) (Projects | CFD | Settings | About) + Help Center link
-│   ├── projects-tab.tsx          # Projects landing tab: "Projects" + toolbar row (Export All · Import · Load Sample · New Project), the tile grid, the project dialog, focus after Delete (v0.18.0: Forecaster's dashboard)
+│   ├── projects-tab.tsx          # Projects landing tab: "Projects" + toolbar row (Export All · Import · Load Sample · New Project), the tile grid, the project dialog, focus after Delete (v0.18.0: Forecaster's dashboard); Clone's handler, its status region and failure alert, the welcome panel or the cloud pending line with no projects (v0.19.0)
+│   ├── projects-empty-state.tsx  # The welcome panel: Forecaster's ProjectsEmptyState with CFD's words; Create New Project · Load Sample Project (v0.19.0)
 │   ├── project-dialog.tsx        # The one New Project / Edit Project dialog: name only, page behind inert, Escape in the capture phase, focus back to the opener (v0.18.0)
-│   ├── project-row.tsx           # ProjectTile / SortableProjectTile: Forecaster's tile (grip · name opens the CFD tab · badge · Delete; meta lines; revealed Share · Export · Edit) (v0.18.0)
+│   ├── project-row.tsx           # ProjectTile / SortableProjectTile: Forecaster's tile (grip · name opens the CFD tab · badge · Delete; meta lines; revealed Share · Export · Edit · Clone) (v0.18.0; Clone v0.19.0)
 │   ├── settings-tab.tsx          # Settings tab: StorageSection + ProjectExportSection + LocalWarningSetting
 │   ├── local-warning-setting.tsx # Settings switch for the local-storage caution (v0.17.0)
 │   ├── storage-section.tsx       # Storage mode toggle, auth UI; consumes CloudMigrationFlow
@@ -90,7 +91,7 @@ src/
 │   ├── constants.ts              # APP_VERSION, TOS_VERSION, legal URLs, localStorage keys
 │   ├── firebase.ts               # Firebase app/auth/firestore initialization
 │   ├── consent.ts                # Consent localStorage helpers
-│   ├── storage-driver.ts          # StorageDriver interface + StorageMode + ProjectListItem (cloud items carry owner, role, memberCount)
+│   ├── storage-driver.ts          # StorageDriver interface + StorageMode + ProjectListItem (cloud items carry owner, role, memberCount) + ProjectPlacement (a create placed after its source, v0.19.0)
 │   ├── local-storage-driver.ts    # createLocalStorageDriver() — async wrapper over storage.ts
 │   ├── firestore-driver.ts       # createFirestoreDriver(uid, db) — Firestore StorageDriver
 │   ├── cloud-load-guards.ts      # Shape checks on project documents read from the cloud (v0.16.4)
@@ -110,6 +111,9 @@ src/
 │   ├── project-tile-meta.ts      # A tile's stats and meta lines: counts, the latest snapshot's date (v0.18.0)
 │   ├── tile-access.ts            # What a tile offers: badges, Share, the Delete and Edit gates; cloud only (v0.18.0)
 │   ├── tile-focus.ts             # Finding a tile's controls by project id; focus after a delete (v0.18.0)
+│   ├── clone-project.ts          # Clone: the copy by an allowlist, its name, and which copy of the source (v0.19.0)
+│   ├── project-order.ts          # placeAfter: a new id right after its source in the stored order (v0.19.0)
+│   ├── storage-errors.ts         # A local save refused because storage is full, and O24's words (v0.19.0)
 │   ├── use-grid-navigation.ts    # 2D keyboard navigation (arrows, Tab, Enter, Escape)
 │   ├── use-workflow-editor.ts    # Workflow state CRUD hook
 │   └── __tests__/                # 13 test files, 193 tests
@@ -176,7 +180,7 @@ MetricsPeriod (discriminated union, uses `kind` not `type`)
 
 **Abstraction layer (v0.6.0) + cloud backend (v0.7.0):** All persistence goes through the `StorageDriver` interface, provided to the app via `StorageProvider` context. Contexts and components call `useStorage()` — no direct `storage.ts` imports outside the driver.
 
-- `StorageDriver` — async interface: CRUD, preferences, real-time sync, export/import, flush
+- `StorageDriver` — async interface: CRUD, preferences, real-time sync, export/import, flush. Since v0.19.0 `createProject(project, placement?)` takes an optional placement (Clone, DASH26 O22): local writes the id right after its source in the stored index (unreadable ids stay put, and a refused index write removes the project data it just wrote); cloud registers the create as in flight at once, reads the stored order strictly (an error or a cached read skips the placement), then issues the project write and the whole-order write in one synchronous run, with positioned creates taking turns, and keeps the `arrayUnion` append as the fallback
 - `LocalStorageDriver` — wraps `storage.ts` functions with `Promise.resolve()`; `saveProject()` is a pure data write (no index side effects)
 - `FirestoreDriver` — Firestore implementation with 500ms debounced writes, `hasPendingWrites` echo prevention, monolithic project documents, `stripUndefined()` for Firestore compatibility
 - `StorageProvider` — auth-aware: uses `useState` lazy initializer, blocks children with loading spinner until driver is ready, flushes old driver before swapping on mode change
@@ -189,6 +193,7 @@ MetricsPeriod (discriminated union, uses `kind` not `type`)
 - **Workspace ID** `spertcfd-workspace-id` — nanoid(8) for local-mode fingerprinting
 - **Storage mode** `spertcfd-storage-mode` — `'local'` or `'cloud'`
 - **Migration flag** `spertcfd-has-uploaded-to-cloud` — skips re-upload dialog on re-sign-in
+- **Invite request** `spertcfd-invite-cloud-pending` (v0.19.0, DASH26 R26) — an invite link opened with no local projects asks for Cloud at the next sign-in, which switches only if the local list is still empty then (`use-invitation-landing.ts`). Used once, at the next sign-in on this browser, whoever signs in; the banner's Dismiss, its timeout and sign-out do not clear it
 
 **Firestore collections (cloud mode):**
 
@@ -211,8 +216,8 @@ Four contexts with intentional nesting order:
 
 1. **AuthContext** — Firebase Auth state, sign-in/out methods, consent modal orchestration. Wraps the entire app.
 2. **StorageContext** — provides the active `StorageDriver` via `useStorage()`. Switches between `LocalStorageDriver` and `FirestoreDriver` based on auth state and user preference. Blocks children until driver is ready.
-3. **ProjectListContext** — project list, active project ID, CRUD operations via driver, `reorderProjects()` for persistent drag order. Sample project seeding gated on `driver.mode === 'local'`; `loadSampleProject()` (v0.17.0, the Load Sample button) adds a fresh sample in either mode through the same add path as `createProject()`.
-4. **ActiveProjectContext** — workflow, snapshots, settings for the active project. Provides `updateWorkflow`, `updateSnapshots`, `updateSettings` with driver-managed persistence. Includes `beforeunload` flush handler. Each save writes its in-memory copy whole, name included, while a rename is saved by `ProjectListContext.renameProject`; so when the list's name for the open project changes, the copy takes it (v0.17.6), and only then: in cloud mode another editor's rename can reach the copy before the list (`rename-open-project.test.tsx`). An import that replaces the open project reaches the copy too: local mode reloads it from storage (`projectUpdateKey`). In cloud mode the doc listener never hears this device's own save, so the copy takes the import's name, workflow, snapshots and settings from `importedActiveProject` (v0.17.7, `emulator-tests/import-replace-open.test.tsx`).
+3. **ProjectListContext** — project list, active project ID, CRUD operations via driver, `reorderProjects()` for persistent drag order. No sample is seeded (v0.19.0, DASH26 R20): an empty list stays empty in both modes, and an empty list opens nothing even when the active-project key names a project; until v0.18.0 an empty local list re-seeded the sample. `loadSampleProject()` (v0.17.0, the Load Sample button) adds a fresh sample in either mode through the same add path as `createProject()`. `cloneProject()` (v0.19.0) takes that path with a placement: the copy goes right after its source, on screen at once and in the stored order, and the open project does not change. A project this browser creates is listed in cloud mode as the person's own (`role: 'owner'`, one member) once its create has landed, since the list listener never delivers this device's own create; not before, while the document may not exist on the server yet. A create the driver refuses synchronously (local storage full) rejects before anything is listed or activated, so an edit kept in memory after a refused save survives it. A clone is named, and placed, against the list as it is when the copy is added, not as it was at the click. `driverLoading` is set during render on a swap to a cloud driver, so an empty list never shows as loaded for a frame.
+4. **ActiveProjectContext** — workflow, snapshots, settings for the active project. Provides `updateWorkflow`, `updateSnapshots`, `updateSettings` with driver-managed persistence. A save refused because the browser's storage is full (v0.19.0, DASH26 R25) no longer throws out of the state updater, which used to replace the whole app: the edit stays in the copy, and `storageFull` (with `dismissStorageFull`) raises the CFD tab's alert until Dismiss or the next save that succeeds. Includes `beforeunload` flush handler. Each save writes its in-memory copy whole, name included, while a rename is saved by `ProjectListContext.renameProject`; so when the list's name for the open project changes, the copy takes it (v0.17.6), and only then: in cloud mode another editor's rename can reach the copy before the list (`rename-open-project.test.tsx`). An import that replaces the open project reaches the copy too: local mode reloads it from storage (`projectUpdateKey`). In cloud mode the doc listener never hears this device's own save, so the copy takes the import's name, workflow, snapshots and settings from `importedActiveProject` (v0.17.7, `emulator-tests/import-replace-open.test.tsx`).
 
 `AppShell` nests them: `ErrorBoundary > AuthProvider > StorageProvider > ProjectListProvider > AppContent (tab state + ActiveProjectProvider) > UI`.
 

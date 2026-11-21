@@ -37,6 +37,9 @@ vi.mock('@/contexts/project-list-context', () => ({
 vi.mock('@/contexts/storage-context', () => ({
   useStorage: () => storageValue,
 }));
+// v0.19.0: the tab reads the loaded project for Clone (O20); none is loaded here.
+const activeValue = vi.hoisted(() => ({ project: null as unknown }));
+vi.mock('@/contexts/active-project-context', () => ({ useActiveProject: () => activeValue }));
 const authValue = vi.hoisted(() => ({ user: null }));
 vi.mock('@/contexts/auth-context', () => ({
   useAuth: () => authValue,
