@@ -32,7 +32,7 @@ src/
 ├── components/
 │   ├── app-shell.tsx             # Top-level provider wiring + tab state + loading gate + CloudStorageModal mount
 │   ├── page-column.ts            # PAGE_COLUMN: the one centred 1200px column shared by header, tabs, notices and every tab (v0.17.1)
-│   ├── app-header.tsx            # Header: gradient title + tagline (APP_DESCRIPTION), the suite's shell (v0.17.9) + Option C split pill auth chip — opens CloudStorageModal
+│   ├── app-header.tsx            # Header: gradient title (v0.20.1: CFD's purple, see Dark Mode) + tagline (APP_DESCRIPTION), the suite's shell (v0.17.9) + Option C split pill auth chip — opens CloudStorageModal
 │   ├── cloud-storage-modal.tsx   # Three-state Cloud Storage modal + Notifications toggle (auth-chip target)
 │   ├── theme-toggle.tsx          # HeaderThemeToggle: the header's theme switch, System → Light → Dark (v0.20.0, see Dark Mode)
 │   ├── theme-sync.tsx            # ThemeSync: keeps the `dark` class right on every route; in the root layout (v0.20.0)
@@ -363,13 +363,27 @@ Semver-based, matching the pattern from MyScrumBudget:
     hidden one is still downloaded on a light visit (`spert-favicon-cfd-dark.png`, about 4 KB, one request): accepted
     (PR #110 review -07), since it lets CSS alone choose the logo, with no script knowing the theme;
   - the browser's own focus ring (`outline: auto`, which Chromium draws in #101010 whatever the colour scheme) takes the dark
-    focus blue `#60a5fa` through one `@layer base` rule on `:where(.dark) *`, below every authored outline colour.
+    focus blue `#60a5fa` through one `@layer base` rule on `:where(.dark) *`, below every authored outline colour;
+  - the header's title (v0.20.1, DASH26 RT, from the suite's HDR26): each word a gradient in CFD's favicon purple,
+    `#9468fd` → `#6117c5` on the light page (`#ffffff`, weakest 3.71:1) and `#aa8fff` → `#783de3` on the dark one
+    (`#101828`, weakest 3.02:1), in one literal class string (`TITLE_GRADIENT`, no size or weight; `font-bold` is on the `<h1>`,
+    whose own text is the space between the words). It is solid black in print and takes the page's text colours under
+    `prefers-contrast: more` (black, `gray-100` in dark). Print wins over increased contrast because the title's non-`dark:`
+    rules are single classes emitted in the order plain, `contrast-more:`, `print:`, and the `dark:` one is kept off paper by
+    the variant's `@media not print`.
 - **Test files are not scanned for classes** (`@source not "../**/__tests__"` in `globals.css`): strings in a test, such as a
   guard's fixtures, would otherwise become utilities in the shipped CSS.
 - **Guards.** `dark-partners.test.ts` fails when a class string carries a light colour utility (rest, hover, focus…) with no `dark:`
   partner of the same property and variants, unless the colour is on its short allowlist of colours kept in both themes,
   and when a one-side rule (`border-b`, `border-b-2`, `divide-y`) carries no colour at all. Its doc comment lists what it
-  cannot see (inline and JavaScript colours, inherited ones, bare all-sides `border` / `ring-N` / `outline-N`).
+  cannot see (inline and JavaScript colours, inherited ones, bare all-sides `border` / `ring-N` / `outline-N`). From v0.20.1
+  (DASH26 O47) a colour whose variant chain is exactly `print:` needs no partner, since `dark:` never applies in print (the
+  same file compiles `globals.css` to prove it), and a token carrying both `dark` and `print` is refused, a rule that never
+  applies. `title-gradient.test.tsx` (v0.20.1) guards the header's title: its exact class string; its two gradient spans,
+  found by `bg-clip-text`; both ramps against the page's background, pinned at `#ffffff` / `#101828` and read from
+  `app-shell.tsx` through Tailwind's `theme.css`; nothing between that page and the title painting a ground or fading it; the
+  fallbacks tied to the body's text colours; the space and the weight on the `<h1>`; the heading's name "SPERT® CFD"; and, in
+  the compiled CSS, that print beats increased contrast and nothing is `!important`.
   `globals-css.test.ts` compiles `globals.css` with the app's Tailwind and checks the variant, the print exclusion, `color-scheme`
   and the chart rules, the focus-ring rule and the test-file exclusion. The theme itself (v0.20.0): `theme-script.test.ts` (the
   script's own text against the store, every stored value × both computers), `theme-store.test.ts`, `theme-sync.test.tsx` and
