@@ -15,11 +15,18 @@ interface AppHeaderProps {
   onOpenModal: () => void;
 }
 
-// The SPERT® blue gradient on the title's words (v0.17.9). The `spert-blue-*`
-// colours are defined in globals.css's @theme block, without which this
-// compiles to transparent text on no background: an invisible title.
+// v0.20.1 (DASH26 RT, HDR26): the title's two words, each a gradient in CFD's
+// own favicon purple, one pair of ends per theme, and every point of each at
+// least 3:1 on the page behind it (#ffffff in light, #101828 in dark).
+// Printed, it is solid near-black; when the computer asks for more contrast,
+// it takes the page's own text colours. One literal string, kept on one line:
+// a class name built from a variable compiles to nothing, and over clear text
+// the title would then disappear. No size or weight here: the <h1> carries
+// the weight, so the space between the words, the <h1>'s own text, is set in
+// the words' weight and keeps its width. Guarded by
+// __tests__/title-gradient.test.tsx.
 const TITLE_GRADIENT =
-  'font-bold bg-gradient-to-r from-spert-blue-light to-spert-blue-dark bg-clip-text text-transparent';
+  'bg-gradient-to-r from-[#9468fd] to-[#6117c5] dark:from-[#aa8fff] dark:to-[#783de3] bg-clip-text text-transparent print:bg-none print:text-black contrast-more:bg-none contrast-more:text-black dark:contrast-more:text-gray-100';
 
 function CloudIcon() {
   return (
@@ -57,8 +64,8 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
   return (
     // In the page's column with the tabs, not a full-width bar (as in GanttApp).
     // v0.17.9: the SPERT® suite's header, as SPERT® Forecaster draws it: the
-    // blue gradient title over an italic tagline, 60px tall, the sign-in chip
-    // top-right. The spacing is CFD's own, kept compact: 12px above and below
+    // gradient title (v0.20.1: in CFD's own purple, above) over an italic
+    // tagline, 60px tall, the sign-in chip top-right. The spacing is CFD's own, kept compact: 12px above and below
     // (`my-3`, outside the 60px box; the siblings use 32px above and 24px
     // below), so the CFD tab's chart and grid lose as little height as they
     // can. `leading-[normal]` is the CSS `normal` line-height (Tailwind's
@@ -83,10 +90,10 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
             alt="SPERT CFD icon"
             className="mr-2 hidden h-7 w-7 rounded-lg ring-1 ring-white/20 dark:block"
           />
-          <h1 className="text-2xl sm:text-[1.75rem] md:text-[2.1rem] leading-[normal] whitespace-nowrap">
+          <h1 className="text-2xl sm:text-[1.75rem] md:text-[2.1rem] leading-[normal] whitespace-nowrap font-bold">
             <span className={TITLE_GRADIENT}>SPERT</span>
             <span className="text-gray-400 dark:text-gray-500 font-normal text-base sm:text-lg align-top">®</span>
-            <span className={TITLE_GRADIENT}> CFD</span>
+            {' '}<span className={TITLE_GRADIENT}>CFD</span>
           </h1>
         </div>
         <p className="text-sm leading-[normal] text-gray-500 dark:text-gray-400 italic">{APP_DESCRIPTION}</p>

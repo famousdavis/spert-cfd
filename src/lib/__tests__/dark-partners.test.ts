@@ -4,7 +4,8 @@
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
+import { compile } from 'tailwindcss';
 import { describe, it, expect } from 'vitest';
 
 /**
@@ -25,6 +26,15 @@ import { describe, it, expect } from 'vitest';
  * of a ternary. When a colour really is right in both themes, either write the
  * partner out (`dark:text-blue-600`, as the footer does) or add it to ALLOWED
  * with the reason.
+ *
+ * Print (v0.20.1, DASH26 O47). `dark:` never applies in print: globals.css
+ * wraps the variant in `@media not print`, and the premise test below compiles
+ * it. So a colour whose variant chain is exactly `print:` needs no partner: on
+ * paper the page is light whatever the theme. Exactly `print:`, never a
+ * substring (`not-print:` is a screen colour), and no longer chain
+ * (`print:hover:…` keeps the rule). A token carrying both `dark` and `print`
+ * is refused: it compiles to a rule that never applies, and it is never
+ * counted as a partner.
  *
  * A side rule with no colour at all (`border-b`, `border-b-2`, `divide-y`) is
  * drawn in `currentColor`, the text colour: black in light, near-white in dark,
@@ -151,7 +161,7 @@ const ALLOWED: [RegExp, string][] = [
   [/^bg-(blue|red)-(600|700)$/, 'primary and destructive buttons and their hover, in both themes'],
   [/^bg-black\/\d+$/, 'window overlays'],
   [/^ring-white\/\d+$/, 'the logo ring'],
-  [/^bg-spert-blue$|^border-spert-blue$|^border-b-spert-blue$|^from-spert-blue-light$|^to-spert-blue-dark$/, 'SPERT® brand blue: buttons, the title'],
+  [/^bg-spert-blue$|^border-spert-blue$|^border-b-spert-blue$/, 'SPERT® brand blue: buttons and the open tab'],
   [/^bg-\[#005bc4\]$|^border-\[#005bc4\]$/, 'the brand-blue buttons’ hover'],
   [/^accent-blue-600$/, 'checkboxes and radios: the browser draws the box from color-scheme'],
   [
@@ -177,11 +187,35 @@ const variantsOf = (v: string) =>
     .filter((p) => p && p !== 'dark')
     .join(':');
 
+/** O47: `dark` and `print` in one chain, a rule that never applies under CFD's variant. */
+const darkAndPrint = (v: string) => {
+  const chain = v.split(':');
+  return chain.includes('dark') && chain.includes('print');
+};
+
+interface Token {
+  variants: string;
+  property: string;
+  value: string;
+}
+
+/** What is wrong with one token, given its literal's dark partners; null when it is paired, exempt or allowed. */
+function finding(t: Token, dark: Set<string>): string | null {
+  const bare = `${t.property}-${t.value}`;
+  if (darkAndPrint(t.variants)) return `${t.variants}${bare} (dark and print: never applies)`;
+  if (t.variants.includes('dark:')) return null;
+  if (t.variants === 'print:') return null;
+  if (dark.has(`${variantsOf(t.variants)}|${t.property}`)) return null;
+  if (allowed(`${t.variants}${bare}`, bare)) return null;
+  return `${t.variants}${bare}`;
+}
+
 /** The light colour utilities in `source` that have no dark partner, as `line:token`. */
 export function unpairedLightColours(source: string): string[] {
   const out: string[] = [];
   for (const lit of literals(source)) {
     const body = ` ${lit.text} `;
+    const line = source.slice(0, lit.index).split('\n').length;
     const tokens = [...body.matchAll(TOKEN)].map((m) => ({
       variants: m[1],
       property: m[2],
@@ -189,19 +223,17 @@ export function unpairedLightColours(source: string): string[] {
       offset: m.index!,
     }));
     const dark = new Set(
-      tokens.filter((t) => t.variants.includes('dark:')).map((t) => `${variantsOf(t.variants)}|${t.property}`)
+      tokens
+        .filter((t) => t.variants.includes('dark:') && !darkAndPrint(t.variants))
+        .map((t) => `${variantsOf(t.variants)}|${t.property}`)
     );
     const side = body.match(SIDE_RULE);
     if (side && !RULE_COLOUR.test(body)) {
-      out.push(`${source.slice(0, lit.index).split('\n').length}:${side[1]} (currentColor rule)`);
+      out.push(`${line}:${side[1]} (currentColor rule)`);
     }
     for (const t of tokens) {
-      if (t.variants.includes('dark:')) continue;
-      if (dark.has(`${variantsOf(t.variants)}|${t.property}`)) continue;
-      const bare = `${t.property}-${t.value}`;
-      if (allowed(`${t.variants}${bare}`, bare)) continue;
-      const line = source.slice(0, lit.index).split('\n').length;
-      out.push(`${line}:${t.variants}${bare}`);
+      const found = finding(t, dark);
+      if (found) out.push(`${line}:${found}`);
     }
   }
   return out;
@@ -221,6 +253,44 @@ function productionFiles(dir: string): string[] {
 }
 
 const SRC = join(process.cwd(), 'src');
+
+/**
+ * `globals.css` compiled by the app's own Tailwind, for the print premise (O47). The loader is
+ * globals-css.test.ts's, copied: this file proves its own premise rather than leaning on that one.
+ */
+async function compileGlobals(candidates: string[]): Promise<string> {
+  const app = join(SRC, 'app');
+  const resolveFromApp = createRequire(join(app, 'globals.css')).resolve;
+  const compiler = await compile(readFileSync(join(app, 'globals.css'), 'utf8'), {
+    base: app,
+    loadStylesheet: async (id: string) => {
+      if (id !== 'tailwindcss') throw new Error(`unexpected @import ${id}`);
+      const path = resolveFromApp('tailwindcss/index.css');
+      return { path, base: dirname(path), content: readFileSync(path, 'utf8') };
+    },
+  });
+  return compiler.build(candidates);
+}
+
+/** The selectors and @-rules enclosing the declaration `decl` in `css`, outermost first (globals-css.test.ts's). */
+function enclosing(css: string, decl: string): string[] {
+  const at = css.indexOf(decl);
+  if (at < 0) return [];
+  const stack: string[] = [];
+  let from = 0;
+  for (let i = 0; i < at; i++) {
+    if (css[i] === '{') {
+      stack.push(css.slice(from, i).split(/[;}]/).pop()!.trim());
+      from = i + 1;
+    } else if (css[i] === '}') {
+      stack.pop();
+      from = i + 1;
+    } else if (css[i] === ';') {
+      from = i + 1;
+    }
+  }
+  return stack;
+}
 
 describe('every light colour has a dark partner', () => {
   it('finds an unpaired hover and focus-visible colour (must-find control)', () => {
@@ -261,6 +331,43 @@ describe('every light colour has a dark partner', () => {
     expect(unpairedLightColours("const C = 'hover:text-gray-900 dark:text-gray-100';")).toEqual([
       '1:hover:text-gray-900',
     ]);
+  });
+
+  it('a colour under exactly `print:` needs no partner, and `dark` with `print` is refused (O47)', () => {
+    // The exemption: the title's print fallback (v0.20.1), and any other print colour.
+    expect(unpairedLightColours("const P = 'print:bg-white print:text-black';")).toEqual([]);
+    // Exactly `print:`, never a substring: `not-print:` is a screen colour; a longer chain keeps the rule.
+    expect(unpairedLightColours("const Q = 'not-print:text-black print:hover:text-black';")).toEqual([
+      '1:not-print:text-black',
+      '1:print:hover:text-black',
+    ]);
+    // Must-find controls: an unpaired hover, placeholder and plain colour are still flagged.
+    expect(unpairedLightColours("const R = 'hover:text-black placeholder:text-gray-400 text-black';")).toEqual([
+      '1:hover:text-black',
+      '1:placeholder:text-gray-400',
+      '1:text-black',
+    ]);
+    // `dark` with `print`, in either order: refused (a rule that never applies) ...
+    expect(unpairedLightColours("const S = 'dark:print:text-black print:dark:bg-white';")).toEqual([
+      '1:dark:print:text-black (dark and print: never applies)',
+      '1:print:dark:bg-white (dark and print: never applies)',
+    ]);
+    // ... and never a partner: `print:hover:` stays unpaired beside its dead twin.
+    expect(unpairedLightColours("const T = 'print:hover:text-black dark:print:hover:text-gray-100';")).toEqual([
+      '1:print:hover:text-black',
+      '1:dark:print:hover:text-gray-100 (dark and print: never applies)',
+    ]);
+  });
+
+  it("the print exemption's premise: globals.css keeps every `dark:` rule out of print (O47)", async () => {
+    // The exemption above is right only while `dark:` cannot apply on paper. Proved here, in this file, so
+    // that removing `@media not print` from the dark variant turns THIS test red, whatever globals-css.test.ts does.
+    const css = await compileGlobals(['dark:text-gray-100', 'print:text-black']);
+    // Control: the print colour compiles, inside @media print, so an empty chain below is not a broken build.
+    expect(enclosing(css, 'color: var(--color-black)')).toContain('@media print');
+    expect(enclosing(css, 'color: var(--color-gray-100)'), 'the dark colour sits inside @media not print').toContain(
+      '@media not print'
+    );
   });
 
   it('reads the production class strings (the reader is not silently empty)', () => {

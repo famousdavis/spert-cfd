@@ -12,12 +12,13 @@ import { describe, it, expect } from 'vitest';
  * What `src/app/globals.css` must do that nothing else would miss. Lint,
  * typecheck, the other tests and `next build` all pass without any of it.
  *
- * - The SPERT® blues (v0.17.9). Without the `@theme` block,
- *   `from-spert-blue-light`, `to-spert-blue-dark`, `bg-spert-blue` and
- *   `border-b-spert-blue` compile to nothing: the header's title renders as
- *   transparent text on no background, and the open tab's white label on no
- *   fill. The block must be a plain `@theme`, not `@theme inline`, so the
- *   utilities read the variables and a later dark value can override them.
+ * - The SPERT® blues (v0.17.9). Without the `@theme` block, `bg-spert-blue`
+ *   and `border-b-spert-blue` compile to nothing: the open tab's white label
+ *   renders on no fill. The block must be a plain `@theme`, not
+ *   `@theme inline`, so the utilities read the variables and a later dark
+ *   value can override them. `-light` and `-dark` have had no use since the
+ *   header's title took CFD's purple (v0.20.1); they stay pinned as the
+ *   suite's tokens (HDR26 R4), so removing one is a decision, not a slip.
  * - The dark variant (v0.17.9, v0.19.1). `dark:` must follow a `dark` class on
  *   an ancestor, never the operating system's setting: otherwise every `dark:`
  *   colour turns on for anyone whose computer is set to dark, whatever they
