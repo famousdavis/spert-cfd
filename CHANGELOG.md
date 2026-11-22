@@ -2,6 +2,10 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.20.0 — Dark mode, with a switch in the header (November 22, 2026)
+
+- **DRAFT** — to be written from the measurements.
+
 ## v0.19.1 — Dark colours in place, still switched off (November 21, 2026)
 
 - **Nothing you can see changes in this release.** Every screen now carries its dark colours, but they apply only under a `dark` class that nothing in the app sets yet. Measured on production builds in Chrome over 29 screens and windows, every element looks as it did in v0.19.0. That covers its colours, borders, outlines, shadows, chart fills and strokes, `color-scheme` and the header logo shown, at 1280, 1024 and 768 pixels wide and at both pixel densities. It also covers each button, link and field hovered and focused, at 1280 and 768. The one new element is the dark logo, present but hidden. With the computer set to dark, nothing changes either.
