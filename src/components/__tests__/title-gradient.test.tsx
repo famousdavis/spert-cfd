@@ -566,7 +566,9 @@ describe("the header's SPERT® CFD: a gradient in CFD's purple, readable in both
       // mix-blend; hidden, invisible, sr-only, collapse; text-shadow; an arbitrary property (`[color:…]`); and a child,
       // descendant or arbitrary variant (`*:`, `**:`, `[&…]:`). The logos hold nothing: only those variants count there.
       // Read from what is really there: the body's and the <header>'s template literals, PAGE_COLUMN resolved from
-      // page-column.ts. Not seen: a style sheet other than globals.css (there is none; T15 reads globals.css).
+      // page-column.ts. Not seen: a style sheet other than globals.css (there is none; T15 reads globals.css), styles
+      // set from script, and every other way a class could move or shrink the title out of sight (a transform, a zero
+      // height, a clip).
       const { ground, between } = groundChain();
       const body: Tagged = { tag: 'body', classes: bodyClasses() };
       // Must-find: every part of the way was read.

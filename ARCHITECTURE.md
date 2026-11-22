@@ -379,11 +379,24 @@ Semver-based, matching the pattern from MyScrumBudget:
   cannot see (inline and JavaScript colours, inherited ones, bare all-sides `border` / `ring-N` / `outline-N`). From v0.20.1
   (DASH26 O47) a colour whose variant chain is exactly `print:` needs no partner, since `dark:` never applies in print (the
   same file compiles `globals.css` to prove it), and a token carrying both `dark` and `print` is refused, a rule that never
-  applies. `title-gradient.test.tsx` (v0.20.1) guards the header's title: its exact class string; its two gradient spans,
-  found by `bg-clip-text`; both ramps against the page's background, pinned at `#ffffff` / `#101828` and read from
-  `app-shell.tsx` through Tailwind's `theme.css`; nothing between that page and the title painting a ground or fading it; the
-  fallbacks tied to the body's text colours; the space and the weight on the `<h1>`; the heading's name "SPERT® CFD"; and, in
-  the compiled CSS, that print beats increased contrast and nothing is `!important`.
+  applies (a `contrast-more:` colour still needs its partner). `title-gradient.test.tsx` (v0.20.1) guards the header's title:
+  - the exact classes of its two words, of the `<h1>` and of the ®; the words found by `bg-clip-text`;
+  - both ramps against the page's background, pinned at `#ffffff` / `#101828` and read from `app-shell.tsx` through
+    Tailwind's `theme.css`;
+  - on the body, app-shell's ground wrapper and every element from `<header>` to the `<h1>`: no opacity; no brightness,
+    contrast, blur, filter, grayscale, invert, sepia, saturate or hue-rotate; no mix-blend; no hidden, invisible, sr-only or
+    collapse; no text-shadow; no arbitrary property (`[color:…]`); no child, descendant or arbitrary variant (`*:`, `**:`,
+    `[&…]:`). From the ground wrapper down, no text colour; below it, no background; and no inline style anywhere on
+    the way. The logos hold nothing, so only the variants count there;
+  - every size class on the `<h1>`, whatever its variant, at 24 px or more (a size it cannot read fails);
+  - the fallbacks tied to the body's text colours; the space and the weight on the `<h1>`; the heading's name "SPERT® CFD";
+  - in the compiled CSS, that print beats increased contrast and nothing is `!important`; and that `globals.css` adds no rule
+    of its own beyond its five named ones (Tailwind's own set aside by compiling Tailwind alone), none naming `header`,
+    `h1` or `span`.
+
+  It does not see a style sheet other than `globals.css` (CFD has none), styles set from script, or every way a class
+  could move or shrink the title out of sight (a transform, a zero height, a clip).
+
   `globals-css.test.ts` compiles `globals.css` with the app's Tailwind and checks the variant, the print exclusion, `color-scheme`
   and the chart rules, the focus-ring rule and the test-file exclusion. The theme itself (v0.20.0): `theme-script.test.ts` (the
   script's own text against the store, every stored value × both computers), `theme-store.test.ts`, `theme-sync.test.tsx` and
