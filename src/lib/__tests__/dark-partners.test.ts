@@ -341,6 +341,11 @@ describe('every light colour has a dark partner', () => {
       '1:not-print:text-black',
       '1:print:hover:text-black',
     ]);
+    // Only print: `contrast-more:` applies on screen in both themes, so its colour still needs a dark partner (without
+    // one, black on #101828 for dark users who ask for more contrast). The title pairs it with `dark:contrast-more:`.
+    expect(unpairedLightColours("const U = 'contrast-more:text-black';")).toEqual(['1:contrast-more:text-black']);
+    // Exactly the chain `print:` (O47, Q2): one ending in `print:` keeps the rule too.
+    expect(unpairedLightColours("const V = 'hover:print:text-black';")).toEqual(['1:hover:print:text-black']);
     // Must-find controls: an unpaired hover, placeholder and plain colour are still flagged.
     expect(unpairedLightColours("const R = 'hover:text-black placeholder:text-gray-400 text-black';")).toEqual([
       '1:hover:text-black',

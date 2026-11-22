@@ -230,8 +230,8 @@ function censused(): TitleSpan[] {
   return spans;
 }
 
-/** The `<h1>`'s own text, between its spans, as rendered. */
-const h1OwnText = () => jsxText(titleH1(read(HEADER)).replace(/^<h1[^>]*>/, '').replace(SPAN, ''));
+/** The `<h1>`'s own text, between its spans, as rendered. (Its opening tag is matched by its className, which may hold `>`.) */
+const h1OwnText = () => jsxText(titleH1(read(HEADER)).replace(/^<h1\s+className="[^"]*"\s*>/, '').replace(SPAN, ''));
 
 /** The one class with this exact variant and utility, e.g. `dark:` + `from-` → `#aa8fff`. Exactly one, or it fails. */
 function endColor(classes: string[], variant: '' | 'dark:', utility: 'from' | 'to'): string {
@@ -263,13 +263,19 @@ function themeColor(token: string): string {
   return parseCssColor(need(m?.[1], `theme.css --color-${token}`));
 }
 
+/** An element on the way to the title: its tag and its classes. */
+interface Tagged {
+  tag: string;
+  classes: string[];
+}
+
 /**
- * Every `className` in a stretch of JSX, in order, as the browser gets it: `"…"`, `{NAME}`, or a template literal
- * whose `${NAME}` parts are resolved. Anything else (an unknown name, a call, a ternary) fails loudly: a class the
- * guard cannot read could paint a ground it cannot see.
+ * Every `className` in a stretch of JSX, in order, with the tag it sits on, as the browser gets it: `"…"`, `{NAME}`,
+ * or a template literal whose `${NAME}` parts are resolved. Anything else (an unknown name, a call, a ternary) fails
+ * loudly: a class the guard cannot read could paint a ground it cannot see.
  */
-function classNamesIn(jsx: string, constants: Map<string, string>): string[][] {
-  const out: string[][] = [];
+function classNamesIn(jsx: string, constants: Map<string, string>): Tagged[] {
+  const out: Tagged[] = [];
   const resolveName = (name: string) => {
     const value = constants.get(name);
     if (value === undefined) throw new Error(`className names ${name}, which is not a string constant`);
@@ -282,46 +288,119 @@ function classNamesIn(jsx: string, constants: Map<string, string>): string[][] {
         if (!n) throw new Error(`a template className the guard cannot read: ${all}`);
         return resolveName(n);
       }) : resolveName(need(m[3], 'className name')));
-    out.push(classList(raw));
+    const tag = need(/^<([\w.]+)/.exec(jsx.slice(jsx.lastIndexOf('<', m.index ?? 0)))?.[1], 'the tag of a className');
+    out.push({ tag, classes: classList(raw) });
   }
   return out;
 }
 
-/**
- * The title's ground: app-shell's element that wraps `<AppHeader`, from its last `return (` before it. The first
- * className there paints the ground; any other on the way, and every className in the header from `<header` down
- * to and including the `<h1>`, must not paint a ground of its own or fade it.
- */
-function groundChain(): { ground: string[]; between: string[][] } {
+/** app-shell from its last `return (` before `<AppHeader` up to it: the element that wraps the header. */
+function shellStretch(): string {
   const shell = read(SHELL);
   const at = shell.indexOf('<AppHeader');
-  const [ground, ...rest] = classNamesIn(shell.slice(shell.lastIndexOf('return (', at), at), new Map());
-  const header = read(HEADER);
-  const h1At = header.search(/<h1\s+className=/);
-  const h1End = header.indexOf('>', h1At) + 1;
-  const inHeader = classNamesIn(header.slice(header.indexOf('<header className='), h1End), headerConstants());
-  return { ground: need(ground, "app-shell's wrapper classes"), between: [...rest, ...inHeader] };
+  return shell.slice(shell.lastIndexOf('return (', at), at);
 }
 
-/** The body's own text colours (layout.tsx), which the title's solid fallbacks repeat. */
+/** app-header from `<header className=` through the `<h1 …>` opening tag (matched by its className, which may hold `>`). */
+function headerStretch(): string {
+  const header = read(HEADER);
+  const from = header.indexOf('<header className=');
+  const open = need(/<h1\s+className=(?:"[^"]*"|\{`[^`]*`\}|\{\w+\})[^>]*>/.exec(header.slice(from)), 'the <h1> opening tag');
+  return header.slice(from, from + open.index + open[0].length);
+}
+
+/**
+ * The title's ground: app-shell's element that wraps `<AppHeader`, its first className. Everything else on the way:
+ * any other className in that stretch, and every className in the header from `<header` down to and including the
+ * `<h1>` (the logos, siblings on the way, among them).
+ */
+function groundChain(): { ground: Tagged; between: Tagged[] } {
+  const [ground, ...rest] = classNamesIn(shellStretch(), new Map());
+  return { ground: need(ground, "app-shell's wrapper classes"), between: [...rest, ...classNamesIn(headerStretch(), headerConstants())] };
+}
+
+/** The body's classes (layout.tsx): its text colours are the page's own, which the title's solid fallbacks repeat. */
 function bodyClasses(): string[] {
-  const raw = need(/<body\s+className=\{`([^`]*)`\}/.exec(read(LAYOUT))?.[1], 'layout.tsx <body className={`…`}>');
+  // The whole opening tag: one more attribute (an inline style) and this fails.
+  const raw = need(/<body\s+className=\{`([^`]*)`\}\s*>/.exec(read(LAYOUT))?.[1], 'layout.tsx <body className={`…`}>');
   return classList(raw.replace(/\$\{[^}]*\}/g, ' '));
 }
 
-/** A text size class's size in px: `text-2xl` through theme.css, `text-[2.1rem]` from its value. */
-function sizePx(cls: string): number {
-  const utility = cls.slice(cls.lastIndexOf(':') + 1);
-  const arbitrary = /^text-\[([\d.]+)rem\]$/.exec(utility);
-  if (arbitrary) return Number(arbitrary[1]) * 16;
-  const named = new RegExp(`--${utility}:\\s*([\\d.]+)rem;`).exec(read(THEME_CSS));
-  return Number(need(named?.[1], `theme.css --${utility}`)) * 16;
+/** A class as its variants and its utility; a `:` inside brackets or parentheses stays: `[&_span]:text-white`. */
+function splitClass(cls: string): { variants: string[]; utility: string } {
+  const variants: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < cls.length; i++) {
+    const c = cls.charAt(i);
+    if (c === '[' || c === '(') depth++;
+    else if (c === ']' || c === ')') depth--;
+    else if (c === ':' && depth === 0) {
+      variants.push(cls.slice(start, i));
+      start = i + 1;
+    }
+  }
+  // Without `!` and without a `/…` modifier outside brackets (`text-white/50`, `text-base/7`).
+  return { variants, utility: cls.slice(start).replace(/^!/, '').replace(/\/[^/\]]*$/, '') };
+}
+
+/** A variant that styles elements other than the one carrying it: children `*:`, descendants `**:`, any `[…]:`. */
+const reaches = (variant: string) => variant === '*' || variant === '**' || variant.startsWith('[');
+/** Fades, filters, blends, hides or shadows the element and everything in it; or an arbitrary property (`[color:…]`). */
+const FADES =
+  /^(?:opacity-|brightness-|contrast-|blur(?:-|$)|filter(?:-|$)|invert(?:-|$)|grayscale(?:-|$)|sepia(?:-|$)|saturate-|-?hue-rotate-|mix-blend-|text-shadow(?:-|$)|hidden$|invisible$|sr-only$|collapse$|\[[a-z-]+:)/;
+/** A text colour, never a size: a palette shade, white, black, transparent, current, inherit, or an arbitrary colour. */
+const TEXT_COLOUR = /^text-(?:white|black|transparent|current|inherit|[a-z]+-\d{2,3}|\[(?:#|rgb|hsl|oklch|oklab|lab|lch|hwb|color:|var\().*\])$/;
+/** The other `text-` utilities that are neither a colour nor a size. */
+const TEXT_OTHER = /^text-(?:left|center|right|justify|start|end|wrap|nowrap|balance|pretty|clip|ellipsis|shadow(?:-.*)?)$/;
+
+type Kind = 'body' | 'ground' | 'between';
+/**
+ * The classes T8 refuses on one element. On the body, the ground wrapper and everything between it and the title: a
+ * variant that reaches other elements, and a fade, filter, blend, hide, text shadow or arbitrary property. From the
+ * ground down, a text colour too (the body's is the page's own text colour, which the fallbacks repeat). Below the
+ * ground, any background. An `<img>` holds nothing, so on a logo only the reaching variants count (its `hidden` is its
+ * own business).
+ */
+function refused(el: Tagged, kind: Kind): string[] {
+  return el.classes.filter((cls) => {
+    const { variants, utility } = splitClass(cls);
+    if (variants.some(reaches)) return true;
+    if (el.tag === 'img') return false;
+    if (FADES.test(utility)) return true;
+    if (kind !== 'body' && TEXT_COLOUR.test(utility)) return true;
+    return kind === 'between' && utility.startsWith('bg-');
+  });
+}
+
+/**
+ * Every class that sets the text's size, whatever its variants (`md:`, `max-sm:`, `min-[700px]:`), with its size in px:
+ * a named size through theme.css, an arbitrary px or rem value. Any other `text-` class that is neither a colour nor
+ * one of the non-size utilities fails loudly, so no size goes unread.
+ */
+function sizesPx(classes: string[]): { cls: string; px: number }[] {
+  const out: { cls: string; px: number }[] = [];
+  for (const cls of classes) {
+    const { utility } = splitClass(cls);
+    if (!utility.startsWith('text-') || TEXT_COLOUR.test(utility) || TEXT_OTHER.test(utility)) continue;
+    const named = /^text-(xs|sm|base|lg|\d?xl)$/.exec(utility);
+    const arbitrary = /^text-\[(\d*\.?\d+)(px|rem)\]$/.exec(utility);
+    if (named) {
+      const rem = need(new RegExp(`--text-${named[1]}:\\s*([\\d.]+)rem;`).exec(read(THEME_CSS))?.[1], `theme.css --text-${named[1]}`);
+      out.push({ cls, px: Number(rem) * 16 });
+    } else if (arbitrary) {
+      out.push({ cls, px: Number(arbitrary[1]) * (arbitrary[2] === 'rem' ? 16 : 1) });
+    } else {
+      throw new Error(`a text class whose size the guard cannot read: ${cls}`);
+    }
+  }
+  return out;
 }
 
 // ---- Compiled CSS (CFD's real globals.css, by the app's own Tailwind; globals-css.test.ts's loader) -------------
 
-async function compileGlobals(candidates: string[]): Promise<string> {
-  const compiler = await compile(read(GLOBALS), {
+async function compileCss(css: string, candidates: string[]): Promise<string> {
+  const compiler = await compile(css, {
     base: dirname(GLOBALS),
     loadStylesheet: async (id: string) => {
       if (id !== 'tailwindcss') throw new Error(`unexpected @import ${id}`);
@@ -331,6 +410,33 @@ async function compileGlobals(candidates: string[]): Promise<string> {
   });
   return compiler.build(candidates);
 }
+
+const compileGlobals = (candidates: string[]) => compileCss(read(GLOBALS), candidates);
+
+/** Every rule of compiled CSS that has a selector: its path (the @-rules around it, then the selector) and selector. */
+function rulesIn(css: string): { path: string; selector: string }[] {
+  const out: { path: string; selector: string }[] = [];
+  const stack: string[] = [];
+  let from = 0;
+  for (let i = 0; i < css.length; i++) {
+    const c = css.charAt(i);
+    if (c === '{') {
+      const prelude = css.slice(from, i).trim();
+      stack.push(prelude);
+      if (!prelude.startsWith('@')) out.push({ path: stack.join(' » '), selector: prelude });
+      from = i + 1;
+    } else if (c === '}') {
+      stack.pop();
+      from = i + 1;
+    } else if (c === ';') {
+      from = i + 1;
+    }
+  }
+  return out;
+}
+
+/** A selector that names `header`, `h1` or `span` as an element type: one that can select the title or its words. */
+const NAMES_TITLE = /(?:^|[\s>+~,(])(?:header|h1|span)(?=$|[\s>+~,.:#[)])/;
 
 /** A class's selector as Tailwind escapes it. */
 const selectorOf = (cls: string) => '.' + cls.replace(/[:[\]#@()!.]/g, (m) => '\\' + m);
@@ -446,25 +552,63 @@ describe("the header's SPERT® CFD: a gradient in CFD's purple, readable in both
 
   it("T7 the page behind the title resolves, through the installed Tailwind, to the pinned premise in each theme", () => {
     const { ground } = groundChain();
-    expect(themeColor(colorToken(ground, 'bg-'))).toBe(PREMISE.light);
-    expect(themeColor(colorToken(ground, 'dark:bg-'))).toBe(PREMISE.dark);
+    expect(themeColor(colorToken(ground.classes, 'bg-'))).toBe(PREMISE.light);
+    expect(themeColor(colorToken(ground.classes, 'dark:bg-'))).toBe(PREMISE.dark);
   });
 
-  it('T8 nothing between that page and the title paints a ground of its own or fades it', () => {
-    // The wrapper is the title's ground only while nothing in between paints one, and a fade would sink a ramp
-    // that clears the bar by hundredths. Read from what is really there: the <header>'s template literal with
-    // PAGE_COLUMN resolved from page-column.ts (must-find below), the inner <div>s, the logo and the <h1> itself.
-    const between = groundChain().between.flat();
-    expect(between).toEqual(expect.arrayContaining(['max-w-[1200px]', 'my-3', 'whitespace-nowrap']));
-    expect(between.filter((c) => /(?:^|:)(?:bg-|opacity-)/.test(c))).toEqual([]);
-  });
+  it(
+    'T8 from the body to the title, no class fades, filters, blends, hides or text-shadows it, or reaches it from ' +
+      'another element; from the ground down none sets a text colour, below it none a background; no inline style',
+    () => {
+      // The wrapper is the title's ground only while nothing in between paints one, and a fade would sink a ramp that
+      // clears the bar by hundredths. Refused, on the body, app-shell's ground wrapper and every element from <header>
+      // to the <h1>: opacity; brightness, contrast, blur, filter, grayscale, invert, sepia, saturate, hue-rotate;
+      // mix-blend; hidden, invisible, sr-only, collapse; text-shadow; an arbitrary property (`[color:…]`); and a child,
+      // descendant or arbitrary variant (`*:`, `**:`, `[&…]:`). The logos hold nothing: only those variants count there.
+      // Read from what is really there: the body's and the <header>'s template literals, PAGE_COLUMN resolved from
+      // page-column.ts. Not seen: a style sheet other than globals.css (there is none; T15 reads globals.css).
+      const { ground, between } = groundChain();
+      const body: Tagged = { tag: 'body', classes: bodyClasses() };
+      // Must-find: every part of the way was read.
+      expect(body.classes).toContain('antialiased');
+      expect(ground.classes).toContain('h-screen');
+      expect(between.map((e) => e.tag)).toEqual(expect.arrayContaining(['header', 'div', 'img', 'h1']));
+      expect(between.flatMap((e) => e.classes)).toEqual(expect.arrayContaining(['max-w-[1200px]', 'my-3', 'whitespace-nowrap']));
+      // Control: each kind of break it names is refused (these strings are in a test file, never scanned into CSS).
+      const breaks = [
+        'opacity-50', 'brightness-50', 'contrast-125', 'blur-sm', 'filter', 'grayscale', 'invert', 'sepia', 'saturate-50',
+        'hue-rotate-90', 'mix-blend-difference', 'hidden', 'invisible', 'sr-only', 'collapse', 'text-shadow-lg',
+        '[color:white]', '*:text-white', '**:opacity-50', '[&_span]:text-white', '[&>span]:opacity-60', 'dark:brightness-50',
+      ];
+      const probe = (classes: string[], kind: Kind, tag = 'div') => refused({ tag, classes }, kind);
+      expect(probe(breaks, 'body')).toEqual(breaks);
+      expect(probe(['text-white', 'bg-white', 'text-2xl', 'md:text-[2.1rem]'], 'between')).toEqual(['text-white', 'bg-white']);
+      expect(probe(['text-white', 'bg-white'], 'ground')).toEqual(['text-white']);
+      expect(probe(['text-black', 'bg-gray-50'], 'body')).toEqual([]);
+      expect(probe(['hidden', 'opacity-50', '[&~h1_span]:text-white'], 'between', 'img')).toEqual(['[&~h1_span]:text-white']);
+      // The way itself.
+      const found = [
+        ...refused(body, 'body').map((c) => `body: ${c}`),
+        ...refused(ground, 'ground').map((c) => `ground ${ground.tag}: ${c}`),
+        ...between.flatMap((e) => refused(e, 'between').map((c) => `${e.tag}: ${c}`)),
+      ];
+      expect(found).toEqual([]);
+      // No inline style on the way: an inline colour, text fill or filter would reach the spans, unread by the above.
+      expect(`${shellStretch()}${headerStretch()}`).not.toMatch(/\sstyle=/);
+    }
+  );
 
-  it("T9 the bar's premise: the <h1> is bold and never under 24 px, so the title is large text at every width", () => {
+  it("T9 the bar's premise: the <h1> is bold and never under 24 px at any width, so the title is large text at every width", () => {
+    // Every size class is read, whatever its variant (`md:`, `max-sm:`, `min-[…]:`), named or arbitrary px / rem; a
+    // `text-` class it cannot size fails here rather than going unread.
     const h1 = h1Classes();
     expect(h1).toContain('font-bold');
-    const sizes = h1.filter((c) => /^(?:[a-z]+:)?text-(?:\[[\d.]+rem\]|xs|sm|base|lg|\d?xl)$/.test(c));
-    expect(sizes).toContain('text-2xl');
-    expect(Math.min(...sizes.map(sizePx)), sizes.join(' ')).toBeGreaterThanOrEqual(24);
+    const sizes = sizesPx(h1);
+    expect(sizes.map((s) => s.cls)).toContain('text-2xl');
+    for (const s of sizes) expect(s.px, s.cls).toBeGreaterThanOrEqual(24);
+    // Control: the reader sizes the shapes it must, and refuses one it cannot.
+    expect(sizesPx(['md:text-[21px]', 'max-sm:text-base', 'min-[700px]:text-[1.5rem]', 'text-white/50']).map((s) => s.px)).toEqual([21, 16, 24]);
+    expect(() => sizesPx(['text-[length:var(--x)]'])).toThrow(/cannot read/);
   });
 
   for (const [id, theme] of [['T10', 'light'], ['T11', 'dark']] as const) {
@@ -528,5 +672,41 @@ describe("the header's SPERT® CFD: a gradient in CFD's purple, readable in both
       expect(at('contrast-more:bg-none')).toBeGreaterThan(at('bg-gradient-to-r'));
       expect(at('contrast-more:text-black')).toBeGreaterThan(at('text-transparent'));
     }
+  }, 60_000);
+
+  it('T14 the <h1> and its ® keep exactly their classes, as T2 pins the words', () => {
+    // A class on the <h1> reaches the words from outside their own string: a child variant colouring them, a filter, a
+    // blend, a fade, `hidden` below a width, a size (HDR26 review of PR #112, -01). The ® sits beside "CFD", so a
+    // sibling variant there (`[&~span]:…`) would reach it. A deliberate change moves these pins, and T8–T9 still apply.
+    expect(h1Classes()).toEqual(['text-2xl', 'sm:text-[1.75rem]', 'md:text-[2.1rem]', 'leading-[normal]', 'whitespace-nowrap', 'font-bold']);
+    const mark = need(titleSpans(read(HEADER)).find((s) => s.text === '®'), 'the ® span');
+    expect(mark.classes).toEqual(['text-gray-400', 'dark:text-gray-500', 'font-normal', 'text-base', 'sm:text-lg', 'align-top']);
+  });
+
+  it("T15 globals.css adds no rule of its own that selects the title: only its five named rules, none naming header, h1 or span", async () => {
+    // An unlayered rule in globals.css beats every utility whatever its specificity: `header h1 > span { color: inherit }`
+    // would turn the title solid with every class above unchanged (review -01, M8). Tailwind's own rules (preflight,
+    // the theme) are set aside by compiling Tailwind alone; what is left is CFD's. Not seen: an inline style (T8 refuses
+    // them on the way), and any other style sheet (CFD has none).
+    const tailwind = rulesIn(await compileCss('@import "tailwindcss";', []));
+    const tailwindPaths = new Set(tailwind.map((r) => r.path));
+    const ownRules = async (css: string) => rulesIn(await compileCss(css, [])).filter((r) => !tailwindPaths.has(r.path));
+    // Must-find, and Tailwind's own rules that name the title's elements, named: preflight's headings rule only.
+    expect(tailwind.filter((r) => NAMES_TITLE.test(r.selector)).map((r) => r.path)).toEqual(['@layer base » h1, h2, h3, h4, h5, h6']);
+    // Control: the review's M8, added to the real file here in memory, is seen.
+    const m8 = await ownRules(`${read(GLOBALS)}\nheader h1 > span { color: inherit }\n`);
+    expect(m8.filter((r) => NAMES_TITLE.test(r.selector)).map((r) => r.selector)).toEqual(['header h1 > span']);
+    // The file itself.
+    const own = await ownRules(read(GLOBALS));
+    expect(own.filter((r) => NAMES_TITLE.test(r.selector)).map((r) => r.path), 'a rule of its own naming header, h1 or span').toEqual([]);
+    // And every rule of its own, by name: a new one (`.text-transparent { … }`, `* { … }`) fails here until it is read
+    // for whether it can reach the title, and listed.
+    expect(own.map((r) => r.path)).toEqual([
+      '@media not print » html.dark',
+      '@layer base » @media not print » :where(.dark) *',
+      '@media not print » .recharts-cartesian-axis-line:is(.dark *)',
+      '@media not print » .recharts-cartesian-axis-tick-value:is(.dark *)',
+      '@media not print » .recharts-brush > rect:first-of-type:is(.dark *)',
+    ]);
   }, 60_000);
 });

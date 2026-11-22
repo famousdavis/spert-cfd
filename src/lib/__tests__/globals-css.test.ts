@@ -17,8 +17,10 @@ import { describe, it, expect } from 'vitest';
  *   renders on no fill. The block must be a plain `@theme`, not
  *   `@theme inline`, so the utilities read the variables and a later dark
  *   value can override them. `-light` and `-dark` have had no use since the
- *   header's title took CFD's purple (v0.20.1); they stay pinned as the
- *   suite's tokens (HDR26 R4), so removing one is a decision, not a slip.
+ *   header's title took CFD's purple (v0.20.1). They stay pinned in the
+ *   source as the suite's tokens (HDR26 R4), so removing one is a decision,
+ *   not a slip; while no class uses them, Tailwind leaves them out of the
+ *   shipped CSS.
  * - The dark variant (v0.17.9, v0.19.1). `dark:` must follow a `dark` class on
  *   an ancestor, never the operating system's setting: otherwise every `dark:`
  *   colour turns on for anyone whose computer is set to dark, whatever they

@@ -18,7 +18,7 @@ interface AppHeaderProps {
 // v0.20.1 (DASH26 RT, HDR26): the title's two words, each a gradient in CFD's
 // own favicon purple, one pair of ends per theme, and every point of each at
 // least 3:1 on the page behind it (#ffffff in light, #101828 in dark).
-// Printed, it is solid near-black; when the computer asks for more contrast,
+// Printed, it is solid black; when the computer asks for more contrast,
 // it takes the page's own text colours. One literal string, kept on one line:
 // a class name built from a variable compiles to nothing, and over clear text
 // the title would then disappear. No size or weight here: the <h1> carries
@@ -65,12 +65,13 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
     // In the page's column with the tabs, not a full-width bar (as in GanttApp).
     // v0.17.9: the SPERT® suite's header, as SPERT® Forecaster draws it: the
     // gradient title (v0.20.1: in CFD's own purple, above) over an italic
-    // tagline, 60px tall, the sign-in chip top-right. The spacing is CFD's own, kept compact: 12px above and below
-    // (`my-3`, outside the 60px box; the siblings use 32px above and 24px
-    // below), so the CFD tab's chart and grid lose as little height as they
-    // can. `leading-[normal]` is the CSS `normal` line-height (Tailwind's
-    // own "normal" leading is 1.5). Without it, `md:text-[2.1rem]` sets only the
-    // font size, and the title keeps `text-2xl`'s line-height ratio, 2/1.5.
+    // tagline, 60px tall, the sign-in chip top-right. The spacing is CFD's
+    // own, kept compact: 12px above and below (`my-3`, outside the 60px box;
+    // the siblings use 32px above and 24px below), so the CFD tab's chart and
+    // grid lose as little height as they can. `leading-[normal]` is the CSS
+    // `normal` line-height (Tailwind's own "normal" leading is 1.5). Without
+    // it, `md:text-[2.1rem]` sets only the font size, and the title keeps
+    // `text-2xl`'s line-height ratio, 2/1.5.
     <header className={`${PAGE_COLUMN} my-3 flex items-start justify-between`}>
       <div>
         <div className="mb-1 flex items-center gap-3">
