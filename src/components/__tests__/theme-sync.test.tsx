@@ -4,6 +4,7 @@
 
 // @vitest-environment jsdom
 
+import { useLayoutEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, cleanup, act } from '@testing-library/react';
 import { darkQueryListenerCount, setSystemDark } from '../../__tests__/match-media';
@@ -124,5 +125,122 @@ describe('ThemeSync', () => {
     expect(darkQueryListenerCount()).toBe(0);
     storageEvent('spert-theme', 'dark');
     expect(theme.getPreference()).toBe('system');
+  });
+});
+
+describe('ThemeSync: before the browser paints (PR #111 review -03)', () => {
+  it('has put the class back by the time a later sibling\'s layout effect runs (a passive effect would not)', async () => {
+    localStorage.setItem('spert-theme', 'dark');
+    document.documentElement.className = ''; // as after React strips <html>
+    vi.resetModules();
+    const { ThemeSync } = await import('../theme-sync');
+    const seen: boolean[] = [];
+    function Probe() {
+      useLayoutEffect(() => {
+        seen.push(document.documentElement.classList.contains('dark'));
+      }, []);
+      return null;
+    }
+    render(
+      <>
+        <ThemeSync />
+        <Probe />
+      </>,
+    );
+    expect(seen).toEqual([true]);
+  });
+});
+
+describe('ThemeSync: a page restored from the back/forward cache (PR #111 review -02)', () => {
+  /** pagehide / pageshow as a browser fires them; jsdom's events are built by hand so `persisted` is set. */
+  function pageEvent(type: 'pagehide' | 'pageshow', persisted: boolean) {
+    const event = new Event(type);
+    Object.defineProperty(event, 'persisted', { value: persisted });
+    act(() => {
+      window.dispatchEvent(event);
+    });
+  }
+  /** Errors thrown inside an event listener are reported to window, not thrown to dispatchEvent. */
+  function collectReportedErrors() {
+    const errors: unknown[] = [];
+    const onError = (e: ErrorEvent) => {
+      errors.push(e.error ?? e.message);
+      e.preventDefault();
+    };
+    window.addEventListener('error', onError);
+    return { errors, stop: () => window.removeEventListener('error', onError) };
+  }
+
+  it('follows a choice another tab stored while this page was cached (no storage event reached it)', async () => {
+    localStorage.setItem('spert-theme', 'dark');
+    const { theme } = await mountFresh();
+    expect(isDark()).toBe(true);
+    pageEvent('pagehide', true);
+    localStorage.setItem('spert-theme', 'light'); // another tab's choice; this page heard nothing
+    expect(isDark()).toBe(true);
+    pageEvent('pageshow', true);
+    expect(isDark()).toBe(false);
+    expect(theme.getPreference()).toBe('light');
+  });
+
+  it('keeps this tab\'s own refused choice when nothing was stored meanwhile (O34)', async () => {
+    localStorage.setItem('spert-theme', 'light');
+    const { theme } = await mountFresh();
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      const e = new Error('The quota has been exceeded.');
+      e.name = 'QuotaExceededError';
+      throw e;
+    });
+    act(() => theme.choosePreference('dark')); // refused: storage still says light
+    vi.restoreAllMocks();
+    expect(localStorage.getItem('spert-theme')).toBe('light');
+    pageEvent('pagehide', true);
+    pageEvent('pageshow', true);
+    expect(theme.getPreference()).toBe('dark');
+    expect(isDark()).toBe(true);
+  });
+
+  it('applies the computer\'s current setting on restore while System', async () => {
+    const { theme } = await mountFresh();
+    expect(theme.getPreference()).toBe('system');
+    pageEvent('pagehide', true);
+    // The computer turned dark while the page was cached, and its change event was missed: the stub
+    // does fire it here, so the class is taken off again by hand, as a browser that drops it would leave it.
+    act(() => setSystemDark(true));
+    document.documentElement.classList.remove('dark');
+    pageEvent('pageshow', true);
+    expect(isDark()).toBe(true);
+  });
+
+  it('a pageshow that is not a restore (persisted false) changes nothing', async () => {
+    localStorage.setItem('spert-theme', 'dark');
+    const { theme } = await mountFresh();
+    pageEvent('pagehide', false);
+    localStorage.setItem('spert-theme', 'light');
+    pageEvent('pageshow', false);
+    expect(theme.getPreference()).toBe('dark');
+    expect(isDark()).toBe(true);
+  });
+
+  it('never throws when the read fails at pagehide or at pageshow', async () => {
+    localStorage.setItem('spert-theme', 'dark');
+    const { theme } = await mountFresh();
+    const reported = collectReportedErrors();
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('denied');
+    });
+    pageEvent('pagehide', true);
+    getItem.mockRestore();
+    localStorage.setItem('spert-theme', 'light');
+    pageEvent('pageshow', true); // the hide-time read failed: nothing to compare, the preference stands
+    expect(theme.getPreference()).toBe('dark');
+    pageEvent('pagehide', true);
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('denied');
+    });
+    pageEvent('pageshow', true);
+    reported.stop();
+    expect(reported.errors).toEqual([]);
+    expect(isDark()).toBe(true);
   });
 });

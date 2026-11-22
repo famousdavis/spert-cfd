@@ -5,7 +5,7 @@
 'use client';
 
 import { useLayoutEffect } from 'react';
-import { DARK_QUERY, THEME_KEY, applyTheme, syncFromStorage } from '@/lib/theme';
+import { DARK_QUERY, THEME_KEY, applyTheme, readStoredValue, syncFromStorage } from '@/lib/theme';
 
 /**
  * Keeps the `dark` class on `<html>` right on every route (v0.20.0, DASH26
@@ -20,6 +20,13 @@ import { DARK_QUERY, THEME_KEY, applyTheme, syncFromStorage } from '@/lib/theme'
  *   same commit and puts the class back.
  * - It follows the computer while the preference is System, and CFD's other
  *   tabs through the `storage` event (O35).
+ * - A page restored from the back/forward cache (PR #111 review -02): Firefox
+ *   drops the `storage` events that fire while a page is cached, so the stored
+ *   value is read when the page is hidden and again when it is restored; if it
+ *   changed meanwhile, it is taken as that event would have been. Either way
+ *   the class is applied again, since the computer may have changed too. When
+ *   nothing was stored meanwhile, this tab's own choice stands, even one its
+ *   save refused (O34): storage is not read back over it.
  *
  * It renders nothing and never writes. It must never throw: it sits outside
  * every error boundary, so a throw here would replace all of CFD with Next's
@@ -34,11 +41,29 @@ export function ThemeSync(): null {
       // `null`: another tab cleared storage, so the preference is gone.
       if (event.key === THEME_KEY || event.key === null) syncFromStorage(event.newValue);
     };
+    // `undefined` when storage could not be read: then nothing is compared.
+    let storedWhenHidden: string | null | undefined;
+    const onPageHide = () => {
+      storedWhenHidden = readStoredValue();
+    };
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      const stored = readStoredValue();
+      if (storedWhenHidden !== undefined && stored !== undefined && stored !== storedWhenHidden) {
+        syncFromStorage(stored);
+      } else {
+        applyTheme();
+      }
+    };
     query.addEventListener('change', onComputerChange);
     window.addEventListener('storage', onStorage);
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('pageshow', onPageShow);
     return () => {
       query.removeEventListener('change', onComputerChange);
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('pageshow', onPageShow);
     };
   }, []);
   return null;

@@ -36,18 +36,21 @@ export function parsePreference(raw: string | null | undefined): ThemePreference
 }
 
 /**
- * The stored preference. The read is wholly inside the `try`: with site data
- * blocked, Chrome throws from the `window.localStorage` getter itself, not
- * only from `getItem`.
+ * The stored value as it is, or `undefined` when storage cannot be read. The
+ * read is wholly inside the `try`: with site data blocked, Chrome throws from
+ * the `window.localStorage` getter itself, not only from `getItem`.
  */
-export function readStoredPreference(): ThemePreference {
-  let raw: string | null = null;
+export function readStoredValue(): string | null | undefined {
   try {
-    raw = window.localStorage.getItem(THEME_KEY);
+    return window.localStorage.getItem(THEME_KEY);
   } catch {
-    // Unreadable storage: System, by the rule.
+    return undefined;
   }
-  return parsePreference(raw);
+}
+
+/** The stored preference; unreadable storage means System, by the rule. */
+export function readStoredPreference(): ThemePreference {
+  return parsePreference(readStoredValue());
 }
 
 let current: ThemePreference | null = null;

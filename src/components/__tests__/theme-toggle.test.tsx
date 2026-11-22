@@ -76,6 +76,19 @@ describe('the switch’s first render shows the stored preference', () => {
   });
 });
 
+describe('the switch\'s look and its status line (PR #111 review -06)', () => {
+  it('is faint at rest, full on hover and full while focused by keyboard (O39); its status line is hidden and polite (O38)', async () => {
+    await mountFresh();
+    const classes = button().classList;
+    expect(classes.contains('opacity-70'), 'opacity-70 at rest').toBe(true);
+    expect(classes.contains('hover:opacity-100'), 'hover:opacity-100').toBe(true);
+    expect(classes.contains('focus-visible:opacity-100'), 'focus-visible:opacity-100 (O39)').toBe(true);
+    const status = screen.getByRole('status');
+    expect(status.classList.contains('sr-only'), 'the status line takes no space and shows nothing').toBe(true);
+    expect(status.getAttribute('aria-live')).toBe('polite');
+  });
+});
+
 describe('a click', () => {
   it('cycles System → Light → Dark → System: icon, label, title, the page, the stored value and the announcement', async () => {
     setSystemDark(true);

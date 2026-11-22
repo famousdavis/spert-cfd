@@ -51,8 +51,14 @@ export function installMatchMedia(): void {
           return matches(media);
         },
         onchange: null,
-        addEventListener: (_type: string, listener: ChangeListener) => list.listeners.add(listener),
-        removeEventListener: (_type: string, listener: ChangeListener) => list.listeners.delete(listener),
+        // Only 'change', as a real MediaQueryList: a listener for any other type never fires
+        // (PR #111 review -04: a type-free stub let a misspelt 'change' pass). addListener has no type.
+        addEventListener: (type: string, listener: ChangeListener) => {
+          if (type === 'change') list.listeners.add(listener);
+        },
+        removeEventListener: (type: string, listener: ChangeListener) => {
+          if (type === 'change') list.listeners.delete(listener);
+        },
         addListener: (listener: ChangeListener) => list.listeners.add(listener),
         removeListener: (listener: ChangeListener) => list.listeners.delete(listener),
         dispatchEvent: () => true,

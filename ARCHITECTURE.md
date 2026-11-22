@@ -311,8 +311,14 @@ Semver-based, matching the pattern from MyScrumBudget:
   `theme-script.test.ts` runs the script's own text in a fresh JavaScript context for every stored value against both settings of
   the computer and checks the store gives the same answers. `<html>` carries `suppressHydrationWarning` (its own attributes only),
   since the class is there before React hydrates it.
-- **The CSP has no `script-src`** (`next.config.ts`), which is why the inline script runs. A `script-src` added later must allow it
-  (its hash), or the script stops running: every dark visitor would then get a light first frame and a late flip from `ThemeSync`.
+- **The CSP has neither `script-src` nor `default-src`** (`next.config.ts:26–35`), which is why inline scripts run: this one, and
+  Next's own (`self.__next_f.push(…)`, which carry the page to the browser). Measured on v0.20.0's production build with a second
+  CSP header added (PR #111 review -01, `rev-pr111/opus-pr111-1-work/t04-csp.out`): `script-src 'self' 'sha256-<this script>'`
+  runs this script but refuses Next's, and CFD stays on "Loading..." for every visitor; adding `'unsafe-inline'` beside the hash
+  changes nothing, since a hash makes the browser ignore `'unsafe-inline'`; `script-src 'self'` refuses both, the same result;
+  `'unsafe-inline'` with no hash or nonce runs both. So adding either directive needs one of two things: a nonce-based policy
+  whose nonce also reaches this script (not measured), or `'unsafe-inline'` with no hash or nonce. A hash alone, or a hash beside
+  `'unsafe-inline'`, stops CFD starting.
 - **The store** (`theme.ts`). The preference lives in memory once read (O33 as amended): read from storage once per page, changed
   by every click whether or not the save succeeds, and by `storage` events from CFD's other tabs (using the event's own
   `newValue`). The switch shows it and `ThemeSync` applies it, so they always agree. This is the one piece of theme state in
@@ -320,7 +326,11 @@ Semver-based, matching the pattern from MyScrumBudget:
 - **`ThemeSync`** (`theme-sync.tsx`), mounted once in the root layout's `<body>`, outside `AppShell`. It applies the preference
   when it mounts (a layout effect, before the browser paints) and follows the computer while System and the other tabs, on every
   route: on `/changelog`, on the loading screen, during a storage switch and on the crash screen, where the header and its switch
-  are not mounted. It renders nothing and never writes. **Why it exists:** React removes every attribute of `<html>`, the class
+  are not mounted. A page restored from the back/forward cache (PR #111 review -02): Firefox drops the `storage` events that
+  fire while a page is cached, so `ThemeSync` reads the stored value at `pagehide` and again at a persisted `pageshow`; if it
+  changed, it is taken as that event would have been, and either way the class is applied again (the computer may have changed
+  too). With nothing stored meanwhile, the tab's own choice stands, even one its save refused. It renders nothing and never
+  writes. **Why it exists:** React removes every attribute of `<html>`, the class
   included, whenever it renders the root on the client instead of hydrating it (an error while hydrating: with storage blocked,
   `StorageProvider` throws); `ThemeSync` mounts again in that same commit and puts the class back. **It must never throw:** it
   sits outside every error boundary, and a throw there would replace all of CFD with Next's global error page; every storage
