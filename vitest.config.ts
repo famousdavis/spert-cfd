@@ -10,6 +10,9 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    // v0.20.0 (DASH26 RD2): a controllable window.matchMedia in jsdom files,
+    // which have none; nothing in node files.
+    setupFiles: ['src/__tests__/setup-match-media.ts'],
     coverage: {
       // Declared explicitly although 'v8' is already the default: without it
       // nothing in this file mentions coverage, and the link to the
