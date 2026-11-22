@@ -15,8 +15,9 @@
    operating system's setting. Without this, Tailwind 4's `dark:` follows the
    OS, and copied `dark:` classes turn on for anyone whose computer is dark.
    v0.19.1 (DASH26 RD1, O31): and never in print, so a page printed in dark
-   comes out light. Every screen carries its dark colours from v0.19.1, but
-   nothing sets the `dark` class yet: they stay off until the theme switch.
+   comes out light. Every screen carries its dark colours from v0.19.1; from
+   v0.20.0 (RD2) the pre-paint script and ThemeSync set the `dark` class from
+   the header switch's preference (src/lib/theme.ts).
    `&:is(.dark *)` needs a `.dark` ANCESTOR, so it never matches `<html>`
    itself: the `html.dark` rule below is written out for that reason. */
 @custom-variant dark {
@@ -42,8 +43,8 @@
 
 /* v0.19.1 (DASH26 RD1, O27): native parts the browser draws (scrollbars,
    select lists, the date picker, number spinners, checkboxes) follow the
-   theme. Inert until something sets the `dark` class on <html>; never in
-   print (O31). */
+   theme. Applies while the `dark` class is on <html> (v0.20.0: set from the
+   theme preference, src/lib/theme.ts); never in print (O31). */
 @media not print {
   html.dark {
     color-scheme: dark;

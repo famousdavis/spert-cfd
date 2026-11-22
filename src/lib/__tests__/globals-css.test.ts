@@ -20,8 +20,9 @@ import { describe, it, expect } from 'vitest';
  *   utilities read the variables and a later dark value can override them.
  * - The dark variant (v0.17.9, v0.19.1). `dark:` must follow a `dark` class on
  *   an ancestor, never the operating system's setting: otherwise every `dark:`
- *   colour turns on for anyone whose computer is set to dark, before CFD's
- *   theme switch exists. And it must never apply in print (DASH26 O31), so a
+ *   colour turns on for anyone whose computer is set to dark, whatever they
+ *   chose with CFD's theme switch (v0.20.0: the class follows the preference,
+ *   theme.ts). And it must never apply in print (DASH26 O31), so a
  *   page printed in dark comes out light.
  * - `color-scheme` (v0.19.1, O27): `<html>` itself, which the variant cannot
  *   reach, turns the browser's own parts dark under the class, not in print.

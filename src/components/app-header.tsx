@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { getFirstName } from '@/lib/user-display';
 import { APP_DESCRIPTION } from '@/lib/constants';
 import { PAGE_COLUMN } from './page-column';
+import { HeaderThemeToggle } from './theme-toggle';
 
 interface AppHeaderProps {
   onOpenModal: () => void;
@@ -91,9 +92,11 @@ export function AppHeader({ onOpenModal }: AppHeaderProps) {
         <p className="text-sm leading-[normal] text-gray-500 dark:text-gray-400 italic">{APP_DESCRIPTION}</p>
       </div>
 
-      {/* The right-hand group, as Forecaster's: today only the sign-in chip,
-          transparent at rest as in Forecaster (it was white). */}
+      {/* The right-hand group, as Forecaster's: the theme switch (v0.20.0,
+          DASH26 RD2), then the sign-in chip, transparent at rest as in
+          Forecaster (it was white). */}
       <div className="flex items-center gap-2">
+      <HeaderThemeToggle />
       {isCloudSignedIn ? (
         <button
           type="button"

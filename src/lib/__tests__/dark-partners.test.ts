@@ -10,10 +10,11 @@ import { describe, it, expect } from 'vitest';
 /**
  * Every light colour has a dark one (v0.19.1, DASH26 RD1, O32).
  *
- * From v0.19.1 every screen carries its dark colours, inert until the theme
- * switch sets the `dark` class. A later change that adds a light colour, a
- * hover or a focus colour without its `dark:` partner would put a light patch,
- * or light text on a dark surface, into dark mode, and no other check sees it:
+ * From v0.19.1 every screen carries its dark colours, applied under the `dark`
+ * class (set from v0.20.0 by the theme preference, theme.ts). A later change
+ * that adds a light colour, a hover or a focus colour without its `dark:`
+ * partner would put a light patch, or light text on a dark surface, into dark
+ * mode, and no other check sees it:
  * the light screen is unchanged and nothing renders dark in the tests.
  *
  * The rule, per string literal (a class string): each Tailwind colour utility
