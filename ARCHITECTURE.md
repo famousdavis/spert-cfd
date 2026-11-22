@@ -25,7 +25,7 @@ SPERT® CFD is a Cumulative Flow Diagram tool for agile teams. Core functionalit
 ```
 src/
 ├── app/                          # Next.js App Router pages
-│   ├── layout.tsx                # Root layout (fonts, metadata)
+│   ├── layout.tsx                # Root layout (fonts, metadata, the pre-paint theme script, ThemeSync; v0.20.0)
 │   ├── page.tsx                  # Main page (renders AppShell)
 │   └── changelog/page.tsx        # Static changelog page
 │
@@ -34,6 +34,8 @@ src/
 │   ├── page-column.ts            # PAGE_COLUMN: the one centred 1200px column shared by header, tabs, notices and every tab (v0.17.1)
 │   ├── app-header.tsx            # Header: gradient title + tagline (APP_DESCRIPTION), the suite's shell (v0.17.9) + Option C split pill auth chip — opens CloudStorageModal
 │   ├── cloud-storage-modal.tsx   # Three-state Cloud Storage modal + Notifications toggle (auth-chip target)
+│   ├── theme-toggle.tsx          # HeaderThemeToggle: the header's theme switch, System → Light → Dark (v0.20.0, see Dark Mode)
+│   ├── theme-sync.tsx            # ThemeSync: keeps the `dark` class right on every route; in the root layout (v0.20.0)
 │   ├── cloud-migration-flow.tsx  # Shared local→cloud migration UX (consumed by StorageSection + modal; see JSDoc re intentional cloud→local duplication)
 │   ├── icons/google-logo.tsx     # Inline native-color Google G mark
 │   ├── icons/microsoft-logo.tsx  # Inline native-color Microsoft four-square mark
@@ -114,6 +116,7 @@ src/
 │   ├── clone-project.ts          # Clone: the copy by an allowlist, its name, and which copy of the source (v0.19.0)
 │   ├── project-order.ts          # placeAfter: a new id right after its source in the stored order (v0.19.0)
 │   ├── storage-errors.ts         # A local save refused because storage is full, and O24's words (v0.19.0)
+│   ├── theme.ts                  # The theme preference (`spert-theme`): its rule, the store, THEME_SCRIPT (v0.20.0)
 │   ├── use-grid-navigation.ts    # 2D keyboard navigation (arrows, Tab, Enter, Escape)
 │   ├── use-workflow-editor.ts    # Workflow state CRUD hook
 │   └── __tests__/                # 13 test files, 193 tests
@@ -193,6 +196,7 @@ MetricsPeriod (discriminated union, uses `kind` not `type`)
 - **Workspace ID** `spertcfd-workspace-id` — nanoid(8) for local-mode fingerprinting
 - **Storage mode** `spertcfd-storage-mode` — `'local'` or `'cloud'`
 - **Migration flag** `spertcfd-has-uploaded-to-cloud` — skips re-upload dialog on re-sign-in
+- **Theme** `spert-theme` (v0.20.0, DASH26 RD2) — `light`, `dark` or `system`; missing or anything else means System. SPERT® Forecaster's key, but per site: a choice made in Forecaster does not reach CFD. Written only by the header's switch (`theme.ts`, see Dark Mode)
 - **Invite request** `spertcfd-invite-cloud-pending` (v0.19.0, DASH26 R26) — an invite link opened with no local projects asks for Cloud at the next sign-in, which switches only if the local list is still empty then (`use-invitation-landing.ts`). Used once, at the next sign-in on this browser, whoever signs in; the banner's Dismiss, its timeout and sign-out do not clear it
 
 **Firestore collections (cloud mode):**
@@ -219,7 +223,7 @@ Four contexts with intentional nesting order:
 3. **ProjectListContext** — project list, active project ID, CRUD operations via driver, `reorderProjects()` for persistent drag order. No sample is seeded (v0.19.0, DASH26 R20): an empty list stays empty in both modes, and an empty list opens nothing even when the active-project key names a project; until v0.18.0 an empty local list re-seeded the sample. `loadSampleProject()` (v0.17.0, the Load Sample button) adds a fresh sample in either mode through the same add path as `createProject()`. `cloneProject()` (v0.19.0) takes that path with a placement: the copy goes right after its source, on screen at once and in the stored order, and the open project does not change. A project this browser creates is listed in cloud mode as the person's own (`role: 'owner'`, one member) once its create has landed, since the list listener never delivers this device's own create; not before, while the document may not exist on the server yet. A create the driver refuses synchronously (local storage full) rejects before anything is listed or activated, so an edit kept in memory after a refused save survives it. A clone is named, and placed, against the list as it is when the copy is added, not as it was at the click. `driverLoading` is set during render on a swap to a cloud driver, so an empty list never shows as loaded for a frame.
 4. **ActiveProjectContext** — workflow, snapshots, settings for the active project. Provides `updateWorkflow`, `updateSnapshots`, `updateSettings` with driver-managed persistence. A save refused because the browser's storage is full (v0.19.0, DASH26 R25) no longer throws out of the state updater, which used to replace the whole app: the edit stays in the copy, and `storageFull` (with `dismissStorageFull`) raises the CFD tab's alert until Dismiss or the next save that succeeds. Includes `beforeunload` flush handler. Each save writes its in-memory copy whole, name included, while a rename is saved by `ProjectListContext.renameProject`; so when the list's name for the open project changes, the copy takes it (v0.17.6), and only then: in cloud mode another editor's rename can reach the copy before the list (`rename-open-project.test.tsx`). An import that replaces the open project reaches the copy too: local mode reloads it from storage (`projectUpdateKey`). In cloud mode the doc listener never hears this device's own save, so the copy takes the import's name, workflow, snapshots and settings from `importedActiveProject` (v0.17.7, `emulator-tests/import-replace-open.test.tsx`).
 
-`AppShell` nests them: `ErrorBoundary > AuthProvider > StorageProvider > ProjectListProvider > AppContent (tab state + ActiveProjectProvider) > UI`.
+`AppShell` nests them: `ErrorBoundary > AuthProvider > StorageProvider > ProjectListProvider > AppContent (tab state + ActiveProjectProvider) > UI`. The root layout mounts `ThemeSync` beside it (v0.20.0), outside every boundary (see Dark Mode).
 
 ## Auth & Consent Architecture
 
@@ -291,15 +295,53 @@ Semver-based, matching the pattern from MyScrumBudget:
 - **Version constant** `APP_VERSION` in `constants.ts` — used by footer and migration system
 - **CFD band order**: Done on bottom, Backlog on top (bands rise as work flows through)
 
-## Dark Mode (v0.19.1: every screen's colours in place, switched off)
+## Dark Mode (v0.20.0: the header switch, the follow-your-computer default)
 
 - **The variant.** `globals.css` declares `@custom-variant dark { @media not print { &:is(.dark *) { @slot; } } }`: a `dark:` class
   applies only under an element carrying the `dark` class (never from the operating system's setting) and never in print, so a page
   printed in dark comes out light. `&:is(.dark *)` needs an ancestor, so it never matches `<html>` itself.
-- **Nothing sets the `dark` class yet.** v0.19.1 gives every screen its dark colours (DASH26 RD1); no visitor sees them. The theme
-  switch (light / dark / system, SPERT® Forecaster's), the pre-paint script that sets the class before first paint, and the stored
-  preference come in the next release (RD2), with the preference held by the switch's own code.
-- **CSS only, no theme state in JavaScript.** Everything that changes with the theme follows the class through CSS:
+- **The preference** (v0.20.0, DASH26 RD2): `spert-theme` in localStorage, `light`, `dark` or `system`, System the default. **One
+  rule** (O33): anything but those three values (missing, invalid, unreadable) means System, and System follows the computer
+  (`prefers-color-scheme`). Dark means the `dark` class on `<html>`. `src/lib/theme.ts` holds the rule and the store; two places
+  apply it, the pre-paint script and `ThemeSync`, and one control writes it, the header's switch.
+- **The pre-paint script.** `layout.tsx` writes `THEME_SCRIPT` (built in `theme.ts` from its own key and values) into `<head>`, so the
+  class is on `<html>` before the first frame: a dark visitor never sees a light page first. It reads storage inside a `try` (the
+  `window.localStorage` getter included: Chrome with site data blocked throws from the getter itself) and falls back to System
+  outside it; SPERT® Forecaster's form, `stored || 'system'` inside one `try`, gives light for an invalid value or a throw.
+  `theme-script.test.ts` runs the script's own text in a fresh JavaScript context for every stored value against both settings of
+  the computer and checks the store gives the same answers. `<html>` carries `suppressHydrationWarning` (its own attributes only),
+  since the class is there before React hydrates it.
+- **The CSP has no `script-src`** (`next.config.ts`), which is why the inline script runs. A `script-src` added later must allow it
+  (its hash), or the script stops running: every dark visitor would then get a light first frame and a late flip from `ThemeSync`.
+- **The store** (`theme.ts`). The preference lives in memory once read (O33 as amended): read from storage once per page, changed
+  by every click whether or not the save succeeds, and by `storage` events from CFD's other tabs (using the event's own
+  `newValue`). The switch shows it and `ThemeSync` applies it, so they always agree. This is the one piece of theme state in
+  JavaScript, the preference itself (O26).
+- **`ThemeSync`** (`theme-sync.tsx`), mounted once in the root layout's `<body>`, outside `AppShell`. It applies the preference
+  when it mounts (a layout effect, before the browser paints) and follows the computer while System and the other tabs, on every
+  route: on `/changelog`, on the loading screen, during a storage switch and on the crash screen, where the header and its switch
+  are not mounted. It renders nothing and never writes. **Why it exists:** React removes every attribute of `<html>`, the class
+  included, whenever it renders the root on the client instead of hydrating it (an error while hydrating: with storage blocked,
+  `StorageProvider` throws); `ThemeSync` mounts again in that same commit and puts the class back. **It must never throw:** it
+  sits outside every error boundary, and a throw there would replace all of CFD with Next's global error page; every storage
+  access in `theme.ts` is guarded.
+- **The switch** (`theme-toggle.tsx`, `HeaderThemeToggle`): SPERT® Forecaster's, before the sign-in chip. Coloured sun / moon /
+  monitor, 32 px, System → Light → Dark → System (R33), Forecaster's `aria-label` ("Theme: System. Switch to Light") and `title`,
+  70 % opacity at rest, full on hover and while focused (O39), `type="button"`. It reads the store with `useSyncExternalStore`, so
+  its first rendered frame already shows the stored preference: the header mounts after the loading screen, on the client, never
+  in a server render. The server snapshot's placeholder (a 32 px grey square with its dark partner) is therefore unreachable on
+  today's tree; `theme-toggle.test.tsx` renders it on the server and compiles its classes. Each click is announced in a polite
+  `sr-only` status line ("Theme: Dark", "Theme: System (dark)"), CFD's own pattern (O38). It is the first Tab stop, before "Sign in".
+- **A refused save** (O34, O35). With storage full or blocked, a click still changes the page, the icon, the label and the
+  announcement; nothing is thrown and no message is shown. The choice is only not remembered: this tab's next reload reverts to
+  the stored value, and CFD's other tabs, which hear of a change only through a successful save's `storage` event, keep their
+  theme.
+- **Known residuals** (O40). With the whole of storage blocked, `/` shows the pre-existing crash screen ("Something went wrong")
+  before any switch, now in the visitor's theme; in development it logs React's "Encountered a script tag…" (React cannot run an
+  inline script it renders on the client, and says so). Next's built-in 404 page follows the computer, not the choice (its own
+  unlayered `body` colours with a `prefers-color-scheme` rule; CFD has no `not-found` page, nor do Forecaster and GanttApp). Colour
+  transitions animate the flip where an element has one (Tailwind's 150 ms; the tab buttons 200 ms), as in Forecaster.
+- **CSS only, no theme state in JavaScript but the preference.** Everything that changes with the theme follows the class through CSS:
   - Tailwind `dark:` classes beside every light colour, hover and focus colour (the values: SPERT® Forecaster's for shared elements,
     its palette for CFD's own; the page `#101828`, raised surfaces `#1e2939`, inputs `#364153`);
   - `html.dark { color-scheme: dark }` (plain CSS, since the variant cannot reach `<html>`) for scrollbars, select lists, the date
@@ -309,7 +351,7 @@ Semver-based, matching the pattern from MyScrumBudget:
     overridden by `dark:!` classes through `wrapperClassName`; the workflow colours are drawn as chosen in both themes;
   - the header logo is two `<img>`s, `dark:hidden` and `hidden dark:block`; the browser tab's icon does not change. The
     hidden one is still downloaded on a light visit (`spert-favicon-cfd-dark.png`, about 4 KB, one request): accepted
-    (PR #110 review -07), since it lets CSS alone choose the logo and the dark one is ready the moment RD2 sets the class;
+    (PR #110 review -07), since it lets CSS alone choose the logo, with no script knowing the theme;
   - the browser's own focus ring (`outline: auto`, which Chromium draws in #101010 whatever the colour scheme) takes the dark
     focus blue `#60a5fa` through one `@layer base` rule on `:where(.dark) *`, below every authored outline colour.
 - **Test files are not scanned for classes** (`@source not "../**/__tests__"` in `globals.css`): strings in a test, such as a
@@ -319,7 +361,10 @@ Semver-based, matching the pattern from MyScrumBudget:
   and when a one-side rule (`border-b`, `border-b-2`, `divide-y`) carries no colour at all. Its doc comment lists what it
   cannot see (inline and JavaScript colours, inherited ones, bare all-sides `border` / `ring-N` / `outline-N`).
   `globals-css.test.ts` compiles `globals.css` with the app's Tailwind and checks the variant, the print exclusion, `color-scheme`
-  and the chart rules, the focus-ring rule and the test-file exclusion.
+  and the chart rules, the focus-ring rule and the test-file exclusion. The theme itself (v0.20.0): `theme-script.test.ts` (the
+  script's own text against the store, every stored value × both computers), `theme-store.test.ts`, `theme-sync.test.tsx` and
+  `theme-toggle.test.tsx`; jsdom files get a controllable `matchMedia` from `src/__tests__/setup-match-media.ts` (vitest
+  `setupFiles`), never a fallback in the store.
 
 ## Test Tiers
 
