@@ -8,18 +8,18 @@
 // another device's reorder (B A C D where this gives D C A B), and a project
 // the tab had not listed lost its place (B A where this gives B C A).
 import { it, expect, afterEach, vi } from 'vitest'
-import { doc, getDoc, getDocs, updateDoc, query, collection, where, disableNetwork, enableNetwork } from 'firebase/firestore'
+import { doc, getDocs, updateDoc, query, collection, where, disableNetwork, enableNetwork } from 'firebase/firestore'
 import { createFirestoreDriver } from '@/lib/firestore-driver'
 import type { ProjectMove } from '@/lib/storage-driver'
 import { buildClone } from '@/lib/clone-project'
 import { PROJECTS_COL, SETTINGS_COL } from '@/lib/firestore-helpers'
-import { client, closeClients, newProject, sleep, uniqueId } from './helpers'
+import { client, closeClients, newProject, serverSettings, sleep, uniqueId } from './helpers'
 
 afterEach(closeClients)
 
 /** The stored order, read by a fresh device, as names. */
 async function storedNames(uid: string, names: Record<string, string>) {
-  const order = ((await getDoc(doc(client(uid), SETTINGS_COL, uid))).data()?.projectOrder ?? []) as string[]
+  const order = ((await serverSettings(uid))?.projectOrder ?? []) as string[]
   return order.map((id) => names[id] ?? id)
 }
 const move = (draggedId: string, targetId: string, held: string[], shown = held): ProjectMove =>
@@ -112,7 +112,7 @@ it("P-A3 (W2): with no settings document yet, an offline drop is still written: 
   const me = createFirestoreDriver(meUid, db)
   const held = (await me.loadProjectList()).map((p) => p.id)
   expect(held).toHaveLength(2)
-  expect((await getDoc(doc(client(meUid), SETTINGS_COL, meUid))).exists()).toBe(false) // fixture: no document
+  expect(await serverSettings(meUid)).toBeNull() // fixture: no document
   await disableNetwork(db)
   const moved = me.moveProject(move(held[1], held[0], held))
   await sleep(300)

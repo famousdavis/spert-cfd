@@ -7,6 +7,7 @@ import {
   doc,
   getDoc,
   getDocFromCache,
+  getDocFromServer,
   setDoc,
   deleteDoc,
   deleteField,
@@ -453,6 +454,20 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     await written;
   }
 
+  /**
+   * Whether a project document no longer exists on the server. A member's read
+   * of a document that does not exist is refused (the `get` rule reads
+   * `resource.data.members`), so a refusal means gone (or no longer theirs); a
+   * read that cannot reach the server answers false.
+   */
+  async function isGone(ref: ReturnType<typeof doc>): Promise<boolean> {
+    try {
+      return !(await getDocFromServer(ref)).exists();
+    } catch (err) {
+      return (err as { code?: string }).code === 'permission-denied';
+    }
+  }
+
   /** Listen to one project doc; a permission-denied error reads as revoked access. */
   function listenToProject(
     id: string,
@@ -666,7 +681,21 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
         pendingWrites.delete(id);
       }
 
-      await deleteDoc(doc(db, PROJECTS_COL, id));
+      const ref = doc(db, PROJECTS_COL, id);
+      try {
+        await deleteDoc(ref);
+      } catch (err) {
+        // v0.21.0 (PR #115, CI run 45112517962): a delete whose first commit
+        // landed but whose acknowledgement was lost is sent again by the SDK,
+        // and the rules then see no document (`isCfdOwner(null)`) and refuse
+        // it, though the project is gone (measured on the emulator: refused,
+        // and the document no longer there, 1 run in 30; ci-fix/probe5). The
+        // list then showed the project again until the server's removal came,
+        // and its colour and archive were kept. A refusal is checked against
+        // the server: a document still there (or a read that cannot answer)
+        // keeps the refusal; one gone means the delete was made.
+        if ((err as { code?: string }).code !== 'permission-denied' || !(await isGone(ref))) throw err;
+      }
 
       // Remove from project order. The mirror of createProject's arrayUnion,
       // and measured to match the old `filter(pid => pid !== id)` exactly,

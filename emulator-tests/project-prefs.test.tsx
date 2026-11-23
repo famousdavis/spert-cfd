@@ -11,10 +11,10 @@
 import { it, expect, vi, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import React from 'react'
-import { doc, getDocFromServer, getDocs, query, collection, where, disableNetwork, enableNetwork, type Firestore } from 'firebase/firestore'
+import { doc, getDocs, updateDoc, query, collection, where, disableNetwork, enableNetwork, type Firestore } from 'firebase/firestore'
 import type { StorageDriver } from '@/lib/storage-driver'
 import type { Project } from '@/types'
-import { client, closeClients, newProject, sleep, uniqueId, waitFor } from './helpers'
+import { client, closeClients, newProject, serverSettings, sleep, uniqueId, waitFor } from './helpers'
 
 let driver: StorageDriver
 vi.mock('@/contexts/storage-context', () => ({
@@ -28,11 +28,8 @@ import { ProjectListProvider, useProjectList } from '@/contexts/project-list-con
 
 afterEach(closeClients)
 
-/** The settings document as the server holds it, read by a fresh device. */
-async function raw(uid: string) {
-  const s = await getDocFromServer(doc(client(uid), SETTINGS_COL, uid))
-  return s.exists() ? s.data() : null
-}
+/** The settings document as the server holds it (one reader device per user; see `serverSettings`). */
+const raw = (uid: string) => serverSettings(uid)
 /** Writes waiting are sent now, then the server is polled until `pred` holds. */
 async function landed(d: StorageDriver, uid: string, pred: (data: Record<string, unknown> | null) => boolean) {
   d.flush()
@@ -217,4 +214,25 @@ it('O64: a project that fails stops the upload with the pairs so far, and the pr
   const pairs = (caught as UploadError).pairs
   expect(pairs.map(([localId]) => localId)).toEqual([ok.id])
   expect(prefsOf(await raw(uid))).toEqual({ [pairs[0][1]]: { color: 'pink' } })
+})
+
+it('a delete the rules refuse because the project is already gone counts as made (PR #115 CI run 45112517962)', async () => {
+  // What the SDK's retry of a delete whose first commit landed meets: no document. Made deterministic here by
+  // deleting through another device first. Control: a project still there and not the person's to delete stays refused.
+  const uid = uniqueId('u')
+  const d = await ready(uid)
+  const p = newProject(uniqueId('p'), 'Gone')
+  await d.createProject(p)
+  d.setProjectPref(p.id, 'archived', true)
+  await landed(d, uid, (x) => !!prefsOf(x))
+  await createFirestoreDriver(uid, client(uid)).deleteProject(p.id) // another device
+  await expect(d.deleteProject(p.id)).resolves.toBeUndefined()
+
+  const [ownerUid, editorUid] = [uniqueId('o'), uniqueId('e')]
+  const ownerDb = client(ownerUid)
+  const kept = newProject(uniqueId('k'), 'Kept')
+  await createFirestoreDriver(ownerUid, ownerDb).createProject(kept)
+  await updateDoc(doc(ownerDb, PROJECTS_COL, kept.id), { [`members.${editorUid}`]: 'editor' })
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  await expect(createFirestoreDriver(editorUid, client(editorUid)).deleteProject(kept.id)).rejects.toMatchObject({ code: 'permission-denied' })
 })

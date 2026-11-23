@@ -11,6 +11,7 @@ const mockSetDoc = vi.fn().mockResolvedValue(undefined);
 const mockDeleteDoc = vi.fn().mockResolvedValue(undefined);
 const mockGetDoc = vi.fn();
 const mockGetDocFromCache = vi.fn();
+const mockGetDocFromServer = vi.fn();
 const mockGetDocs = vi.fn();
 const mockOnSnapshot = vi.fn();
 const mockDoc = vi.fn((_db, _col, id) => ({ id, path: `${_col}/${id}` }));
@@ -40,6 +41,7 @@ vi.mock('firebase/firestore', () => ({
   deleteDoc: (...args: Parameters<typeof mockDeleteDoc>) => mockDeleteDoc(...args),
   getDoc: (...args: Parameters<typeof mockGetDoc>) => mockGetDoc(...args),
   getDocFromCache: (...args: Parameters<typeof mockGetDocFromCache>) => mockGetDocFromCache(...args),
+  getDocFromServer: (...args: Parameters<typeof mockGetDocFromServer>) => mockGetDocFromServer(...args),
   getDocs: (...args: Parameters<typeof mockGetDocs>) => mockGetDocs(...args),
   onSnapshot: (...args: Parameters<typeof mockOnSnapshot>) => mockOnSnapshot(...args),
   // Must be EXPORTED here, not merely declared above: firestore-driver.ts
@@ -1357,5 +1359,42 @@ describe('tile colour and archive (v0.21.0)', () => {
     expect(driver.setProjectPref('p1', 'color', 'blue')).toBeNull();
     await vi.advanceTimersByTimeAsync(200);
     expect(prefsWrites().map((w) => w.mask)).toEqual([['projectPrefs/p1/color']]);
+  });
+});
+
+// v0.21.0 (PR #115, CI run 45112517962): a delete refused although it landed
+// (its first commit applied, the retry then refused against a missing document).
+describe('deleteProject after a refusal', () => {
+  const denied = () => Object.assign(new Error('denied'), { code: 'permission-denied' });
+  const settingsWrites = () => mockSetDoc.mock.calls.filter(([ref]) => ref.path.startsWith('spertcfd_settings/'));
+
+  it('a refusal for a project the server no longer holds is a delete made: the order write follows', async () => {
+    mockDeleteDoc.mockRejectedValueOnce(denied());
+    mockGetDocFromServer.mockRejectedValueOnce(denied()); // a member's read of a missing document is refused
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await expect(driver.deleteProject('gone')).resolves.toBeUndefined();
+    expect(settingsWrites()).toHaveLength(1);
+  });
+
+  it('a refusal for a project still there stands, and nothing else is written', async () => {
+    mockDeleteDoc.mockRejectedValueOnce(denied());
+    mockGetDocFromServer.mockResolvedValueOnce({ exists: () => true });
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await expect(driver.deleteProject('kept')).rejects.toMatchObject({ code: 'permission-denied' });
+    expect(settingsWrites()).toHaveLength(0);
+  });
+
+  it('a refusal the server cannot be asked about stands (offline)', async () => {
+    mockDeleteDoc.mockRejectedValueOnce(denied());
+    mockGetDocFromServer.mockRejectedValueOnce(Object.assign(new Error('offline'), { code: 'unavailable' }));
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await expect(driver.deleteProject('unknown')).rejects.toMatchObject({ code: 'permission-denied' });
+  });
+
+  it('any other failure stands without a read', async () => {
+    mockDeleteDoc.mockRejectedValueOnce(Object.assign(new Error('x'), { code: 'unavailable' }));
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await expect(driver.deleteProject('x')).rejects.toMatchObject({ code: 'unavailable' });
+    expect(mockGetDocFromServer).not.toHaveBeenCalled();
   });
 });
