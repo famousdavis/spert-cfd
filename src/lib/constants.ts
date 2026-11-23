@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-export const APP_VERSION = '0.20.1';
+export const APP_VERSION = '0.20.2';
 
 /** The tagline under the header's title, the About tab's subtitle and the page's
  *  metadata description (v0.17.9). One constant, so they never disagree:
