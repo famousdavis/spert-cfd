@@ -94,10 +94,11 @@ interface ProjectListContextValue {
    * v0.20.2 (DASH26 R2o, O53a): drop `draggedId` on `targetId`'s tile. The
    * tiles move at once; the driver applies the move to the order it reads now
    * and the list then shows the order written (another tab's or device's
-   * included). When nothing is written (local: the index lacks an id; cloud: no
-   * order was ever read; local: the write threw) the list shows the order it
-   * had before the drop. `shownIds` are the tiles on screen, all of them when
-   * omitted.
+   * included), which in a tab that is behind can differ from the drop made on
+   * screen. When nothing is written (local: the index lacks an id, or the
+   * write threw; cloud: no order was ever read, or the server refused the
+   * write) the list shows the order it had before the drop. `shownIds` are the
+   * tiles on screen, all of them when omitted.
    */
   moveProject: (draggedId: string, targetId: string, shownIds?: readonly string[]) => void;
 }
@@ -189,13 +190,19 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   // they were made, and the order the list had before the first of them (the
   // last one written, once a drop is). Each answer re-shows the order written,
   // or this one, with the drops still waiting made again on top, so a second
-  // quick drop never shows the first undone. `driverRef` lets an answer from a
-  // driver that has since been swapped out be ignored.
+  // quick drop never shows the first undone. A drop belongs to its driver:
+  // when the driver changes (sign-in, Switch to local or Cloud), the drops
+  // still waiting are dropped with it, before any later drop can be made, and
+  // an answer from the old driver changes nothing on screen. Until PR #114's
+  // review (-01) a cloud drop still waiting offline at a Switch to local was
+  // made again over every later drop, so the screen and the stored order
+  // disagreed until a reload.
   const pendingMovesRef = useRef<PendingMove[]>([]);
   const confirmedOrderRef = useRef<string[]>([]);
   const driverRef = useRef(driver);
   useLayoutEffect(() => {
     driverRef.current = driver;
+    pendingMovesRef.current = [];
   }, [driver]);
 
   // Load project list from driver on mount
@@ -263,8 +270,9 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   // state so the prior user's projects do not flash in the UI during
   // the onAuthStateChanged(null) cascade.
   useEffect(() => {
+    // (No drops to clear here: sign-out always replaces the driver, and the
+    // drops still waiting go with it, above.)
     return registerDataReset(() => {
-      pendingMovesRef.current = [];
       setProjects([]);
       setActiveProjectId(null);
       setImportedActiveProject(null);
@@ -562,8 +570,8 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
       setProjects((prev) => applyMove(prev, move));
 
       const settle = (outcome: MoveOutcome) => {
-        if (driverRef.current !== driver) return;
         pendingMovesRef.current = pendingMovesRef.current.filter((m) => m !== move);
+        if (driverRef.current !== driver) return;
         if (outcome.kind === 'written') confirmedOrderRef.current = outcome.order;
         // `written` shows the order written; every other outcome the order
         // before this drop. Either way the drops still waiting go on top.

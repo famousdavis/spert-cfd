@@ -717,7 +717,7 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       // the earlier one's order resolves, applying stale ordering.
       // Likely fixes: a sequence-token guard that drops late-arriving
       // results, or caching `order` at listener-attach time and
-      // invalidating only on explicit reorderProjects(). Investigate
+      // invalidating only on an explicit moveProject(). Investigate
       // before the next security audit.
       return onSnapshot(
         membershipQuery(),

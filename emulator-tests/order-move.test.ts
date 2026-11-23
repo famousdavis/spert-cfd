@@ -7,7 +7,7 @@
 // (measured, DASH26 R2 pre-flight, order-base.json): a tab left open undid
 // another device's reorder (B A C D where this gives D C A B), and a project
 // the tab had not listed lost its place (B A where this gives B C A).
-import { it, expect, afterEach } from 'vitest'
+import { it, expect, afterEach, vi } from 'vitest'
 import { doc, getDoc, getDocs, updateDoc, query, collection, where, disableNetwork, enableNetwork } from 'firebase/firestore'
 import { createFirestoreDriver } from '@/lib/firestore-driver'
 import type { ProjectMove } from '@/lib/storage-driver'
@@ -170,4 +170,36 @@ it('a clone and a drop started together take turns: both land', async () => {
   ])
   await sleep(300) // the placement's order write is not awaited by the create
   expect(await storedNames(uid, names)).toEqual(['C', 'A', 'A (copy)', 'B'])
+})
+
+// PR #114 review -06 (M9). The server refuses a move only when the settings
+// document holds a key the rules do not allow; such a document is set up here
+// with the emulator's rules-bypassing owner token, which no client has.
+async function asOwner(uid: string, query: string, fields: Record<string, unknown>) {
+  const url = `http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/${process.env.GCLOUD_PROJECT}/databases/(default)/documents/${SETTINGS_COL}/${uid}${query}`
+  const res = await fetch(url, { method: 'PATCH', headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }) })
+  expect(res.ok).toBe(true)
+}
+const ids = (xs: string[]) => ({ arrayValue: { values: xs.map((stringValue) => ({ stringValue })) } })
+
+it('a move the server refuses is failed, and a later offline drop builds on the order it was made on, not the refused one', async () => {
+  const uid = uniqueId('u')
+  const db = client(uid)
+  const here = createFirestoreDriver(uid, db)
+  const [a, b, c] = ['A', 'B', 'C'].map((n) => newProject(uniqueId('p'), n))
+  for (const p of [a, b, c]) await here.createProject(p)
+  const held = (await here.loadProjectList()).map((p) => p.id)
+  const names = Object.fromEntries([a, b, c].map((p) => [p.id, p.name]))
+  await asOwner(uid, '', { projectOrder: ids(held), stray: { booleanValue: true } }) // a key outside the allowlist
+  const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+  expect(await here.moveProject(move(c.id, a.id, held))).toEqual({ kind: 'failed' }) // C onto A: refused
+  errors.mockRestore()
+  expect(await storedNames(uid, names)).toEqual(['A', 'B', 'C'])
+
+  await disableNetwork(db)
+  const later = here.moveProject(move(b.id, a.id, held)) // B onto A, built on A B C (not on the refused C A B)
+  await asOwner(uid, '?updateMask.fieldPaths=stray', {}) // the stray key goes, so the queued write can land
+  await enableNetwork(db)
+  expect(await later).toEqual({ kind: 'written', order: [b.id, a.id, c.id] })
+  expect(await storedNames(uid, names)).toEqual(['B', 'A', 'C'])
 })

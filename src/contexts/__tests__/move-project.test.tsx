@@ -148,11 +148,86 @@ describe('a driver that answers later', () => {
     expect(shown(result)).toBe('a c b'); // b onto c, made in a b c
   });
 
+  it('a listed project the order written does not name is shown last (PR #114 review -06, M4)', async () => {
+    const { result } = await mount();
+    await settle(() => result.current.moveProject('b', 'a'));
+    expect(shown(result)).toBe('b a c');
+    await settle(() => answers[0]({ kind: 'written', order: ['b', 'a'] })); // c: not in the order, as an unordered cloud project
+    expect(shown(result)).toBe('b a c');
+    await settle(() => result.current.moveProject('a', 'b'));
+    await settle(() => answers[1]({ kind: 'written', order: ['a', 'b'] }));
+    expect(shown(result)).toBe('a b c');
+  });
+
   it('shows the order written, which may differ from the drop made on the tab\'s own order', async () => {
     const { result } = await mount();
     await settle(() => result.current.moveProject('a', 'b'));
     expect(shown(result)).toBe('b a c');
     await settle(() => answers[0]({ kind: 'written', order: ['x', 'c', 'a', 'b'] })); // x: a project this tab does not list
     expect(shown(result)).toBe('c a b');
+  });
+});
+
+// PR #114 review -01 (Opus-PR114-1, its probe adopted): a cloud drop still
+// waiting for its answer (offline: until reconnect) when the driver is swapped,
+// here by Switch to local with Keep local copy, so the ids are the same. Until
+// the fix the waiting drop stayed in the list of drops to re-apply and was made
+// again over every later drop's answer on the new driver, so the screen and the
+// stored order disagreed until a reload.
+describe('a driver swap with a cloud drop still waiting', () => {
+  const index = () => (JSON.parse(localStorage.getItem('cfd-lab')!).projectIds as string[]).join(' ');
+
+  it('the waiting drop is dropped with its driver: the screen and the stored order agree after every later drop', async () => {
+    localStorage.clear();
+    for (const id of ['a', 'b', 'c']) await createLocalStorageDriver().createProject(project(id));
+    const answers: Array<(o: MoveOutcome) => void> = [];
+    driver = {
+      ...createLocalStorageDriver(),
+      mode: 'cloud',
+      workspaceId: 'uid-me',
+      onProjectListChange: () => () => {},
+      moveProject: vi.fn((_m: ProjectMove) => new Promise<MoveOutcome>((resolve) => answers.push(resolve))),
+    };
+    const r = renderHook(() => useProjectList(), { wrapper });
+    await settle();
+    await settle(() => r.result.current.moveProject('c', 'a')); // offline cloud drop: waiting
+    expect(shown(r.result)).toBe('c a b');
+
+    driver = createLocalStorageDriver(); // Switch to local, Keep local copy (stored a b c)
+    await settle(() => r.rerender());
+    expect(shown(r.result)).toBe('a b c');
+
+    await settle(() => r.result.current.moveProject('b', 'a'));
+    expect([shown(r.result), index()]).toEqual(['b a c', 'b a c']);
+
+    await settle(() => answers[0]({ kind: 'written', order: ['c', 'a', 'b'] })); // the old write lands on reconnect
+    expect([shown(r.result), index()]).toEqual(['b a c', 'b a c']);
+
+    await settle(() => r.result.current.moveProject('a', 'c'));
+    expect([shown(r.result), index()]).toEqual(['b c a', 'b c a']);
+  });
+
+  it('after a swap, a refused drop springs back to the new driver\'s list, not the old driver\'s order', async () => {
+    localStorage.clear();
+    for (const id of ['a', 'b', 'c']) await createLocalStorageDriver().createProject(project(id));
+    driver = {
+      ...createLocalStorageDriver(),
+      mode: 'cloud',
+      workspaceId: 'uid-me',
+      onProjectListChange: () => () => {},
+      moveProject: vi.fn(() => new Promise<MoveOutcome>(() => {})),
+    };
+    const r = renderHook(() => useProjectList(), { wrapper });
+    await settle();
+    await settle(() => r.result.current.moveProject('c', 'a')); // waiting for ever
+    const local = createLocalStorageDriver();
+    const all = ['a', 'b', 'c'];
+    await local.moveProject({ draggedId: 'b', targetId: 'a', shownIds: all, heldIds: all }); // stored b a c
+    driver = local;
+    await settle(() => r.rerender());
+    expect(shown(r.result)).toBe('b a c');
+    await createLocalStorageDriver().deleteProject('c'); // another tab
+    await settle(() => r.result.current.moveProject('c', 'b')); // names a deleted project: refused
+    expect(shown(r.result)).toBe('b a c');
   });
 });

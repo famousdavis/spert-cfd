@@ -709,6 +709,20 @@ describe('projectOrder writes are atomic (v0.15.9)', () => {
     expect(await driver.moveProject(movesOf('a', 'c', ['c', 'a', 'b']))).toEqual({ kind: 'written', order: ['a', 'c', 'b'] });
   });
 
+  it('a move the server refuses is failed, and the next offline drop builds on the order it was made on', async () => {
+    // PR #114 review -06 (M9): without the revert, lastOrder would keep the
+    // refused order and a later offline drop would build on an order never saved.
+    mockGetDoc.mockResolvedValueOnce(order(['a', 'b', 'c']));
+    mockSetDoc.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    expect(await driver.moveProject(movesOf('c', 'a', ['a', 'b', 'c']))).toEqual({ kind: 'failed' });
+    expect(errors).toHaveBeenCalledWith('moveProject: order write failed:', 'permission-denied');
+    errors.mockRestore();
+    mockGetDoc.mockRejectedValue(Object.assign(new Error('offline'), { code: 'unavailable' }));
+    expect(await driver.moveProject(movesOf('b', 'a', ['a', 'b', 'c']))).toEqual({ kind: 'written', order: ['b', 'a', 'c'] });
+  });
+
   it('a move waits for a positioned create to issue its order write, and builds on it', async () => {
     // The order turn (v0.19.0 for placements, v0.20.2 for moves too): the
     // move's read is not even issued until the clone's order write is.
