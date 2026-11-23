@@ -203,7 +203,7 @@ MetricsPeriod (discriminated union, uses `kind` not `type`)
 
 - `spertcfd_projects/{projectId}` — monolithic project documents with `owner`, `members`, fingerprinting fields
 - `spertcfd_profiles/{uid}` — user profiles for sharing UI email lookups
-- `spertcfd_settings/{uid}` — per-user preferences (`projectOrder`)
+- `spertcfd_settings/{uid}` — per-user preferences: `projectOrder`, the only key CFD writes today. The rules also accept `projectPrefs` (landing v2.14.3), each person's own tile colour and archive per project, ahead of the release that writes it; they check keys only
 
 **Cloud reads are checked, not trusted (v0.16.4).** Any editor of a shared project can write its document, so `mapDocToProject` and both project-list paths read it through `cloud-load-guards.ts`:
 - a snapshot or workflow state that cannot be read is set aside, a field of the wrong type takes its default, and the rest loads;
