@@ -130,3 +130,16 @@ describe('Clone (v0.19.0, DASH26 R1b)', () => {
     expect((screen.getByRole('button', { name: 'Clone Alpha' }) as HTMLButtonElement).disabled).toBe(false);
   });
 });
+
+describe('v0.21.0 (DASH26 R2, O66): the grip on a coloured tile', () => {
+  const dots = () => [...document.querySelectorAll('[title="Drag to reorder"] div div')].map((d) => d.className);
+  it('takes gray-400 in dark on a tint or an archived tint; the untinted tile keeps gray-500', () => {
+    renderTile({ color: 'teal' });
+    expect(dots()).toHaveLength(6);
+    expect(dots().every((c) => c.includes('dark:bg-gray-400') && c.includes('bg-gray-400'))).toBe(true);
+  });
+  it('untinted, archived or not: unchanged', () => {
+    renderTile({ archived: true });
+    expect(dots().every((c) => c.includes('dark:bg-gray-500'))).toBe(true);
+  });
+});
