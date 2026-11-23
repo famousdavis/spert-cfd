@@ -28,13 +28,19 @@
   }
 }
 
-/* v0.17.9: the SPERT® blues, as in SPERT® Forecaster, for the header's
-   gradient title and the active tab (`from-spert-blue-light`,
-   `to-spert-blue-dark`, `bg-spert-blue`, `border-b-spert-blue`). A plain
-   @theme, not `@theme inline`, so the utilities read `var(--color-spert-*)`
-   and a later dark value can override them. Without this block those classes
-   compile to nothing, and the title and the active tab's label render
-   invisible. Forecaster's other token colours are written as hex values. */
+/* v0.17.9: the SPERT® blues, as in SPERT® Forecaster, for the active tab and
+   the blue buttons (`bg-spert-blue`, `border-spert-blue`,
+   `border-b-spert-blue`). A plain @theme, not `@theme inline`, so the
+   utilities read `var(--color-spert-*)` and a later dark value can override
+   them. Without this block those classes compile to nothing, and the active
+   tab's white label renders on no fill. Forecaster's other token colours are
+   written as hex values.
+   v0.20.1 (DASH26 RT, HDR26): the header's title left the blues for CFD's own
+   purple (app-header.tsx), so no class uses `-light` or `-dark` any more.
+   They stay here in the source, as the suite's tokens (HDR26 R4), but
+   Tailwind emits a theme variable only while a class uses it: the shipped
+   CSS no longer has `--color-spert-blue-light` or `-dark`, and an inline
+   `var()` naming either would resolve to nothing. */
 @theme {
   --color-spert-blue: #0070f3;
   --color-spert-blue-light: #0099ff;

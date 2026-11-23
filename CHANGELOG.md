@@ -2,6 +2,15 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.20.1 — The title in CFD's own colour (November 22, 2026)
+
+- **The SPERT® CFD title is now in CFD's own colour**: the purple of its icon, drawn as a gradient, a lighter one in dark mode. The other SPERT® apps' titles are moving to their own colours in the same way.
+- **The title now meets the 3:1 contrast bar for large text in both themes**, at every point of the gradient: at its weakest 3.71:1 on the light page and 3.02:1 on the dark one. The blue it replaces measured 2.99:1 on white and 2.57:1 on dark. Measured in Chrome at 1280, 1024, 768, 700 and 600 pixels wide, with the theme set by the header's switch.
+- **It prints solid**: black on paper in either theme, with or without the browser's "background graphics". The blue printed blank without them (measured from PDFs printed by Chrome).
+- **It turns solid when a computer asks for more contrast**: black in light, near-white in dark.
+- **Nothing else changes.** Measured in Chrome on the Projects page at 1280, 1024 and 768 pixels wide, in both themes: every other element's colours are as before, the header keeps its height, "SPERT", the ® and the space sit exactly where they did, and "CFD" moves by at most 1/64 of a pixel.
+- **Tests.** 1,024 tests in all (20 new), and 28 that run the real cloud code against Firestore's emulator with the live rules, as before. A new test checks the title's colours against the page behind it in both themes, its print and increased-contrast colours, its size, the space between its words and its name as a heading. It also checks that, from the page down to the title, no class fades, filters, blends, hides or recolours it, and that the style sheet adds no rule of its own that selects it. The check that every light colour has a dark one now lets a colour meant only for print through, and refuses one that could never apply. 37 deliberate breaks of the title and of these checks were tried, each caught by a test. They are listed in the pull request; that list is the claim, not every possible break.
+
 ## v0.20.0 — Dark mode, with a switch in the header (November 22, 2026)
 
 - **Dark mode is on.** A switch in the header, just before Sign in, sets the theme: System, which follows your computer and is where everyone starts, Light or Dark. From this release, if your computer is set to dark, CFD opens in dark.
