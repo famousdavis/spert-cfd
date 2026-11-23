@@ -47,6 +47,15 @@ vi.mock('firebase/firestore', () => ({
   // them fails at module initialisation rather than at the call site.
   arrayUnion: (...args: Parameters<typeof mockArrayUnion>) => mockArrayUnion(...args),
   arrayRemove: (...args: Parameters<typeof mockArrayRemove>) => mockArrayRemove(...args),
+  // v0.21.0: the prefs write's sentinel and path, as plain shapes (the real
+  // ones are pinned in firestore-prefs.test.ts and on the emulator).
+  deleteField: () => ({ _deleteField: true }),
+  FieldPath: class {
+    segments: string[];
+    constructor(...segments: string[]) {
+      this.segments = segments;
+    }
+  },
 }));
 
 // ── localStorage mock ────────────────────────────────────
@@ -1235,5 +1244,118 @@ describe('positioned create (v0.19.0, DASH26 O22)', () => {
     const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
     await driver.createProject(sampleProject({ id: 'new' }));
     expect(calls).toEqual(['set:spertcfd_projects/new', `set:${settingsPath}`]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v0.21.0 (DASH26 R2): the person's tile colours and archive in the cloud
+// driver. O62's read timing and O54's failed read, with the SDK mocked; the
+// raw documents the writes leave are pinned on the emulator.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('tile colour and archive (v0.21.0)', () => {
+  const settings = (data: Record<string, unknown> | null, fromCache = false) => ({
+    exists: () => data !== null,
+    data: () => data ?? undefined,
+    metadata: { fromCache },
+  });
+  const prefsWrites = () =>
+    mockSetDoc.mock.calls
+      .filter(([ref, , opts]) => ref.path.startsWith('spertcfd_settings/') && opts?.mergeFields)
+      .map(([, data, opts]) => ({ data, mask: (opts.mergeFields as Array<{ segments: string[] }>).map((f) => f.segments.join('/')) }));
+  const listed = () => mockGetDocs.mockResolvedValue({ forEach: () => {} });
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    listed();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('loading until the first read; ready from a read that reached the server (a missing document is {})', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    expect(driver.getProjectPrefs()).toEqual({ status: 'loading' });
+    mockGetDoc.mockResolvedValueOnce(settings(null));
+    await driver.loadProjectList();
+    expect(driver.getProjectPrefs()).toEqual({ status: 'ready', prefs: {} });
+  });
+
+  it('the map is read once: a later read never replaces it, so a change still waiting is not undone (O62)', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    mockGetDoc.mockResolvedValueOnce(settings({ projectPrefs: { a: { color: 'blue' }, hasOwnProperty: { archived: true } } }));
+    await driver.loadProjectList();
+    expect(driver.getProjectPrefs()).toEqual({ status: 'ready', prefs: { a: { color: 'blue' } } }); // sanitised (O60)
+    expect(driver.setProjectPref('a', 'color', 'teal')).toBeNull();
+    mockGetDoc.mockResolvedValueOnce(settings({ projectPrefs: { a: { color: 'blue' } } })); // the server, before the write
+    await driver.loadProjectList();
+    expect(driver.getProjectPrefs()).toEqual({ status: 'ready', prefs: { a: { color: 'teal' } } });
+  });
+
+  it('a failed or cached read is failed, never "no settings"; a later read that reaches the server makes it ready (O54)', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const seen: string[] = [];
+    driver.onProjectPrefsChange((r) => seen.push(r.status));
+    mockGetDoc.mockRejectedValueOnce(Object.assign(new Error('x'), { code: 'permission-denied' }));
+    await driver.loadProjectList();
+    expect(driver.getProjectPrefs()).toEqual({ status: 'failed' });
+    expect(driver.setProjectPref('a', 'archived', true)).toBe('unread');
+    mockGetDoc.mockResolvedValueOnce(settings({ projectPrefs: { a: { archived: true } } }, true)); // offline: the cache
+    driver.retryProjectPrefs();
+    await vi.runAllTimersAsync();
+    expect(driver.getProjectPrefs()).toEqual({ status: 'failed' });
+    mockGetDoc.mockResolvedValueOnce(settings({ projectPrefs: { a: { archived: true } } }));
+    driver.retryProjectPrefs();
+    await vi.runAllTimersAsync();
+    expect(driver.getProjectPrefs()).toEqual({ status: 'ready', prefs: { a: { archived: true } } });
+    expect(seen).toEqual(['failed', 'ready']);
+  });
+
+  it('retryProjectPrefs reads nothing while the map is ready', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    mockGetDoc.mockResolvedValueOnce(settings(null));
+    await driver.loadProjectList();
+    const reads = mockGetDoc.mock.calls.length;
+    driver.retryProjectPrefs();
+    await vi.runAllTimersAsync();
+    expect(mockGetDoc.mock.calls.length).toBe(reads);
+  });
+
+  it('changes are written per field after 200 ms, coalesced, with the values held when the timer fires (O52, O62)', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    mockGetDoc.mockResolvedValueOnce(settings({ projectPrefs: { a: { archived: true, color: 'pink' } } }));
+    await driver.loadProjectList();
+    driver.setProjectPref('a', 'color', 'blue');
+    driver.setProjectPref('b', 'archived', true);
+    driver.setProjectPref('a', 'color', undefined);
+    await vi.advanceTimersByTimeAsync(199);
+    expect(prefsWrites()).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(prefsWrites()).toEqual([
+      { data: { projectPrefs: { a: { color: { _deleteField: true } }, b: { archived: true } } }, mask: ['projectPrefs/a/color', 'projectPrefs/b/archived'] },
+    ]);
+  });
+
+  it('flush() sends the changes waiting at once; cancelPendingSaves() drops them (sign-out, O55)', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    mockGetDoc.mockResolvedValueOnce(settings(null));
+    await driver.loadProjectList();
+    driver.setProjectPref('a', 'archived', true);
+    driver.flush();
+    expect(prefsWrites()).toHaveLength(1);
+    driver.setProjectPref('b', 'color', 'slate');
+    driver.cancelPendingSaves();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(prefsWrites()).toHaveLength(1);
+  });
+
+  it('refuses an id no entry may have, and a new entry past 1,000, writing nothing', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const full: Record<string, unknown> = {};
+    for (let i = 0; i < 1000; i++) full[`p${i}`] = { archived: true };
+    mockGetDoc.mockResolvedValueOnce(settings({ projectPrefs: full }));
+    await driver.loadProjectList();
+    expect(driver.setProjectPref('toString', 'archived', true)).toBe('refused-id');
+    expect(driver.setProjectPref('new', 'color', 'blue')).toBe('cap');
+    expect(driver.setProjectPref('p1', 'color', 'blue')).toBeNull();
+    await vi.advanceTimersByTimeAsync(200);
+    expect(prefsWrites().map((w) => w.mask)).toEqual([['projectPrefs/p1/color']]);
   });
 });

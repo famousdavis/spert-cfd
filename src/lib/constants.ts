@@ -66,3 +66,12 @@ export const DEBOUNCE_CLOUD_MS = 200;
 
 /** localStorage key for migration flag */
 export const LS_HAS_UPLOADED = 'spertcfd-has-uploaded-to-cloud';
+
+/**
+ * v0.21.0 (DASH26 R2, O56): this browser's tile colours and archive in local
+ * mode, a sanitised `{ [projectId]: { color?, archived?: true } }`. Never on the
+ * project and never in `cfd-lab`. Every change re-reads it and writes one field
+ * (O63). Kept at sign-out, as local projects are. Cloud Storage keeps the map in
+ * memory only, read from `spertcfd_settings/{uid}.projectPrefs`.
+ */
+export const LS_PROJECT_PREFS = 'spertcfd-project-prefs';

@@ -70,7 +70,7 @@ describe('the tile', () => {
     const tile = document.querySelector('li[data-tile="true"]') as HTMLElement;
     const stops = [...tile.querySelectorAll<HTMLElement>('*')].filter((el) => el.tabIndex >= 0);
     expect(stops.every((el) => el.tagName === 'BUTTON')).toBe(true);
-    expect(stops.map((b) => b.getAttribute('aria-label'))).toEqual(['Open CFD for Alpha', 'Delete Alpha', 'Export Alpha', 'Edit Alpha', 'Clone Alpha']);
+    expect(stops.map((b) => b.getAttribute('aria-label'))).toEqual(['Open CFD for Alpha', 'Delete Alpha', 'Export Alpha', 'Edit Alpha', 'Clone Alpha', 'Archive Alpha', 'Tile color for Alpha: No color']);
     expect(tile.querySelector('[role="button"]')).toBeNull();
     expect(tile.hasAttribute('tabindex')).toBe(false);
     expect(tile.querySelector('[title="Drag to reorder"]')?.getAttribute('aria-hidden')).toBe('true');
@@ -115,10 +115,10 @@ describe('the tile', () => {
 });
 
 describe('Clone (v0.19.0, DASH26 R1b)', () => {
-  it('comes last in the revealed row, after Edit, named for its project and titled "Clone project"; it calls with the id', () => {
+  it('comes after Edit in the revealed row (Archive and Tile color follow it since v0.21.0), named for its project and titled "Clone project"; it calls with the id', () => {
     const props = renderTile();
     const row = screen.getByRole('button', { name: 'Edit Alpha' }).parentElement as HTMLElement;
-    expect([...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Export Alpha', 'Edit Alpha', 'Clone Alpha']);
+    expect([...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Export Alpha', 'Edit Alpha', 'Clone Alpha', 'Archive Alpha', 'Tile color for Alpha: No color']); // v0.21.0: Archive and Tile color after Clone (O50)
     const clone = screen.getByRole('button', { name: 'Clone Alpha' }) as HTMLButtonElement;
     expect(clone.title).toBe('Clone project');
     fireEvent.click(clone);

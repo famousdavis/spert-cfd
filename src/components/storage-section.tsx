@@ -8,7 +8,7 @@ import { useCallback, useRef, useState } from "react";
 import { useStorage } from "@/contexts/storage-context";
 import { useAuth } from "@/contexts/auth-context";
 import { useProjectList } from "@/contexts/project-list-context";
-import { createLocalStorageDriver } from "@/lib/local-storage-driver";
+import { keepLocalCopy } from "@/lib/keep-local-copy";
 import { LS_ACTIVE_PROJECT } from "@/lib/constants";
 import { SwitchToLocalDialog } from "./switch-to-local-dialog";
 import {
@@ -47,20 +47,9 @@ export function StorageSection() {
     // Copy in-memory cloud projects to localStorage via a new local
     // driver. Must read from the CURRENT (cloud) driver because after
     // switchMode('local') the driver swaps and cloud-only data is gone.
-    const localDriver = createLocalStorageDriver();
-    for (const p of projects) {
-      try {
-        const full = await driver.loadProject(p.id);
-        if (full) {
-          await localDriver.createProject(full);
-        }
-      } catch (err) {
-        console.error(
-          "Failed to copy project to local storage:",
-          (err as { code?: string }).code ?? "unknown",
-        );
-      }
-    }
+    // v0.21.0 (DASH26 R36): the projects and, for those copied, the person's
+    // tile colours and archive (keep-local-copy.ts).
+    await keepLocalCopy(projects, driver);
     localStorage.removeItem(LS_ACTIVE_PROJECT);
     setShowSwitchToLocalConfirm(false);
     switchMode("local");

@@ -24,7 +24,11 @@ vi.mock('@/contexts/project-list-context', () => ({
   useProjectList: () => ({ projects: [{ id: 'a', name: 'Alpha' }], activeProjectId: 'a', switchProject: vi.fn() }),
 }));
 vi.mock('@/contexts/active-project-context', () => ({ useActiveProject: () => h.active }));
-vi.mock('@/contexts/storage-context', () => ({ useStorage: () => ({ driver: { mode: 'local' } }) }));
+const st = vi.hoisted(() => {
+  const prefsReady = { status: 'ready' as const, prefs: {} };
+  return { storage: { driver: { mode: 'local', getProjectPrefs: () => prefsReady, onProjectPrefsChange: () => () => {}, setProjectPref: () => null, retryProjectPrefs: () => {} } } };
+});
+vi.mock('@/contexts/storage-context', () => ({ useStorage: () => st.storage }));
 vi.mock('../chart/cfd-chart', () => ({ CFDChart: () => <p>chart</p> }));
 vi.mock('../grid/data-grid', () => ({ DataGrid: () => <p>grid</p> }));
 vi.mock('../workflow/workflow-editor', () => ({ WorkflowEditor: () => null }));

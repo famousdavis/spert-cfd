@@ -23,6 +23,7 @@ import { createSampleProject } from '@/lib/sample-data';
 import { buildClone, cloneName } from '@/lib/clone-project';
 import { registerDataReset } from '@/lib/app-data-reset-registry';
 import { moveAmongShown } from '@/lib/order-move';
+import { isProjectArchived, projectPrefOf } from '@/lib/project-prefs';
 import type {
   ImportDecisions,
   ImportConflict,
@@ -249,6 +250,16 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [driver]);
 
+  // v0.21.0 (DASH26 §7 answer 1): a failed read of the person's settings is
+  // tried again when the browser comes back online (and at each list
+  // snapshot and when the Projects tab mounts); the driver does nothing when
+  // its last read succeeded.
+  useEffect(() => {
+    const retry = () => driver.retryProjectPrefs();
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, [driver]);
+
   // Subscribe to remote changes in cloud mode
   useEffect(() => {
     if (driver.mode !== 'cloud') return;
@@ -380,7 +391,15 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
         cloudActor: driver.mode === 'cloud' ? driver.workspaceId : undefined,
       });
       const placement = { after: source.id, shownIds: listed.map((p) => p.id) };
-      return addProject(clone, placement).then((id) => ({ id, name }));
+      return addProject(clone, placement).then((id) => {
+        // v0.21.0 (DASH26 R2, O55): the copy takes the source's colour, never
+        // its archive, once the copy exists. A refused copy (storage full, the
+        // map not read) leaves the copy uncoloured; the clone itself stands.
+        const read = driver.getProjectPrefs();
+        const color = read.status === 'ready' ? projectPrefOf(read.prefs, source.id).color : undefined;
+        if (color) driver.setProjectPref(id, 'color', color);
+        return { id, name };
+      });
     },
     [driver, addProject]
   );
@@ -388,6 +407,15 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   const deleteProject = useCallback(
     (id: string) => {
       driver.deleteProject(id).then(async () => {
+        // v0.21.0 (DASH26 R2, O55): the project's colour and archive go once
+        // the delete is confirmed by its driver, each field on its own; a
+        // refused delete keeps them.
+        const read = driver.getProjectPrefs();
+        if (read.status === 'ready') {
+          const pref = projectPrefOf(read.prefs, id);
+          if (pref.color) driver.setProjectPref(id, 'color', undefined);
+          if (pref.archived) driver.setProjectPref(id, 'archived', undefined);
+        }
         const list = await driver.loadProjectList();
         setProjects(list);
 
@@ -548,12 +576,24 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
         };
       }
 
+      // v0.21.0 (DASH26 R2, O55; Story Map R84): colours and archive are kept
+      // by id, so a written project can land hidden (a Replace keeps the
+      // existing id; Add as Copy keeps the file's, which can meet a stale
+      // entry). Each one is named.
+      const prefsNow = driver.getProjectPrefs();
+      const archivedNames =
+        prefsNow.status === 'ready'
+          ? [...result.added.filter((p) => !failedAddedIds.has(p.id)), ...result.replaced]
+              .filter((p) => isProjectArchived(prefsNow.prefs, p.id))
+              .map((p) => p.name)
+          : [];
       return {
         ok: true,
         added: addedOk,
         replaced: result.replaced.length, // optimistic; fire-and-forget
         skipped: result.skipped.length,
         addFailedCount: writeFailedCount > 0 ? writeFailedCount : undefined,
+        archivedNames: archivedNames.length > 0 ? archivedNames : undefined,
       };
     },
     [driver, projects, activeProjectId],

@@ -11,9 +11,22 @@
 // compared as TEXT. A selector built from a name would throw on a name holding
 // `"` and find nothing for one holding `\`.
 
-export type TileControl = 'open' | 'edit' | 'delete';
+export type TileControl = 'open' | 'edit' | 'delete' | 'archive' | 'unarchive';
 
-const PREFIX: Record<TileControl, string> = { open: 'Open CFD for ', edit: 'Edit ', delete: 'Delete ' };
+/**
+ * v0.21.0 (DASH26 R2, O58, O61): an archived tile's name button says
+ * "Unarchive and open CFD for {name}", so `open` matches both names; and
+ * Unarchive's own name starts like it, so `unarchive` takes the one that is
+ * not the name button.
+ */
+const OPEN_UNARCHIVE = 'Unarchive and open CFD for ';
+const MATCH: Record<TileControl, (label: string) => boolean> = {
+  open: (l) => l.startsWith('Open CFD for ') || l.startsWith(OPEN_UNARCHIVE),
+  edit: (l) => l.startsWith('Edit '),
+  delete: (l) => l.startsWith('Delete '),
+  archive: (l) => l.startsWith('Archive '),
+  unarchive: (l) => l.startsWith('Unarchive ') && !l.startsWith(OPEN_UNARCHIVE),
+};
 
 const labelOf = (el: Element) => el.getAttribute('aria-label') ?? '';
 
@@ -26,7 +39,7 @@ function tileButtons(root: ParentNode | null, projectId: string): HTMLElement[] 
 
 /** The control on `projectId`'s tile under `root`; null when the tile or the control is not there. */
 export function findTileControl(root: ParentNode | null, projectId: string, control: TileControl): HTMLElement | null {
-  return tileButtons(root, projectId).find((b) => labelOf(b).startsWith(PREFIX[control])) ?? null;
+  return tileButtons(root, projectId).find((b) => MATCH[control](labelOf(b))) ?? null;
 }
 
 /** Where focus goes once the tiles have re-rendered. */

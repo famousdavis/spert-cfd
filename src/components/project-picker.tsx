@@ -7,6 +7,8 @@
 import { useEffect, useRef } from 'react';
 import { useProjectList } from '@/contexts/project-list-context';
 import { UNNAMED_PROJECT } from '@/lib/cloud-load-guards';
+import { isProjectArchived } from '@/lib/project-prefs';
+import { useProjectPrefs } from '@/lib/use-project-prefs';
 import { PICKER_ROW, PICKER_SELECT } from './dashboard-styles';
 
 /** A singleton on the CFD tab, so a fixed id is safe. */
@@ -39,6 +41,7 @@ interface ProjectPickerProps {
  * the same name read the same here, as in the siblings' pickers.
  */
 export function ProjectPicker({ takeFocus }: ProjectPickerProps) {
+  const prefs = useProjectPrefs();
   const { projects, activeProjectId, switchProject } = useProjectList();
   const selectRef = useRef<HTMLSelectElement>(null);
   const takeFocusRef = useRef(takeFocus);
@@ -70,9 +73,10 @@ export function ProjectPicker({ takeFocus }: ProjectPickerProps) {
             Choose a project
           </option>
         )}
+        {/* v0.21.0 (DASH26 R35): archived projects stay listed, marked; choosing one opens it and leaves it archived. */}
         {projects.map((p) => (
           <option key={p.id} value={p.id}>
-            {p.name || UNNAMED_PROJECT}
+            {`${p.name || UNNAMED_PROJECT}${prefs.status === 'ready' && isProjectArchived(prefs.prefs, p.id) ? ' (archived)' : ''}`}
           </option>
         ))}
       </select>

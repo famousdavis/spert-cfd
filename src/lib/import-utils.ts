@@ -72,6 +72,8 @@ export interface ImportMergeOutcome {
   skipped: number;
   addFailedCount?: number;
   errorKind?: 'drift' | 'write-failed';
+  /** v0.21.0 (DASH26 R2, O55): written projects that stay archived for this person, by name. */
+  archivedNames?: string[];
 }
 
 /** Result of computeImportMerge. */
@@ -538,6 +540,13 @@ export function buildBannerText(outcome: ImportMergeOutcome): string {
     const n = outcome.addFailedCount;
     const suffix = `${n} project${n === 1 ? '' : 's'} failed to import.`;
     message = message ? `${message} ${suffix}` : suffix;
+  }
+
+  if (outcome.archivedNames && outcome.archivedNames.length > 0) {
+    const names = outcome.archivedNames.map((n) => `"${n}"`).join(', ');
+    const n = outcome.archivedNames.length;
+    const archived = `${names} ${n === 1 ? 'is' : 'are'} archived: Show archived lists ${n === 1 ? 'it' : 'them'}.`;
+    message = message ? `${message} ${archived}` : archived;
   }
 
   return message || 'No changes were made.';

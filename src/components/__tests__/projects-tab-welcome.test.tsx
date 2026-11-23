@@ -28,7 +28,8 @@ const h = vi.hoisted(() => ({
     renameProject: vi.fn(),
     moveProject: vi.fn(),
   },
-  storage: { driver: { mode: 'local' as 'local' | 'cloud', loadProject: async () => null } },
+  prefsReady: { status: 'ready' as const, prefs: {} },
+  storage: { driver: { mode: 'local' as 'local' | 'cloud', loadProject: async () => null, getProjectPrefs: () => h.prefsReady, onProjectPrefsChange: () => () => {}, setProjectPref: () => null, retryProjectPrefs: () => {} } },
   importFlow: { phase: 'idle' } as { phase: string },
   active: { project: null as unknown },
 }));

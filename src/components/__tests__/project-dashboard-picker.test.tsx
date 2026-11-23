@@ -32,7 +32,11 @@ const h = vi.hoisted(() => ({
 
 vi.mock('@/contexts/project-list-context', () => ({ useProjectList: () => h.list }));
 vi.mock('@/contexts/active-project-context', () => ({ useActiveProject: () => h.active }));
-vi.mock('@/contexts/storage-context', () => ({ useStorage: () => ({ driver: { mode: 'local' } }) }));
+const st = vi.hoisted(() => {
+  const prefsReady = { status: 'ready' as const, prefs: {} };
+  return { storage: { driver: { mode: 'local', getProjectPrefs: () => prefsReady, onProjectPrefsChange: () => () => {}, setProjectPref: () => null, retryProjectPrefs: () => {} } } };
+});
+vi.mock('@/contexts/storage-context', () => ({ useStorage: () => st.storage }));
 vi.mock('../chart/cfd-chart', () => ({
   CFDChart: () => {
     useEffect(() => { h.mounts.chart++; }, []);

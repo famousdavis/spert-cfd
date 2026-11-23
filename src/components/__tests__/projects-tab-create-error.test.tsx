@@ -16,6 +16,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 // `driver`, so fresh objects per render would re-run it without end.
 const { createProject, listValue, storageValue } = vi.hoisted(() => {
   const createProject = vi.fn();
+  const prefsReady = { status: 'ready' as const, prefs: {} };
   return {
     createProject,
     listValue: {
@@ -27,7 +28,7 @@ const { createProject, listValue, storageValue } = vi.hoisted(() => {
       renameProject: () => {},
       moveProject: () => {},
     },
-    storageValue: { driver: { mode: 'cloud', loadProject: async () => null } },
+    storageValue: { driver: { mode: 'cloud', loadProject: async () => null, getProjectPrefs: () => prefsReady, onProjectPrefsChange: () => () => {}, setProjectPref: () => null, retryProjectPrefs: () => {} } },
   };
 });
 

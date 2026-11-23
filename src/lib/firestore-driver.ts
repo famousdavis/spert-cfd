@@ -44,6 +44,15 @@ import { callRevokeInvite, callResendInvite } from './callables';
 import { normalizeUpdatedAt } from './updated-at';
 import { placeAfter } from './project-order';
 import { moveAmongShown, withStoredSlots } from './order-move';
+import { writeProjectPrefs } from './firestore-prefs';
+import {
+  isRefusedPrefId,
+  overCap,
+  sanitizeProjectPrefs,
+  withPrefField,
+  type PrefsRead,
+  type ProjectPrefField,
+} from './project-prefs';
 import { cloudProjectData, cloudText, type CloudSetAsideReport } from './cloud-load-guards';
 import { noteCloudSetAside } from './cloud-load-notices';
 
@@ -287,6 +296,54 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     if (seen === orderWrites) lastOrder = order;
   }
 
+  // ── Tile colour and archive (v0.21.0, DASH26 R2) ─────
+  //
+  // The person's map, read ONCE with the order (O62): the first settings read
+  // that reaches the server makes it `ready` (a missing document is `{}`),
+  // and from then on it is the session's truth; list snapshots and reloads
+  // re-read the order only, so a change still waiting to be written is never
+  // replaced by an older server value (another device's change shows after a
+  // reload). A read that fails, or answers from the cache (offline), leaves
+  // `failed` (O54: a failed read is not "no settings"), and each later read
+  // retries until one succeeds: every list snapshot and reload, and
+  // `retryProjectPrefs` (the window's `online` event, the Projects tab
+  // mounting; DASH26 §7 answer 1). Measured: a list listener does not fire on
+  // reconnect when the list has not changed (pre-flight R09).
+  let prefsRead: PrefsRead = { status: 'loading' };
+  const prefsListeners = new Set<(read: PrefsRead) => void>();
+  // Changes not yet written, one per (id, field), under a timer of their own
+  // (never a project save's); the values are read when it fires.
+  const pendingPrefs = new Map<string, { id: string; field: ProjectPrefField }>();
+  let prefsTimer: ReturnType<typeof setTimeout> | undefined;
+  let prefsRetry: Promise<unknown> | null = null;
+
+  function setPrefsRead(next: PrefsRead): void {
+    prefsRead = next;
+    for (const listener of prefsListeners) listener(next);
+  }
+
+  /** What a settings read means for the map: only the first good one counts. */
+  function notePrefsRead(snap: DocumentSnapshot | null): void {
+    if (prefsRead.status === 'ready') return;
+    if (!snap || snap.metadata?.fromCache) {
+      if (prefsRead.status !== 'failed') setPrefsRead({ status: 'failed' });
+      return;
+    }
+    setPrefsRead({ status: 'ready', prefs: sanitizeProjectPrefs(snap.exists() ? snap.data().projectPrefs : undefined) });
+  }
+
+  /** Send the changes waiting, with the values the map holds now. */
+  function writePendingPrefs(): void {
+    clearTimeout(prefsTimer);
+    prefsTimer = undefined;
+    if (pendingPrefs.size === 0 || prefsRead.status !== 'ready') return;
+    const changes = [...pendingPrefs.values()];
+    pendingPrefs.clear();
+    writeProjectPrefs(db, uid, changes, prefsRead.prefs).catch((err) => {
+      console.error('setProjectPref: write failed:', (err as { code?: string }).code ?? 'unknown');
+    });
+  }
+
   /** Read the user's project order from settings. */
   async function loadProjectOrder(): Promise<string[]> {
     const seen = orderWrites;
@@ -295,6 +352,7 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       // Any read that answers, a cached one included (it holds the last
       // server read and this client's own pending writes), is an order read.
       noteRead(orderOf(snap), seen);
+      notePrefsRead(snap);
       if (snap.exists()) {
         const data = snap.data();
         if (Array.isArray(data.projectOrder)) {
@@ -302,7 +360,9 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
         }
       }
     } catch {
-      // Settings doc may not exist yet — that's fine
+      // A failed read: no order to sort by (unordered ids sort last), and
+      // the map, if not yet read, is `failed`, never "no settings".
+      notePrefsRead(null);
     }
     return [];
   }
@@ -683,6 +743,37 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       }
     },
 
+    // ── Tile colour and archive (v0.21.0, DASH26 R2) ─────
+
+    getProjectPrefs(): PrefsRead {
+      return prefsRead;
+    },
+
+    onProjectPrefsChange(callback: (read: PrefsRead) => void): () => void {
+      prefsListeners.add(callback);
+      return () => {
+        prefsListeners.delete(callback);
+      };
+    },
+
+    setProjectPref(id, field, value) {
+      if (isRefusedPrefId(id)) return 'refused-id';
+      if (prefsRead.status !== 'ready') return 'unread';
+      if (overCap(prefsRead.prefs, id, value)) return 'cap';
+      setPrefsRead({ status: 'ready', prefs: withPrefField(prefsRead.prefs, id, field, value) });
+      pendingPrefs.set(JSON.stringify([id, field]), { id, field });
+      clearTimeout(prefsTimer);
+      prefsTimer = setTimeout(writePendingPrefs, DEBOUNCE_CLOUD_MS);
+      return null;
+    },
+
+    retryProjectPrefs(): void {
+      if (prefsRead.status !== 'failed' || prefsRetry) return;
+      prefsRetry = loadProjectOrder().finally(() => {
+        prefsRetry = null;
+      });
+    },
+
     // ── Real-time sync ───────────────────────────────────
 
     onProjectChange(
@@ -777,6 +868,7 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     // ── Lifecycle ─────────────────────────────────────────
 
     flush(): void {
+      writePendingPrefs();
       for (const [id, { timeout, project, resolve }] of pendingWrites) {
         clearTimeout(timeout);
         pendingWrites.delete(id);
@@ -792,6 +884,11 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     },
 
     cancelPendingSaves(): void {
+      // The colour and archive changes waiting go too (v0.21.0, O55): one made
+      // before a sign-out never reaches the next account.
+      clearTimeout(prefsTimer);
+      prefsTimer = undefined;
+      pendingPrefs.clear();
       // Discard pending debounced writes without firing them. Used on
       // sign-out to avoid setDoc with revoked credentials. Resolve (not
       // reject) outstanding promises so fire-and-forget callers are not

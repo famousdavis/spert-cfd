@@ -16,6 +16,8 @@ import type { Firestore } from 'firebase/firestore';
 import type { Project, ChangeLogEntry } from '@/types';
 import type { StorageDriver } from './storage-driver';
 import { PROJECTS_COL } from './firestore-helpers';
+import { writeUploadedPref } from './firestore-prefs';
+import { projectPrefOf, type ProjectPref, type ProjectPrefs } from './project-prefs';
 
 /**
  * Upload an in-memory list of projects to Firestore.
@@ -33,16 +35,27 @@ import { PROJECTS_COL } from './firestore-helpers';
  * - If a doc with the same ID exists AND user is a member → skip
  * - If PERMISSION_DENIED or doc doesn't exist → generate new nanoid(8), proceed
  *
- * @returns {{ uploaded: number, skipped: number }}
+ * v0.21.0 (DASH26 R2, O64): each project's tile colour and archive (this
+ * browser's map, `localPrefs`) go up right after its create lands, under its
+ * cloud id, both fields masked, awaited. A refused colour/archive write never
+ * stops the upload: the project is named in `prefsNotCarried`, and the caller
+ * switches to Cloud and says so (staying local would make the retry duplicate
+ * every project already uploaded: the collision read of a project that does
+ * not exist is refused, so every upload mints a new id, measured).
+ * `pairs` holds every project that landed, local id → cloud id; a failed
+ * create throws an `UploadError` carrying the pairs so far.
  */
 export async function migrateLocalToCloud(
   uid: string,
   db: Firestore,
   projects: Project[],
   cloudDriver: StorageDriver,
-): Promise<{ uploaded: number; skipped: number }> {
+  localPrefs: ProjectPrefs = {},
+): Promise<UploadResult> {
   let uploaded = 0;
   let skipped = 0;
+  const pairs: Array<[string, string]> = [];
+  const prefsNotCarried: string[] = [];
 
   for (const project of projects) {
     if (!project) {
@@ -85,11 +98,49 @@ export async function migrateLocalToCloud(
       _changeLog: [...(project._changeLog ?? []), changeLogEntry],
     };
 
-    await cloudDriver.createProject(projectToUpload);
+    try {
+      await cloudDriver.createProject(projectToUpload);
+    } catch (err) {
+      throw new UploadError(err, pairs);
+    }
     uploaded++;
+    pairs.push([project.id, targetId]);
+
+    if (!(await carryPref(db, uid, targetId, projectPrefOf(localPrefs, project.id)))) prefsNotCarried.push(project.name);
   }
 
-  return { uploaded, skipped };
+  return { uploaded, skipped, pairs, prefsNotCarried };
+}
+
+/** One project's colour and archive under its cloud id; false when the write was refused (nothing to write is true). */
+async function carryPref(db: Firestore, uid: string, cloudId: string, pref: ProjectPref): Promise<boolean> {
+  if (!pref.color && !pref.archived) return true;
+  try {
+    await writeUploadedPref(db, uid, cloudId, pref);
+    return true;
+  } catch (err) {
+    console.error('migrateLocalToCloud: colour/archive not carried:', (err as { code?: string }).code ?? 'unknown');
+    return false;
+  }
+}
+
+export interface UploadResult {
+  uploaded: number;
+  skipped: number;
+  /** Every project that landed: [local id, cloud id]. */
+  pairs: Array<[string, string]>;
+  /** Projects whose colour or archive could not be written, by name (O64). */
+  prefsNotCarried: string[];
+}
+
+/** A project's create failed; the upload stopped there. `pairs` are the projects that landed before it. */
+export class UploadError extends Error {
+  readonly pairs: Array<[string, string]>;
+  constructor(cause: unknown, pairs: Array<[string, string]>) {
+    super(cause instanceof Error ? cause.message : 'Migration failed');
+    this.name = 'UploadError';
+    this.pairs = [...pairs];
+  }
 }
 
 /**

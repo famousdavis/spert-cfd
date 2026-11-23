@@ -39,6 +39,8 @@ export const TILE =
 export const TILE_BG = 'bg-[#f9f9f9] dark:bg-[#16213e]';
 /** At rest: the border colour and its hover. */
 export const TILE_BORDER = 'border-[#eee] dark:border-[#2d3748]';
+/** v0.21.0 (DASH26 R2, O50): an archived tile's border at rest, dashed. Swapped for TILE_BORDER whole. */
+export const TILE_ARCHIVED_BORDER = 'border-dashed border-[#ddd] dark:border-[#4a5568]';
 export const TILE_HOVER =
   'hover:border-[#93c5fd] hover:shadow-[0_2px_10px_rgba(15,23,42,0.10)] dark:hover:border-[#3b82f6] dark:hover:shadow-[0_2px_10px_rgba(0,0,0,0.35)]';
 
@@ -48,6 +50,8 @@ export const GRIP = 'relative z-[1] flex-none inline-flex mt-[5px] cursor-grab t
 export const NAME =
   'flex-auto min-w-0 m-0 pt-px text-[1.05rem] font-semibold leading-[1.35] [overflow-wrap:anywhere]';
 export const NAME_COLOR = 'text-[#333] dark:text-[#e2e8f0]';
+/** An archived tile's name takes the meta colour (O50). */
+export const NAME_ARCHIVED = 'text-[#666] dark:text-[#a0aec0]';
 /** The name button. Its `::after` covers the whole tile, so a click anywhere on the tile opens the CFD tab. */
 export const OPEN =
   "bg-transparent border-0 p-0 m-0 text-left font-semibold cursor-pointer underline-offset-[3px] group-hover/tile:underline focus-visible:underline focus-visible:outline-none after:absolute after:inset-0 after:rounded-[6px] after:content-[''] focus-visible:after:shadow-[0_0_0_2px_#ffffff,0_0_0_4px_#0070f3] dark:focus-visible:after:shadow-[0_0_0_2px_var(--color-gray-900),0_0_0_4px_#60a5fa]";
@@ -59,7 +63,19 @@ export const META = 'm-0 pl-4 text-[0.85rem] leading-[1.45] text-[#666] dark:tex
 export const ACTIONS = 'flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 mt-auto pt-1.5 pl-2.5';
 /** The revealed row: hidden at rest, shown on tile hover, on focus inside the tile, and always where there is no hover. */
 export const REVEAL =
-  'flex flex-wrap items-center gap-0.5 opacity-0 transition-opacity duration-[120ms] ease-in-out group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 [@media(hover:none)]:opacity-100';
+  'flex flex-wrap items-center gap-0.5 opacity-0 transition-opacity duration-[120ms] ease-in-out group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 group-data-[popopen=true]/tile:opacity-100 [@media(hover:none)]:opacity-100';
+/** v0.21.0: an archived tile's Unarchive group, always shown. Carries ABOVE_OPEN where it is used. */
+export const STAY = 'flex flex-wrap items-center gap-0.5';
+
+// ── Archive on the Projects tab (v0.21.0, DASH26 R2, O50; Forecaster's) ──
+/** "Show archived (N)": under the heading row, 12 px below it and 16 px above the grid (GanttApp's `.pt-filter`). */
+export const SHOW_ARCHIVED_ROW = '-mt-1 leading-[normal]';
+export const CHECK = 'inline-flex items-center gap-2 text-[0.9rem] leading-[normal] cursor-pointer text-[#666] dark:text-[#a0aec0]';
+export const CHECKBOX = 'size-4 m-0 accent-spert-blue dark:accent-spert-blue';
+/** "All projects are archived…": the meta grey, italic, where the grid would be. */
+export const ALL_ARCHIVED = 'mt-2 leading-[normal] italic text-[#666] dark:text-[#a0aec0]';
+/** O54's line: the person's settings could not be read. */
+export const PREFS_UNREAD = 'text-sm leading-[normal] text-[#666] dark:text-[#a0aec0]';
 
 // ── The project dialog (GanttApp's ProjectDialog shape; CFD's one field) ──
 export const OVERLAY = 'fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50';

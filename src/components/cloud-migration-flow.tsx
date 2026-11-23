@@ -41,7 +41,7 @@ type MigrationState =
   | { status: 'idle' }
   | { status: 'confirm'; localCount: number }
   | { status: 'migrating' }
-  | { status: 'done'; uploaded: number; skipped: number }
+  | { status: 'done'; uploaded: number; skipped: number; prefsNotCarried: string[] }
   | { status: 'error'; message: string };
 
 export interface CloudMigrationFlowProps {
@@ -104,11 +104,15 @@ export const CloudMigrationFlow = forwardRef<
       }
 
       const cloudDriver = createFirestoreDriver(user.uid, db);
+      // v0.21.0 (DASH26 R2, O61, O64): the full list (`projects`), archived
+      // ones included, and this browser's colours and archive with them.
+      const localPrefs = localDriver.getProjectPrefs();
       const result = await migrateLocalToCloud(
         user.uid,
         db,
         fullProjects,
         cloudDriver,
+        localPrefs.status === 'ready' ? localPrefs.prefs : {},
       );
 
       localStorage.setItem(LS_HAS_UPLOADED, 'true');
@@ -117,7 +121,7 @@ export const CloudMigrationFlow = forwardRef<
         await clearLocalProjects(localDriver);
       }
 
-      setMigration({ status: 'done', ...result });
+      setMigration({ status: 'done', uploaded: result.uploaded, skipped: result.skipped, prefsNotCarried: result.prefsNotCarried });
       switchMode('cloud');
     } catch (err) {
       setMigration({
@@ -190,6 +194,11 @@ export const CloudMigrationFlow = forwardRef<
       {migration.status === 'done' && (
         <div className="rounded border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/30 p-4 text-sm text-green-800 dark:text-green-100">
           Migration complete: {migration.uploaded} uploaded, {migration.skipped} skipped.
+          {migration.prefsNotCarried.length > 0 && (
+            <p className="mt-2">
+              {`Tile colors and archive did not carry for ${migration.prefsNotCarried.map((n) => `"${n}"`).join(', ')}. The projects are in Cloud Storage; set their colors or archive again there.`}
+            </p>
+          )}
         </div>
       )}
 

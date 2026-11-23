@@ -14,6 +14,7 @@ import type { DragEndEvent } from '@dnd-kit/core';
 import type { ProjectListItem } from '@/lib/storage-driver';
 
 const h = vi.hoisted(() => ({
+  prefsReady: { status: 'ready' as const, prefs: {} },
   onDragEnd: null as ((e: DragEndEvent) => void) | null,
   list: {
     projects: [] as ProjectListItem[],
@@ -26,7 +27,7 @@ const h = vi.hoisted(() => ({
     renameProject: vi.fn(),
     moveProject: vi.fn(),
   },
-  storage: { driver: { mode: 'local' as const, loadProject: vi.fn(async () => null), exportProject: vi.fn() } },
+  storage: { driver: { mode: 'local' as const, loadProject: vi.fn(async () => null), exportProject: vi.fn(), getProjectPrefs: () => h.prefsReady, onProjectPrefsChange: () => () => {}, setProjectPref: () => null, retryProjectPrefs: () => {} } },
 }));
 
 vi.mock('@dnd-kit/core', async (original) => ({
@@ -70,7 +71,7 @@ it('a drop hands moveProject the dragged id, then the target id, once', () => {
   render(<ProjectsTab onOpenInCfd={vi.fn()} />);
   act(() => h.onDragEnd!(end('c', 'a')));
   expect(h.list.moveProject).toHaveBeenCalledTimes(1);
-  expect(h.list.moveProject).toHaveBeenCalledWith('c', 'a');
+  expect(h.list.moveProject).toHaveBeenCalledWith('c', 'a', ['a', 'b', 'c']); // v0.21.0: the shown tiles (all, nothing archived here)
 });
 
 it('a drop on nothing, or on the tile itself, moves nothing', () => {
