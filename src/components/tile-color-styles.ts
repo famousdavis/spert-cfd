@@ -47,9 +47,14 @@ export const COLOR_DOT = 'size-[15px] rounded-full border-2 border-current';
 /** No colour: a diagonal stroke through the dot. */
 export const NONE_DOT = 'bg-[linear-gradient(135deg,transparent_44%,currentColor_44%,currentColor_56%,transparent_56%)]';
 
-/** Placed from the tile (its containing block): 6 px in from its right edge, 6 px above its bottom edge. */
+/**
+ * Placed from the tile (its containing block): 6 px in from its right edge, 6 px above its bottom edge.
+ * v0.21.0 (CFD): on the last row it is scrolled into view when it opens; the `after:` strip below it
+ * extends the scroll area 16 px past it and `scroll-mb-4` keeps that gap, so it never sits flush on
+ * the pinned footer with its shadow cut (measured flush, 0.2 px over, without them).
+ */
 export const POPOVER =
-  'absolute z-20 right-1.5 top-[calc(100%-6px)] w-max max-w-[280px] p-2.5 rounded-[8px] border cursor-default bg-white text-[#333] border-[#ddd] shadow-[0_8px_24px_rgba(15,23,42,0.10)] dark:bg-gray-900 dark:text-[#e2e8f0] dark:border-[#4a5568] dark:shadow-[0_8px_24px_rgba(0,0,0,0.35)]';
+  "absolute z-20 right-1.5 top-[calc(100%-6px)] w-max max-w-[280px] p-2.5 rounded-[8px] border cursor-default bg-white text-[#333] border-[#ddd] shadow-[0_8px_24px_rgba(15,23,42,0.10)] dark:bg-gray-900 dark:text-[#e2e8f0] dark:border-[#4a5568] dark:shadow-[0_8px_24px_rgba(0,0,0,0.35)] scroll-mb-4 after:absolute after:left-0 after:top-full after:h-4 after:w-px after:content-['']";
 export const POP_TITLE = 'm-0 mb-1.5 text-[0.8rem] font-semibold leading-[normal] text-[#666] dark:text-[#a0aec0]';
 export const SWATCHES = 'grid grid-cols-[repeat(2,auto)] gap-x-1.5 gap-y-1';
 export const SW =

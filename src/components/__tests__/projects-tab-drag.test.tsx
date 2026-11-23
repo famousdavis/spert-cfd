@@ -14,7 +14,7 @@ import type { DragEndEvent } from '@dnd-kit/core';
 import type { ProjectListItem } from '@/lib/storage-driver';
 
 const h = vi.hoisted(() => ({
-  prefsReady: { status: 'ready' as const, prefs: {} },
+  prefsReady: { status: 'ready' as const, prefs: {} as Record<string, { archived?: true }> },
   onDragEnd: null as ((e: DragEndEvent) => void) | null,
   list: {
     projects: [] as ProjectListItem[],
@@ -79,4 +79,15 @@ it('a drop on nothing, or on the tile itself, moves nothing', () => {
   act(() => h.onDragEnd!(end('c', null)));
   act(() => h.onDragEnd!(end('b', 'b')));
   expect(h.list.moveProject).not.toHaveBeenCalled();
+});
+
+it('with an archived tile hidden, the drop is made among the shown tiles only (v0.21.0, P2)', () => {
+  h.prefsReady.prefs = { b: { archived: true } };
+  try {
+    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    act(() => h.onDragEnd!(end('c', 'a')));
+    expect(h.list.moveProject).toHaveBeenCalledWith('c', 'a', ['a', 'c']);
+  } finally {
+    h.prefsReady.prefs = {};
+  }
 });
