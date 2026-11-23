@@ -3,9 +3,10 @@
 // See LICENSE file in the project root for full license text.
 
 // The card order a user sets is the order they get back. It lives in
-// spertcfd_settings/{uid}.projectOrder, which the rules confine to
-// keys().hasOnly(['projectOrder']); createProject appends with arrayUnion and
-// reorderProjects writes the whole array.
+// spertcfd_settings/{uid}.projectOrder. The rules confine that document to
+// keys().hasOnly(['projectOrder', 'projectPrefs']) (projectPrefs since landing
+// v2.14.3, ahead of the release that writes it); createProject appends with
+// arrayUnion and reorderProjects writes the whole array.
 import { it, expect, afterEach } from 'vitest'
 import { createFirestoreDriver } from '@/lib/firestore-driver'
 import { client, closeClients, newProject, uniqueId } from './helpers'
