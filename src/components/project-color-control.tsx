@@ -116,7 +116,11 @@ export function ProjectColorPopover({ color, buttonRef, onPick, onOpenChange }: 
   useModalEscape(() => close(true));
 
   useEffect(() => {
-    rootRef.current?.querySelector<HTMLInputElement>('input:checked')?.focus();
+    // Focus the checked colour without scrolling, then bring the whole popover
+    // into view: on the last row it opens past the scroll area's bottom edge,
+    // above the pinned footer (measured), and would otherwise be cut there.
+    rootRef.current?.querySelector<HTMLInputElement>('input:checked')?.focus({ preventScroll: true });
+    rootRef.current?.scrollIntoView?.({ block: 'nearest' });
   }, []);
 
   useEffect(() => {

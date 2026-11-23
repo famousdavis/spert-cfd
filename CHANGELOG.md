@@ -2,6 +2,16 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.21.0 — Tile colours and archive, each person's own (November 23, 2026)
+
+- **Give any project tile a colour**: Blue, Teal, Slate, Purple or Pink, or No color, from the new Tile color button on the tile (with Share, Export, Edit and Clone). The colour fills the tile. Arrow keys choose in the colour list, and Enter or Esc closes it; Esc closes only the list, so an import you are reviewing stays open.
+- **Archive a project to hide its tile**, with the new Archive button. "Show archived (N)" appears above the tiles while anything is archived; tick it to see archived tiles, drawn in half their colour with a dashed border, greyed name and an "Archived" badge, each with an Unarchive button. Clicking an archived tile's name unarchives it and opens it. When every project is archived, a line says so where the tiles would be. Archiving the project open on the CFD tab keeps it open there, and the CFD tab's project list still offers archived projects, marked "(archived)".
+- **Colours and archive are yours alone.** The people you share a project with see their own colours and archive, never yours, and anyone who can see a tile can colour or archive it for themselves. With Cloud Storage they are saved to your account; in local mode, to this browser. Exported files carry neither.
+- **They follow the project where it goes**: a clone takes the original's colour (not its archive); deleting a project removes its colour and archive; an import keeps them by project and names any project it brings in that stays archived; uploading local projects to Cloud Storage carries them, and "Keep local copy" brings them back to this browser.
+- **When something stops a change, it says so**: a full browser storage (in the words CFD already uses), the limit of 1,000 projects with a colour or archive, or, with Cloud Storage, your colours and archive not loading yet (a line above the tiles; Tile color, Archive and drag stay off until they load, retried when you come back online or return to the Projects tab).
+- **Dragging tiles with archived ones hidden** keeps every hidden tile where it was.
+- **Tests.** TESTS_SENTENCE
+
 ## v0.20.2 — Dragging a tile keeps everyone else's order (November 23, 2026)
 
 - **A drag no longer undoes a reorder made elsewhere** (in local mode always; with Cloud Storage while you are online). Until now, dragging a tile saved the order this tab was showing, whole. So with Cloud Storage, a tab left open since before you rearranged your projects on another computer put the old order back with its next drag, and in local mode a drag did the same to a reorder made in another tab. Now a drag saves just that move, made on the order as it is saved at that moment: drag A onto B and A takes B's place in that order, and everything else keeps its order. After a drag the list shows the order saved, so in a tab that has not caught up with a change made in another tab or on another device, it can differ from the drop you saw: tiles you did not drag can move. Measured with two devices on Firestore's emulator under the live rules, and for local mode in tests that run two tabs' code on one browser storage.
