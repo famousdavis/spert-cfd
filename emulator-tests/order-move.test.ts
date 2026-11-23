@@ -203,3 +203,26 @@ it('a move the server refuses is failed, and a later offline drop builds on the 
   expect(await later).toEqual({ kind: 'written', order: [b.id, a.id, c.id] })
   expect(await storedNames(uid, names)).toEqual(['B', 'A', 'C'])
 })
+
+// PR #114 review -03, kept as a test of the documented limit: an offline drop
+// builds on the order this tab last read, so when it lands on reconnect it
+// replaces an order another device stored meanwhile, as before v0.20.2. The
+// changelog says so; this pins it, so a change here is a change to that text.
+it('an offline drop, sent on reconnect, replaces an order another device stored meanwhile (the documented limit)', async () => {
+  const uid = uniqueId('u')
+  const db = client(uid)
+  const here = createFirestoreDriver(uid, db)
+  const [a, b, c, d] = ['A', 'B', 'C', 'D'].map((n) => newProject(uniqueId('p'), n))
+  for (const p of [a, b, c, d]) await here.createProject(p)
+  const held = (await here.loadProjectList()).map((p) => p.id) // A B C D, read
+  const names = Object.fromEntries([a, b, c, d].map((p) => [p.id, p.name]))
+  await disableNetwork(db)
+  const elsewhere = createFirestoreDriver(uid, client(uid))
+  for (const [dragged, target] of [[d, a], [c, a], [b, a]]) await elsewhere.moveProject(move(dragged.id, target.id, held))
+  expect(await storedNames(uid, names)).toEqual(['D', 'C', 'B', 'A'])
+  const offline = here.moveProject(move(a.id, b.id, held)) // A onto B, on A B C D
+  await sleep(200)
+  await enableNetwork(db)
+  expect(await offline).toEqual({ kind: 'written', order: [b.id, a.id, c.id, d.id] })
+  expect(await storedNames(uid, names)).toEqual(['B', 'A', 'C', 'D'])
+})
