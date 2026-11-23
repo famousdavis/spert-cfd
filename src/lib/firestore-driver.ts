@@ -23,7 +23,14 @@ import {
   type QuerySnapshot,
 } from 'firebase/firestore';
 import type { Project, ChangeLogEntry, PendingInvite, InvitationStatus } from '@/types';
-import type { StorageDriver, ProjectListItem, ProjectMemberRole, ProjectPlacement } from './storage-driver';
+import type {
+  StorageDriver,
+  ProjectListItem,
+  ProjectMemberRole,
+  ProjectPlacement,
+  ProjectMove,
+  MoveOutcome,
+} from './storage-driver';
 import {
   PROJECTS_COL,
   SETTINGS_COL,
@@ -36,6 +43,7 @@ import { DATA_VERSION } from './migrations';
 import { callRevokeInvite, callResendInvite } from './callables';
 import { normalizeUpdatedAt } from './updated-at';
 import { placeAfter } from './project-order';
+import { moveAmongShown, withStoredSlots } from './order-move';
 import { cloudProjectData, cloudText, type CloudSetAsideReport } from './cloud-load-guards';
 import { noteCloudSetAside } from './cloud-load-notices';
 
@@ -249,10 +257,44 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     );
   }
 
+  /**
+   * The last order this driver read or wrote (v0.20.2, DASH26 R2o, O53a):
+   * what a move builds on when the stored order cannot be read now (offline),
+   * so an offline drop is still written, queued, and sent on reconnect, as
+   * before. Null until a read answers: a driver that never read an order
+   * writes none. Kept here, not taken from the SDK's cache: offline, a read of
+   * a settings document that did not exist rejects instead of answering "no
+   * document" (measured, DASH26 R2 pre-flight R05), so a new person's offline
+   * drop would write nothing. A read that found no document gives `[]`.
+   */
+  let lastOrder: string[] | null = null;
+  /**
+   * Bumped by every whole-order write this driver issues. A read takes its
+   * order as `lastOrder` only if no such write was issued while it was in
+   * flight: a list snapshot's read that began before a drop and answered
+   * after it would otherwise bring back the order the drop replaced.
+   */
+  let orderWrites = 0;
+
+  /** The order a settings snapshot holds: its string ids, or `[]` with no document or no list. */
+  function orderOf(snap: DocumentSnapshot): string[] {
+    const order: unknown = snap.exists() ? snap.data().projectOrder : undefined;
+    return Array.isArray(order) ? order.filter((x): x is string => typeof x === 'string') : [];
+  }
+
+  /** Record what a read issued at write count `seen` answered (see `orderWrites`). */
+  function noteRead(order: string[], seen: number): void {
+    if (seen === orderWrites) lastOrder = order;
+  }
+
   /** Read the user's project order from settings. */
   async function loadProjectOrder(): Promise<string[]> {
+    const seen = orderWrites;
     try {
       const snap = await getDoc(doc(db, SETTINGS_COL, uid));
+      // Any read that answers, a cached one included (it holds the last
+      // server read and this client's own pending writes), is an order read.
+      noteRead(orderOf(snap), seen);
       if (snap.exists()) {
         const data = snap.data();
         if (Array.isArray(data.projectOrder)) {
@@ -275,23 +317,52 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
    * (measured, DASH26 R1b M2 and D4).
    */
   async function readStoredOrder(): Promise<string[] | null> {
+    const seen = orderWrites;
     try {
       const snap = await getDoc(doc(db, SETTINGS_COL, uid));
       if (snap.metadata.fromCache) return null;
-      const order: unknown = snap.exists() ? snap.data().projectOrder : undefined;
-      return Array.isArray(order) ? order.filter((x): x is string => typeof x === 'string') : [];
+      const order = orderOf(snap);
+      noteRead(order, seen);
+      return order;
     } catch {
       return null;
     }
   }
 
-  // Positioned creates take turns (v0.19.0, DASH26 R1b F1): each reads the
-  // order only once the one before it has ISSUED its order write, so the read
-  // sees it. Without this, two clones started together both read the same
-  // order and the second write dropped the first copy to the end (measured
-  // 3/3, pre-flight D5). A turn ends when the writes are issued, not acked, so
-  // an offline create never holds up the next one.
-  let placementTurn: Promise<void> = Promise.resolve();
+  // Whole-order writes take turns: positioned creates since v0.19.0 (DASH26
+  // R1b F1), and drag-and-drop moves with them since v0.20.2 (DASH26 R2o,
+  // O53a). Each reads the order only once the one before it has ISSUED its
+  // order write, so the read sees it (a read issued while this client's own
+  // write is pending answers with it: measured, DASH26 R2 pre-flight R12).
+  // Without this, two clones started together both read the same order and
+  // the second write dropped the first copy to the end (measured 3/3,
+  // pre-flight D5). A turn ends when the writes are issued, not acked, so an
+  // offline write never holds up the next one.
+  let orderTurn: Promise<void> = Promise.resolve();
+
+  /** Take the next turn; resolves with the function that ends it. */
+  async function takeOrderTurn(): Promise<() => void> {
+    const previous = orderTurn;
+    let endTurn = () => {};
+    orderTurn = new Promise<void>((resolve) => { endTurn = resolve; });
+    await previous;
+    return endTurn;
+  }
+
+  /**
+   * Issue a whole-order write and make it this driver's last order. Returns
+   * the write itself, settled when the server acknowledges it: offline it is
+   * queued, and settles on reconnect.
+   */
+  function writeWholeOrder(order: string[]): Promise<void> {
+    orderWrites++;
+    lastOrder = order;
+    return setDoc(doc(db, SETTINGS_COL, uid), { projectOrder: order }, { merge: true });
+  }
+
+  function logOrderWriteFailure(what: string, err: unknown): void {
+    console.error(`${what} failed:`, (err as { code?: string }).code ?? 'unknown');
+  }
 
   /**
    * The project write of a positioned create: after a strict read of the
@@ -306,21 +377,14 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     docData: Record<string, unknown>,
     placement: ProjectPlacement,
   ): Promise<void> {
-    const previous = placementTurn;
-    let endTurn = () => {};
-    placementTurn = new Promise<void>((resolve) => { endTurn = resolve; });
+    const endTurn = await takeOrderTurn();
     let written: Promise<void>;
     try {
-      await previous;
       const stored = await readStoredOrder();
       written = setDoc(doc(db, PROJECTS_COL, id), docData);
       if (stored) {
-        setDoc(
-          doc(db, SETTINGS_COL, uid),
-          { projectOrder: placeAfter(stored, placement.shownIds, placement.after, id) },
-          { merge: true },
-        ).catch((err) => {
-          console.error('createProject: placement failed:', (err as { code?: string }).code ?? 'unknown');
+        writeWholeOrder(placeAfter(stored, placement.shownIds, placement.after, id)).catch((err) => {
+          logOrderWriteFailure('createProject: placement', err);
         });
       }
     } finally {
@@ -569,23 +633,54 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       }
     },
 
-    async reorderProjects(orderedIds: string[]): Promise<void> {
-      // A WHOLE-ARRAY write on purpose, and it stays one. An explicit reorder
-      // IS the user stating the complete intended sequence; no field
-      // transform expresses that, and arrayUnion here would append rather
-      // than reorder.
+    async moveProject(move: ProjectMove): Promise<MoveOutcome> {
+      // v0.20.2 (DASH26 R2o, O53a). A WHOLE-ARRAY write, built from the order
+      // read now, never from a list the tab holds: until v0.20.2 the tab's
+      // list was written as given, so a tab left open undid another device's
+      // reorder, and a project this tab had not listed yet lost its place
+      // (both measured at 3463be9, DASH26 R2 pre-flight). Every stored id
+      // this tab does not show keeps its slot; the move is made among the
+      // shown ones. A failed read (offline) falls back to the last order this
+      // driver read or wrote, so an offline drop is still queued and sent on
+      // reconnect; a driver that never read one writes nothing.
       //
-      // This site therefore still races with createProject, deliberately: a
-      // reorder landing after a concurrent create drops the new id, because
-      // the sequence the user submitted did not contain it. That is
-      // last-write-wins working as intended, it predates the v0.15.9 change,
-      // and it is not what that change was for. Do not "finish the job" by
-      // converting this one.
-      await setDoc(
-        doc(db, SETTINGS_COL, uid),
-        { projectOrder: orderedIds },
-        { merge: true },
-      );
+      // Still a race with a plain create's arrayUnion (no turn): an append
+      // landing between this read and this write leaves the new id out of
+      // the order, so it sorts last until the next move or placement writes
+      // it in. It is never removed from the list.
+      //
+      // The turn ends once the write is issued; the outcome waits for the
+      // server's acknowledgement (offline: until reconnect), as the whole-list
+      // write before it did, and a refused write is `failed`.
+      const endTurn = await takeOrderTurn();
+      let next: string[] | null;
+      let written: Promise<void>;
+      let base: string[] | null;
+      let issuedAt: number;
+      try {
+        base = (await readStoredOrder()) ?? lastOrder;
+        if (!base) return { kind: 'unread' };
+        next = moveAmongShown(
+          withStoredSlots(base, move.heldIds),
+          new Set(move.shownIds),
+          move.draggedId,
+          move.targetId,
+        );
+        if (!next) return { kind: 'unchanged' };
+        written = writeWholeOrder(next);
+        issuedAt = orderWrites;
+      } finally {
+        endTurn();
+      }
+      try {
+        await written;
+        return { kind: 'written', order: next };
+      } catch (err) {
+        logOrderWriteFailure('moveProject: order write', err);
+        // Not this driver's order after all, unless another write followed it.
+        if (orderWrites === issuedAt) lastOrder = base;
+        return { kind: 'failed' };
+      }
     },
 
     // ── Real-time sync ───────────────────────────────────

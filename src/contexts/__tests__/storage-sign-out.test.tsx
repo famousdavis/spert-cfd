@@ -55,7 +55,7 @@ const mockLocalDriver = {
   deleteProject: vi.fn().mockResolvedValue(undefined),
   getActiveProjectId: vi.fn(() => null),
   setActiveProjectId: vi.fn(),
-  reorderProjects: vi.fn().mockResolvedValue(undefined),
+  moveProject: vi.fn().mockResolvedValue({ kind: 'unchanged' }),
   onProjectChange: vi.fn(() => () => {}),
   onProjectListChange: vi.fn(() => () => {}),
   exportProject: vi.fn(() => '{}'),

@@ -205,7 +205,7 @@ describe('Clone, Create and Load Sample, cloud mode (a recording double)', () =>
       deleteProject: vi.fn(async () => {}),
       getActiveProjectId: vi.fn(() => null),
       setActiveProjectId: vi.fn(),
-      reorderProjects: vi.fn(async () => {}),
+      moveProject: vi.fn(async () => ({ kind: 'unchanged' as const })),
       onProjectChange: vi.fn(() => () => {}),
       onProjectListChange: vi.fn(() => () => {}),
       exportProject: vi.fn(() => '{}'),

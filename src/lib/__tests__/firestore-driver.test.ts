@@ -637,14 +637,97 @@ describe('projectOrder writes are atomic (v0.15.9)', () => {
     expect(mockGetDoc).not.toHaveBeenCalled();
   });
 
-  it('reorderProjects still writes a PLAIN array, not a transform', async () => {
-    // An explicit reorder IS the user stating the complete intended sequence,
-    // and no transform expresses that. A transform assertion passing here
-    // would mean the wrong site had been converted.
-    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
-    await driver.reorderProjects(['c', 'a', 'b']);
+  // v0.20.2 (DASH26 R2o, O53a). The emulator tier proves the outcomes against
+  // the real SDK (emulator-tests/order-move.test.ts); these pin the driver's
+  // own arithmetic and ordering, which a mocked getDoc can hold still.
+  const order = (ids: string[], fromCache = false) => ({
+    exists: () => true,
+    data: () => ({ projectOrder: ids }),
+    metadata: { fromCache },
+  });
+  const movesOf = (draggedId: string, targetId: string, held: string[]) =>
+    ({ draggedId, targetId, shownIds: held, heldIds: held });
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    const promise = new Promise<T>((r) => { resolve = r; });
+    return { promise, resolve };
+  }
 
-    expect(settingsWrite()?.projectOrder).toEqual(['c', 'a', 'b']);
+  it('moveProject writes a PLAIN whole array, built from the order read, not the tab\'s list', async () => {
+    // An explicit move is the user stating the complete intended sequence, and
+    // no transform expresses that. The order read (D C B A) is another
+    // device's; the tab holds A B C D. A onto B gives D C A B.
+    mockGetDoc.mockResolvedValue(order(['d', 'c', 'b', 'a']));
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const outcome = await driver.moveProject(movesOf('a', 'b', ['a', 'b', 'c', 'd']));
+    expect(outcome).toEqual({ kind: 'written', order: ['d', 'c', 'a', 'b'] });
+    expect(settingsWrite()?.projectOrder).toEqual(['d', 'c', 'a', 'b']);
+  });
+
+  it('a driver that never read an order writes nothing when the read fails (unread)', async () => {
+    mockGetDoc.mockRejectedValue(Object.assign(new Error('offline'), { code: 'unavailable' }));
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    expect(await driver.moveProject(movesOf('b', 'a', ['a', 'b']))).toEqual({ kind: 'unread' });
+    mockGetDoc.mockResolvedValue(order(['a', 'b'], true)); // a cached read is not a fresh one either
+    expect(await driver.moveProject(movesOf('b', 'a', ['a', 'b']))).toEqual({ kind: 'unread' });
+    expect(settingsWrite()).toBeUndefined();
+  });
+
+  it('a failed read falls back to the last order this driver read or wrote', async () => {
+    mockGetDoc.mockResolvedValueOnce(order(['a', 'b', 'c']));
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    expect(await driver.moveProject(movesOf('c', 'a', ['a', 'b', 'c']))).toEqual({ kind: 'written', order: ['c', 'a', 'b'] });
+    mockGetDoc.mockRejectedValue(Object.assign(new Error('offline'), { code: 'unavailable' }));
+    // Offline: the second drop builds on the first one's order.
+    expect(await driver.moveProject(movesOf('b', 'c', ['c', 'a', 'b']))).toEqual({ kind: 'written', order: ['b', 'c', 'a'] });
+    expect(mockSetDoc.mock.calls.filter(([ref]) => ref.path.startsWith('spertcfd_settings/')).map(([, data]) => data.projectOrder))
+      .toEqual([['c', 'a', 'b'], ['b', 'c', 'a']]);
+  });
+
+  it('a read that found no document is an order read ([]), so a new person\'s offline drop is written', async () => {
+    mockGetDocs.mockResolvedValue({ forEach: () => {} });
+    mockGetDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined, metadata: { fromCache: false } });
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    await driver.loadProjectList();
+    mockGetDoc.mockRejectedValue(Object.assign(new Error('offline'), { code: 'unavailable' }));
+    expect(await driver.moveProject(movesOf('b', 'a', ['a', 'b']))).toEqual({ kind: 'written', order: ['b', 'a'] });
+  });
+
+  it('a list read that began before a drop and answers after it does not bring the old order back', async () => {
+    mockGetDocs.mockResolvedValue({ forEach: () => {} });
+    const late = deferred<ReturnType<typeof order>>();
+    mockGetDoc.mockImplementationOnce(() => late.promise); // the list's read, slow
+    mockGetDoc.mockResolvedValueOnce(order(['a', 'b', 'c'])); // the drop's read
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const listing = driver.loadProjectList();
+    await vi.waitFor(() => expect(mockGetDoc).toHaveBeenCalledTimes(1));
+    expect(await driver.moveProject(movesOf('c', 'a', ['a', 'b', 'c']))).toEqual({ kind: 'written', order: ['c', 'a', 'b'] });
+    late.resolve(order(['a', 'b', 'c']));
+    await listing;
+    mockGetDoc.mockRejectedValue(Object.assign(new Error('offline'), { code: 'unavailable' }));
+    // Built on the drop's order (c a b), not on the late read's (a b c).
+    expect(await driver.moveProject(movesOf('a', 'c', ['c', 'a', 'b']))).toEqual({ kind: 'written', order: ['a', 'c', 'b'] });
+  });
+
+  it('a move waits for a positioned create to issue its order write, and builds on it', async () => {
+    // The order turn (v0.19.0 for placements, v0.20.2 for moves too): the
+    // move's read is not even issued until the clone's order write is.
+    const placementRead = deferred<ReturnType<typeof order>>();
+    mockGetDoc.mockImplementationOnce(() => placementRead.promise);
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    const clone = sampleProject({ id: 'k' });
+    const created = driver.createProject(clone, { after: 'a', shownIds: ['a', 'b'] });
+    await vi.waitFor(() => expect(mockGetDoc).toHaveBeenCalledTimes(1));
+    mockGetDoc.mockImplementation(async () => {
+      const written = mockSetDoc.mock.calls.filter(([ref]) => ref.path.startsWith('spertcfd_settings/')).at(-1)?.[1]?.projectOrder;
+      return order(Array.isArray(written) ? written : ['a', 'b']);
+    });
+    const moved = driver.moveProject(movesOf('b', 'a', ['a', 'k', 'b']));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(mockGetDoc).toHaveBeenCalledTimes(1); // the move is waiting its turn
+    placementRead.resolve(order(['a', 'b']));
+    await created;
+    expect(await moved).toEqual({ kind: 'written', order: ['b', 'a', 'k'] });
   });
 });
 

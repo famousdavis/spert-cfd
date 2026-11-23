@@ -71,7 +71,8 @@ it('O22 (a)+(d): the moment the create resolves, a fresh client reads the copy a
   const [s1, s2, s3] = [newProject(uniqueId('a'), 'S1'), newProject(uniqueId('b'), 'S2'), newProject(uniqueId('c'), 'S3')]
   for (const p of [s1, s2, s3]) await here.createProject(p)
   const shown = (await here.loadProjectList()).map((p) => p.id) // this tab: S1, S2, S3
-  await createFirestoreDriver(uid, client(uid)).reorderProjects([s2.id, s1.id, s3.id]) // a device this tab never heard
+  const ids = [s1.id, s2.id, s3.id]
+  await createFirestoreDriver(uid, client(uid)).moveProject({ draggedId: s2.id, targetId: s1.id, shownIds: ids, heldIds: ids }) // a device this tab never heard: S2, S1, S3
   await here.createProject(cloneOf(s1, 'S1 (copy)', uid), { after: s1.id, shownIds: shown })
   expect(await freshNames(uid)).toEqual(['S2', 'S1', 'S1 (copy)', 'S3'])
   // Must-find control, the create-await-reorder design (pre-flight D1): a create with no placement, awaited, then
@@ -107,7 +108,8 @@ it('O22 (c): a failed order read (a device offline) leaves the stored order as i
   const seed = createFirestoreDriver(uid, client(uid))
   const [s1, s2, s3] = [newProject(uniqueId('a'), 'S1'), newProject(uniqueId('b'), 'S2'), newProject(uniqueId('c'), 'S3')]
   for (const p of [s1, s2, s3]) await seed.createProject(p)
-  await seed.reorderProjects([s3.id, s1.id, s2.id])
+  const ids = [s1.id, s2.id, s3.id]
+  await seed.moveProject({ draggedId: s3.id, targetId: s1.id, shownIds: ids, heldIds: ids }) // S3, S1, S2
   const db = client(uid) // a device with nothing cached, offline
   await disableNetwork(db)
   const clone = cloneOf(s1, 'S1 (copy)', uid)

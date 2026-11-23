@@ -17,11 +17,12 @@ import {
 import { nanoid } from 'nanoid';
 import { useStorage } from './storage-context';
 import type { Project } from '@/types';
-import type { ProjectListItem, ProjectPlacement, StorageDriver } from '@/lib/storage-driver';
+import type { MoveOutcome, ProjectListItem, ProjectPlacement, StorageDriver } from '@/lib/storage-driver';
 import { MAX_NAME_LENGTH } from '@/lib/constants';
 import { createSampleProject } from '@/lib/sample-data';
 import { buildClone, cloneName } from '@/lib/clone-project';
 import { registerDataReset } from '@/lib/app-data-reset-registry';
+import { moveAmongShown } from '@/lib/order-move';
 import type {
   ImportDecisions,
   ImportConflict,
@@ -89,7 +90,16 @@ interface ProjectListContextValue {
     decisions: ImportDecisions;
     originalConflicts: ImportConflict[];
   }) => Promise<ImportMergeOutcome>;
-  reorderProjects: (orderedIds: string[]) => void;
+  /**
+   * v0.20.2 (DASH26 R2o, O53a): drop `draggedId` on `targetId`'s tile. The
+   * tiles move at once; the driver applies the move to the order it reads now
+   * and the list then shows the order written (another tab's or device's
+   * included). When nothing is written (local: the index lacks an id; cloud: no
+   * order was ever read; local: the write threw) the list shows the order it
+   * had before the drop. `shownIds` are the tiles on screen, all of them when
+   * omitted.
+   */
+  moveProject: (draggedId: string, targetId: string, shownIds?: readonly string[]) => void;
 }
 
 const ProjectListContext = createContext<ProjectListContextValue | null>(null);
@@ -111,6 +121,26 @@ function logCreateFailure(err: unknown): void {
 function ownedOnceCreated(driver: StorageDriver, item: ProjectListItem): ProjectListItem {
   if (driver.mode !== 'cloud' || item.role !== undefined) return item;
   return { ...item, owner: driver.workspaceId, role: 'owner', memberCount: 1 };
+}
+
+/** A drop on screen: the move, and the tiles it was made among. */
+interface PendingMove {
+  draggedId: string;
+  targetId: string;
+  shown: ReadonlySet<string>;
+}
+
+/** `list` with the move made among its shown items (see `moveAmongShown`); `list` itself when it changes nothing. */
+function applyMove(list: ProjectListItem[], move: PendingMove): ProjectListItem[] {
+  const next = moveAmongShown(list.map((p) => p.id), move.shown, move.draggedId, move.targetId);
+  return next ? inOrder(list, next) : list;
+}
+
+/** `list` sorted by `order`; items it does not name keep their relative order, last (as the cloud list sorts). */
+function inOrder(list: ProjectListItem[], order: readonly string[]): ProjectListItem[] {
+  const at = new Map(order.map((id, i) => [id, i]));
+  const rank = (p: ProjectListItem) => at.get(p.id) ?? Number.MAX_SAFE_INTEGER;
+  return [...list].sort((a, b) => rank(a) - rank(b));
 }
 
 /** `item` right after `after`, or at the end when `after` is absent or not listed. */
@@ -155,6 +185,18 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     projectsRef.current = projects;
   }, [projects]);
+  // v0.20.2 (DASH26 R2o): drops the driver has not answered yet, in the order
+  // they were made, and the order the list had before the first of them (the
+  // last one written, once a drop is). Each answer re-shows the order written,
+  // or this one, with the drops still waiting made again on top, so a second
+  // quick drop never shows the first undone. `driverRef` lets an answer from a
+  // driver that has since been swapped out be ignored.
+  const pendingMovesRef = useRef<PendingMove[]>([]);
+  const confirmedOrderRef = useRef<string[]>([]);
+  const driverRef = useRef(driver);
+  useLayoutEffect(() => {
+    driverRef.current = driver;
+  }, [driver]);
 
   // Load project list from driver on mount
   useEffect(() => {
@@ -222,6 +264,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   // the onAuthStateChanged(null) cascade.
   useEffect(() => {
     return registerDataReset(() => {
+      pendingMovesRef.current = [];
       setProjects([]);
       setActiveProjectId(null);
       setImportedActiveProject(null);
@@ -508,26 +551,32 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
     [driver, projects, activeProjectId],
   );
 
-  const reorderProjects = useCallback(
-    (orderedIds: string[]) => {
-      // Optimistic update — reorder local state immediately
-      setProjects((prev) => {
-        // Validate: must be a permutation of existing project IDs
-        const currentIds = prev.map((p) => p.id);
-        if (
-          orderedIds.length !== currentIds.length ||
-          new Set(orderedIds).size !== orderedIds.length ||
-          !orderedIds.every((id) => currentIds.includes(id))
-        ) {
-          return prev; // Reject silently
-        }
+  const moveProject = useCallback(
+    (draggedId: string, targetId: string, shownIds?: readonly string[]) => {
+      const held = projectsRef.current.map((p) => p.id);
+      const shown = new Set(shownIds ?? held);
+      const move: PendingMove = { draggedId, targetId, shown };
+      if (!moveAmongShown(held, shown, draggedId, targetId)) return;
+      if (pendingMovesRef.current.length === 0) confirmedOrderRef.current = held;
+      pendingMovesRef.current = [...pendingMovesRef.current, move];
+      setProjects((prev) => applyMove(prev, move));
 
-        const byId = new Map(prev.map((p) => [p.id, p]));
-        return orderedIds.map((id) => byId.get(id)!);
-      });
-
-      // Persist via driver
-      driver.reorderProjects(orderedIds);
+      const settle = (outcome: MoveOutcome) => {
+        if (driverRef.current !== driver) return;
+        pendingMovesRef.current = pendingMovesRef.current.filter((m) => m !== move);
+        if (outcome.kind === 'written') confirmedOrderRef.current = outcome.order;
+        // `written` shows the order written; every other outcome the order
+        // before this drop. Either way the drops still waiting go on top.
+        const base = confirmedOrderRef.current;
+        const waiting = pendingMovesRef.current;
+        setProjects((prev) => waiting.reduce(applyMove, inOrder(prev, base)));
+      };
+      driver
+        .moveProject({ draggedId, targetId, shownIds: [...shown], heldIds: held })
+        .then(settle, (err) => {
+          console.error('Failed to move project:', (err as { code?: string }).code ?? 'unknown');
+          settle({ kind: 'failed' });
+        });
     },
     [driver]
   );
@@ -548,7 +597,7 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
         switchProject,
         renameProject,
         applyImportMerge,
-        reorderProjects,
+        moveProject,
       }}
     >
       {children}

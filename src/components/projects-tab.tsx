@@ -17,7 +17,6 @@ import {
   SortableContext,
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
-import { arrayMove } from '@dnd-kit/sortable';
 import { useProjectList } from '@/contexts/project-list-context';
 import { useActiveProject } from '@/contexts/active-project-context';
 import { useStorage } from '@/contexts/storage-context';
@@ -77,7 +76,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     cloneProject,
     deleteProject,
     renameProject,
-    reorderProjects,
+    moveProject,
   } = useProjectList();
   const { project: loadedProject } = useActiveProject();
   const { driver } = useStorage();
@@ -147,13 +146,11 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
-      const oldIndex = projectIds.indexOf(active.id as string);
-      const newIndex = projectIds.indexOf(over.id as string);
-      if (oldIndex === -1 || newIndex === -1) return;
-      const reordered = arrayMove(projectIds, oldIndex, newIndex);
-      reorderProjects(reordered);
+      // v0.20.2 (DASH26 R2o): the move itself, never the list it gives here;
+      // the driver applies it to the order it reads now (O53a).
+      moveProject(String(active.id), String(over.id));
     },
-    [projectIds, reorderProjects]
+    [moveProject]
   );
 
   // Load full project data for the tiles' meta lines via driver (async).

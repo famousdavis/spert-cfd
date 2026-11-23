@@ -25,7 +25,7 @@ const { createProject, listValue, storageValue } = vi.hoisted(() => {
       createProject,
       deleteProject: () => {},
       renameProject: () => {},
-      reorderProjects: () => {},
+      moveProject: () => {},
     },
     storageValue: { driver: { mode: 'cloud', loadProject: async () => null } },
   };

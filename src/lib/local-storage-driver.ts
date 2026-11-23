@@ -4,7 +4,7 @@
 
 import { nanoid } from 'nanoid';
 import type { Project, PendingInvite } from '@/types';
-import type { StorageDriver, ProjectListItem, ProjectPlacement } from './storage-driver';
+import type { StorageDriver, ProjectListItem, ProjectPlacement, ProjectMove, MoveOutcome } from './storage-driver';
 import {
   loadIndex,
   saveIndex,
@@ -16,6 +16,7 @@ import {
   importProject,
 } from './storage';
 import { placeAfter } from './project-order';
+import { moveAmongShown, sameIds } from './order-move';
 import { LS_ACTIVE_PROJECT, LS_WORKSPACE_ID } from './constants';
 
 /**
@@ -123,20 +124,30 @@ export function createLocalStorageDriver(): StorageDriver {
       }
     },
 
-    reorderProjects(orderedIds: string[]): Promise<void> {
+    moveProject(move: ProjectMove): Promise<MoveOutcome> {
+      // v0.20.2 (DASH26 R2o, O53a). The index is the list of projects that
+      // exist, so a move is made WITHIN the index as read now and nothing else:
+      // an id another tab added, or one this browser cannot read, keeps its
+      // slot, and an id this tab still lists after another tab deleted it is
+      // never written back. Until v0.20.2 the tab's whole list was written,
+      // and refused silently whenever it was not exactly the index, so one
+      // unreadable id or another tab's new project made every drop do nothing,
+      // and another tab's reorder was undone by the next drop here.
       const index = loadIndex();
-
-      // Validate: must be a permutation of existing projectIds
-      if (
-        orderedIds.length !== index.projectIds.length ||
-        new Set(orderedIds).size !== orderedIds.length ||
-        !orderedIds.every((id) => index.projectIds.includes(id))
-      ) {
-        return Promise.resolve(); // Reject silently
+      const ids = index.projectIds;
+      if (!ids.includes(move.draggedId) || !ids.includes(move.targetId)) {
+        return Promise.resolve({ kind: 'refused' });
       }
-
-      saveIndex({ ...index, projectIds: orderedIds });
-      return Promise.resolve();
+      const next = moveAmongShown(ids, new Set(move.shownIds), move.draggedId, move.targetId);
+      if (!next) return Promise.resolve({ kind: 'unchanged' });
+      // The guard: the index keeps exactly its ids, none added, dropped or doubled.
+      if (!sameIds(next, ids)) return Promise.resolve({ kind: 'refused' });
+      try {
+        saveIndex({ ...index, projectIds: next });
+      } catch {
+        return Promise.resolve({ kind: 'failed' });
+      }
+      return Promise.resolve({ kind: 'written', order: next });
     },
 
     // ── Real-time sync (no-op for local) ─────────────────
