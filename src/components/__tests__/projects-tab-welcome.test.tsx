@@ -26,7 +26,7 @@ const h = vi.hoisted(() => ({
     cloneProject: vi.fn(),
     deleteProject: vi.fn(),
     renameProject: vi.fn(),
-    reorderProjects: vi.fn(),
+    moveProject: vi.fn(),
   },
   storage: { driver: { mode: 'local' as 'local' | 'cloud', loadProject: async () => null } },
   importFlow: { phase: 'idle' } as { phase: string },

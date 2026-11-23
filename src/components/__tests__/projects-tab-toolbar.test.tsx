@@ -26,7 +26,7 @@ const h = vi.hoisted(() => {
       loadSampleProject,
       deleteProject: () => {},
       renameProject: () => {},
-      reorderProjects: () => {},
+      moveProject: () => {},
     },
     storageValue: { driver: { mode: 'local', loadProject: async () => null } },
   };

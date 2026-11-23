@@ -32,7 +32,7 @@ const h = vi.hoisted(() => ({
     cloneProject: vi.fn(),
     deleteProject: vi.fn(),
     renameProject: vi.fn(),
-    reorderProjects: vi.fn(),
+    moveProject: vi.fn(),
   },
   storage: { driver: { mode: 'local' as 'local' | 'cloud', loadProject: vi.fn(), exportProject: vi.fn() } },
   importPhase: { phase: 'idle' } as { phase: string },

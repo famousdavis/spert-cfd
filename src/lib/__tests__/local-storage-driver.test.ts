@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createLocalStorageDriver } from '../local-storage-driver';
 import { createSampleProject } from '../sample-data';
 import { INDEX_KEY } from '../storage';
@@ -213,29 +213,93 @@ describe('LocalStorageDriver', () => {
     });
   });
 
-  describe('reorderProjects', () => {
-    it('persists new order', async () => {
-      const p1 = createSampleProject();
-      const p2 = createSampleProject();
-      await driver.createProject(p1);
-      await driver.createProject(p2);
+  // v0.20.2 (DASH26 R2o, O53a): a drop is a move made within the index as it
+  // is read now. Each "another tab" case runs a second driver on the same
+  // localStorage, as a second tab of this browser does. At 3463be9 the tab's
+  // whole list was written, and refused silently unless it was exactly the
+  // index: the unreadable-id, added and deleted cases did nothing, and the
+  // reordered case undid the other tab's order (measured, R2 pre-flight).
+  describe('moveProject', () => {
+    const p = (id: string) => ({ ...createSampleProject(), id, name: id.toUpperCase() });
+    const index = () => JSON.parse(localStorage.getItem(INDEX_KEY) ?? '{}').projectIds as string[];
+    const held = async () => (await driver.loadProjectList()).map((x) => x.id);
+    const move = (draggedId: string, targetId: string, heldIds: string[], shownIds = heldIds) =>
+      driver.moveProject({ draggedId, targetId, shownIds, heldIds });
+    async function seed(...ids: string[]) {
+      for (const id of ids) await driver.createProject(p(id));
+    }
 
-      await driver.reorderProjects([p2.id, p1.id]);
-
-      const list = await driver.loadProjectList();
-      expect(list[0].id).toBe(p2.id);
-      expect(list[1].id).toBe(p1.id);
+    it('writes the move (control: every id readable)', async () => {
+      await seed('a', 'b', 'c');
+      expect(await move('c', 'a', await held())).toEqual({ kind: 'written', order: ['c', 'a', 'b'] });
+      expect(index()).toEqual(['c', 'a', 'b']);
+      expect(await held()).toEqual(['c', 'a', 'b']);
     });
 
-    it('rejects invalid permutations silently', async () => {
-      const p1 = createSampleProject();
-      await driver.createProject(p1);
+    it('an id this browser cannot read keeps its slot, and the drop is written', async () => {
+      await seed('a', 'b', 'c');
+      localStorage.setItem('cfd-lab-project-b', '{not json');
+      const tab = await held();
+      expect(tab).toEqual(['a', 'c']);
+      expect(await move('c', 'a', tab)).toEqual({ kind: 'written', order: ['c', 'b', 'a'] });
+      expect(index()).toEqual(['c', 'b', 'a']);
+    });
 
-      // Wrong length
-      await driver.reorderProjects([p1.id, 'nonexistent']);
-      const list = await driver.loadProjectList();
-      expect(list).toHaveLength(1);
-      expect(list[0].id).toBe(p1.id);
+    it('a project another tab added keeps its slot, and the drop is written', async () => {
+      await seed('a', 'b');
+      const tab = await held();
+      await createLocalStorageDriver().createProject(p('n'));
+      expect(await move('b', 'a', tab)).toEqual({ kind: 'written', order: ['b', 'a', 'n'] });
+    });
+
+    it("another tab's reorder is kept: the drop is applied to it", async () => {
+      await seed('a', 'b', 'c');
+      const tab = await held();
+      const other = createLocalStorageDriver();
+      await other.moveProject({ draggedId: 'c', targetId: 'a', shownIds: tab, heldIds: tab }); // c a b
+      await other.moveProject({ draggedId: 'b', targetId: 'a', shownIds: tab, heldIds: tab }); // c b a
+      expect(index()).toEqual(['c', 'b', 'a']);
+      expect(await move('a', 'b', tab)).toEqual({ kind: 'written', order: ['c', 'a', 'b'] });
+    });
+
+    it('a project another tab deleted never comes back, and a drop naming it is refused', async () => {
+      await seed('a', 'b', 'c');
+      const tab = await held();
+      await createLocalStorageDriver().deleteProject('b');
+      expect(await move('c', 'a', tab)).toEqual({ kind: 'written', order: ['c', 'a'] });
+      expect(index()).toEqual(['c', 'a']);
+      expect(await move('b', 'a', tab)).toEqual({ kind: 'refused' });
+      expect(await move('a', 'b', tab)).toEqual({ kind: 'refused' });
+      expect(index()).toEqual(['c', 'a']);
+    });
+
+    it('ids not shown keep their slots', async () => {
+      await seed('a', 'x', 'b', 'c');
+      expect(await move('c', 'a', await held(), ['a', 'b', 'c'])).toEqual({ kind: 'written', order: ['c', 'x', 'a', 'b'] });
+    });
+
+    it('a move that changes nothing writes nothing', async () => {
+      await seed('a', 'b');
+      const before = localStorage.getItem(INDEX_KEY);
+      expect(await move('a', 'a', await held())).toEqual({ kind: 'unchanged' });
+      expect(await move('a', 'b', await held(), ['a'])).toEqual({ kind: 'unchanged' });
+      expect(localStorage.getItem(INDEX_KEY)).toBe(before);
+    });
+
+    it('an index write that throws is reported as failed, and the index is unchanged', async () => {
+      await seed('a', 'b');
+      const tab = await held();
+      const setItem = localStorage.setItem.bind(localStorage);
+      const spy = vi.spyOn(localStorage, 'setItem').mockImplementation((key: string, value: string) => {
+        if (key === INDEX_KEY) throw new DOMException('full', 'QuotaExceededError');
+        return setItem(key, value);
+      });
+      try {
+        expect(await move('b', 'a', tab)).toEqual({ kind: 'failed' });
+      } finally {
+        spy.mockRestore();
+      }
+      expect(index()).toEqual(['a', 'b']);
     });
   });
 

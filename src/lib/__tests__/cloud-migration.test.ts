@@ -61,7 +61,7 @@ function createMockDriver(projects: Project[]): StorageDriver {
     deleteProject: async (id) => { store.delete(id); deletedIds.push(id); },
     getActiveProjectId: () => null,
     setActiveProjectId: () => {},
-    reorderProjects: async () => {},
+    moveProject: async () => ({ kind: 'unchanged' as const }),
     onProjectChange: () => () => {},
     onProjectListChange: () => () => {},
     exportProject: (p) => JSON.stringify(p),

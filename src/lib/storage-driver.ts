@@ -50,6 +50,38 @@ export interface ProjectPlacement {
   shownIds: readonly string[];
 }
 
+/**
+ * A drag-and-drop move (v0.20.2, DASH26 R2o, O53a): `draggedId` dropped on
+ * `targetId`'s tile. Never a final list: the driver applies the move to the
+ * order it reads at the time (see `order-move.ts`), so another tab's or
+ * device's order survives. `shownIds` are the tiles on screen, among which the
+ * move is made; every other stored id keeps its slot. `heldIds` are every
+ * project this tab lists (the shown ones and, from v0.21.0, the hidden ones).
+ */
+export interface ProjectMove {
+  draggedId: string;
+  targetId: string;
+  shownIds: readonly string[];
+  heldIds: readonly string[];
+}
+
+/**
+ * What a move did. `written` carries the whole order written. `unchanged`:
+ * the move changed nothing in the order read. `refused` (local): the stored
+ * index lacks one of the two ids, so nothing is written. `unread` (cloud): no
+ * order could be read and this driver never read one, so nothing is written.
+ * `failed`: the local index write threw, or the server refused the cloud
+ * write. On every outcome but `written` the screen shows the order it had
+ * before the drop. A cloud outcome waits for the server's acknowledgement, so
+ * an offline drop's settles on reconnect.
+ */
+export type MoveOutcome =
+  | { kind: 'written'; order: string[] }
+  | { kind: 'unchanged' }
+  | { kind: 'refused' }
+  | { kind: 'unread' }
+  | { kind: 'failed' };
+
 export interface StorageDriver {
   /** Current storage mode. */
   readonly mode: StorageMode;
@@ -101,11 +133,15 @@ export interface StorageDriver {
   setActiveProjectId(id: string | null): void;
 
   /**
-   * Persist project display order.
-   * Local: updates StorageIndex.projectIds.
-   * Cloud: writes to spertcfd_settings/{uid}.projectOrder.
+   * Persist a drag-and-drop move (v0.20.2, DASH26 R2o, O53a; replaces
+   * `reorderProjects(orderedIds)`, which wrote whatever list it was given).
+   * Local: reads the index fresh and moves within it only; the ids written are
+   * exactly the index's, so no project is ever added to or dropped from the
+   * list. Cloud: reads `spertcfd_settings/{uid}.projectOrder` from the server,
+   * or, when that read fails, takes the last order this driver read or wrote;
+   * writes the whole order, taking turns with positioned creates.
    */
-  reorderProjects(orderedIds: string[]): Promise<void>;
+  moveProject(move: ProjectMove): Promise<MoveOutcome>;
 
   // ── Real-time sync (cloud only) ───────────────────────
 

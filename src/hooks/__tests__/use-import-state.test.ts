@@ -100,7 +100,7 @@ function makeContextValue(applyFn: (args: unknown) => Promise<ImportMergeOutcome
     deleteProject: vi.fn(),
     switchProject: vi.fn(),
     renameProject: vi.fn(),
-    reorderProjects: vi.fn(),
+    moveProject: vi.fn(),
     applyImportMerge: applyFn as ReturnType<typeof useProjectList>['applyImportMerge'],
   };
 }

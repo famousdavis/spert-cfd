@@ -41,7 +41,7 @@ const mockDriver = {
   deleteProject: vi.fn().mockResolvedValue(undefined),
   getActiveProjectId: vi.fn(() => 'proj-1'),
   setActiveProjectId: vi.fn(),
-  reorderProjects: vi.fn().mockResolvedValue(undefined),
+  moveProject: vi.fn().mockResolvedValue({ kind: 'unchanged' }),
   onProjectChange: vi.fn(() => () => {}),
   onProjectListChange: vi.fn(() => () => {}),
   exportProject: vi.fn(() => '{}'),
