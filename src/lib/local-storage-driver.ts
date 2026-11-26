@@ -17,6 +17,8 @@ import {
 } from './storage';
 import { placeAfter } from './project-order';
 import { moveAmongShown, sameIds } from './order-move';
+import { readLocalPrefs, writeLocalPref } from './local-prefs';
+import type { PrefsRead } from './project-prefs';
 import { LS_ACTIVE_PROJECT, LS_WORKSPACE_ID } from './constants';
 
 /**
@@ -27,6 +29,11 @@ import { LS_ACTIVE_PROJECT, LS_WORKSPACE_ID } from './constants';
  */
 export function createLocalStorageDriver(): StorageDriver {
   let cachedWorkspaceId: string | null = null;
+  // v0.21.0 (DASH26 R2): this browser's tile colours and archive, read once,
+  // then the map each change wrote (which carries another tab's changes too).
+  let prefs: PrefsRead | null = null;
+  const prefsListeners = new Set<(read: PrefsRead) => void>();
+  const currentPrefs = (): PrefsRead => (prefs ??= { status: 'ready', prefs: readLocalPrefs() });
 
   return {
     mode: 'local',
@@ -149,6 +156,34 @@ export function createLocalStorageDriver(): StorageDriver {
       }
       return Promise.resolve({ kind: 'written', order: next });
     },
+
+    // ── Tile colour and archive (v0.21.0, DASH26 R2, O56, O63) ──
+
+    getProjectPrefs(): PrefsRead {
+      return currentPrefs();
+    },
+
+    onProjectPrefsChange(callback: (read: PrefsRead) => void): () => void {
+      prefsListeners.add(callback);
+      return () => {
+        prefsListeners.delete(callback);
+      };
+    },
+
+    setProjectPref(id, field, value) {
+      const written = writeLocalPref(id, field, value);
+      if ('refused' in written) return written.refused;
+      prefs = { status: 'ready', prefs: written.prefs };
+      for (const listener of prefsListeners) listener(prefs);
+      return null;
+    },
+
+    // Local refusals are returned by setProjectPref at once; none comes later.
+    onProjectPrefsRefused(): () => void {
+      return () => {};
+    },
+
+    retryProjectPrefs(): void {},
 
     // ── Real-time sync (no-op for local) ─────────────────
 

@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import type { Project, PendingInvite } from '@/types';
+import type { PrefRefusal, PrefsRead, PrefValue, ProjectPrefField } from './project-prefs';
 
 export type StorageMode = 'local' | 'cloud';
 
@@ -142,6 +143,45 @@ export interface StorageDriver {
    * writes the whole order, taking turns with positioned creates.
    */
   moveProject(move: ProjectMove): Promise<MoveOutcome>;
+
+  // ── Tile colour and archive: each person's own (v0.21.0, DASH26 R2) ──
+
+  /**
+   * The person's map now. Local: `ready` at once, from this browser's key.
+   * Cloud: `loading` until the first read of `spertcfd_settings/{uid}` that
+   * reaches the server (with the order, when the list loads); then `ready`,
+   * and that map is the session's truth: later reads touch only the order
+   * (O62). A read that fails leaves `failed`, retried at each list snapshot
+   * and by `retryProjectPrefs` until one succeeds (O54).
+   */
+  getProjectPrefs(): PrefsRead;
+
+  /** Called with the map whenever it changes. */
+  onProjectPrefsChange(callback: (read: PrefsRead) => void): () => void;
+
+  /**
+   * Change one field of one project's entry; null when made, else why not.
+   * Local: written now, the key read again first (O63). Cloud: in memory at
+   * once, then written per field (`mergeFields`, `deleteField()` to clear,
+   * O52) after a 200 ms debounce under its own timer, the values read when it
+   * fires; `flush()` sends it, `cancelPendingSaves()` drops it. Refused while
+   * the map is not `ready`, for a refused id, and past the cap.
+   */
+  setProjectPref<F extends ProjectPrefField>(id: string, field: F, value: PrefValue<F>): PrefRefusal | null;
+
+  /**
+   * Called when a change `setProjectPref` took was refused later, by the
+   * server (PR #115 review, Opus-PR115-2 -09). Cloud: the write goes after the
+   * debounce, so a refusal comes after the change showed; the map is then put
+   * back from a fresh read of the person's settings (changes still waiting or
+   * on their way kept), or `failed` when that read fails too, and each
+   * listener is called once. A refusal no listener heard is told to the next
+   * one that subscribes. Local: never (its refusals are returned at once).
+   */
+  onProjectPrefsRefused(callback: () => void): () => void;
+
+  /** Read the person's settings again if the last read failed (O54, DASH26 §7 answer 1). Local: nothing. */
+  retryProjectPrefs(): void;
 
   // ── Real-time sync (cloud only) ───────────────────────
 

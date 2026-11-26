@@ -4,14 +4,25 @@
 
 'use client';
 
-import { useId, type CSSProperties, type Ref } from 'react';
+import { useId, useRef, type CSSProperties, type Ref } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { UNNAMED_PROJECT } from '@/lib/cloud-load-guards';
 import { tileMetaLines, type ProjectStats } from '@/lib/project-tile-meta';
 import type { TileAccess } from '@/lib/tile-access';
 import { DragHandle } from './icons/drag-handle';
-import { CloneIconButton, ExportIconButton, PencilIconButton, ShareIconButton, TrashIconButton } from './icons/icon-buttons';
+import type { ProjectColor } from '@/lib/project-prefs';
+import {
+  ArchiveIconButton,
+  CloneIconButton,
+  ExportIconButton,
+  PencilIconButton,
+  ShareIconButton,
+  TrashIconButton,
+  UnarchiveIconButton,
+} from './icons/icon-buttons';
+import { ProjectColorButton, ProjectColorPopover } from './project-color-control';
+import { TILE_TINT, TILE_TINT_ARCHIVED } from './tile-color-styles';
 import {
   ABOVE_OPEN,
   ACTIONS,
@@ -19,12 +30,14 @@ import {
   GRIP,
   META,
   NAME,
+  NAME_ARCHIVED,
   NAME_COLOR,
   NAME_ROW,
   OPEN,
   REVEAL,
+  STAY,
   TILE,
-  TILE_BG,
+  TILE_ARCHIVED_BORDER,
   TILE_BORDER,
   TILE_HOVER,
 } from './dashboard-styles';
@@ -41,6 +54,20 @@ export interface ProjectTileProps {
   onShare: (id: string) => void;
   /** v0.19.0 (DASH26 R1b): Clone, offered on every tile, to every role (O9). */
   onClone: (id: string) => void;
+  /** v0.21.0 (DASH26 R2): this person's colour for the project, if any. */
+  color?: ProjectColor;
+  /** v0.21.0: archived by this person (O50: half the tint, dashed, the meta colour, "Archived"). */
+  archived?: boolean;
+  /** Why Tile color, Archive and Unarchive cannot be used now (O54, O60), or null. */
+  prefsBlockedReason?: string | null;
+  /** Why the tile cannot be dragged now (O54), or null. */
+  dragBlockedReason?: string | null;
+  colorOpen?: boolean;
+  onColorOpenChange?: (id: string, open: boolean) => void;
+  /** Applies a colour (null: No color); false when refused, and nothing changed. */
+  onPickColor?: (id: string, color: ProjectColor | null) => boolean;
+  onArchive?: (id: string) => void;
+  onUnarchive?: (id: string) => void;
   /** dnd-kit's pointer listeners, spread on the grip only. */
   gripProps?: Record<string, unknown>;
   nodeRef?: Ref<HTMLLIElement>;
@@ -77,6 +104,15 @@ export function ProjectTile({
   onDelete,
   onShare,
   onClone,
+  color,
+  archived = false,
+  prefsBlockedReason = null,
+  dragBlockedReason = null,
+  colorOpen = false,
+  onColorOpenChange = () => {},
+  onPickColor = () => false,
+  onArchive = () => {},
+  onUnarchive = () => {},
   gripProps,
   nodeRef,
   style,
@@ -85,33 +121,42 @@ export function ProjectTile({
   const reasonId = useId();
   const deleteReasonId = `${reasonId}-delete`;
   const editReasonId = `${reasonId}-edit`;
+  const prefsReasonId = `${reasonId}-prefs`;
+  const colorButtonRef = useRef<HTMLButtonElement>(null);
   const display = name || UNNAMED_PROJECT;
   const { badge, showShare, deleteBlockedReason, editBlockedReason } = access;
+  const tint = (archived ? TILE_TINT_ARCHIVED : TILE_TINT)[color ?? 'none'];
+  const openLabel = `${archived ? 'Unarchive and open CFD for ' : 'Open CFD for '}${display}${badge ? ` (${badge})` : ''}`;
+  const prefsDescribedBy = prefsBlockedReason ? prefsReasonId : undefined;
   return (
     <li
       ref={nodeRef}
       style={style}
       data-tile="true"
       data-project-id={id}
-      className={`${TILE} ${TILE_BG} ${TILE_BORDER} ${TILE_HOVER}${isDragging ? ' z-10 opacity-50' : ''}`}
+      data-color={color ?? 'none'}
+      data-archived={archived ? 'true' : undefined}
+      data-popopen={colorOpen ? 'true' : undefined}
+      className={`${TILE} ${tint} ${archived ? TILE_ARCHIVED_BORDER : TILE_BORDER} ${TILE_HOVER}${isDragging ? ' z-10 opacity-50' : ''}`}
     >
       <div className={NAME_ROW}>
         {/* The only place a drag starts. */}
-        <span title="Drag to reorder" aria-hidden="true" className={GRIP} {...gripProps}>
-          <DragHandle />
+        <span title={dragBlockedReason ?? 'Drag to reorder'} aria-hidden="true" className={GRIP} {...gripProps}>
+          <DragHandle tinted={color !== undefined} />
         </span>
-        <h3 className={`${NAME} ${NAME_COLOR}`}>
+        <h3 className={`${NAME} ${archived ? NAME_ARCHIVED : NAME_COLOR}`}>
           <button
             type="button"
             className={OPEN}
             onClick={() => onOpen(id)}
-            title="Open CFD"
-            aria-label={`Open CFD for ${display}${badge ? ` (${badge})` : ''}`}
+            title={archived ? 'Unarchive and open CFD' : 'Open CFD'}
+            aria-label={openLabel}
           >
             {display}
           </button>
         </h3>
         {badge && <span className={BADGE}>{badge}</span>}
+        {archived && <span className={BADGE}>Archived</span>}
         <span className={`${ABOVE_OPEN} inline-flex flex-none`}>
           {deleteBlockedReason && (
             <span id={deleteReasonId} className="sr-only">
@@ -149,7 +194,51 @@ export function ProjectTile({
             describedBy={editBlockedReason ? editReasonId : undefined}
           />
           <CloneIconButton onClick={() => onClone(id)} ariaLabel={`Clone ${display}`} title="Clone project" />
+          {prefsBlockedReason && (
+            <span id={prefsReasonId} className="sr-only">
+              {prefsBlockedReason}
+            </span>
+          )}
+          {!archived && (
+            <ArchiveIconButton
+              onClick={() => onArchive(id)}
+              ariaLabel={`Archive ${display}`}
+              title={prefsBlockedReason ?? 'Archive project'}
+              disabled={prefsBlockedReason !== null}
+              describedBy={prefsDescribedBy}
+            />
+          )}
+          <ProjectColorButton
+            projectName={display}
+            color={color}
+            open={colorOpen}
+            buttonRef={colorButtonRef}
+            onOpenChange={(open) => onColorOpenChange(id, open)}
+            disabledReason={prefsBlockedReason}
+            describedBy={prefsDescribedBy}
+          />
         </div>
+        {archived && (
+          // Always shown, and above the name button's `::after` (a click there would open the tile).
+          <div className={`${STAY} ${ABOVE_OPEN}`}>
+            <UnarchiveIconButton
+              onClick={() => onUnarchive(id)}
+              ariaLabel={`Unarchive ${display}`}
+              title={prefsBlockedReason ?? 'Unarchive project'}
+              disabled={prefsBlockedReason !== null}
+              describedBy={prefsDescribedBy}
+            />
+          </div>
+        )}
+        {colorOpen && (
+          // Beside the revealed row, never inside it: see project-color-control.tsx.
+          <ProjectColorPopover
+            color={color}
+            buttonRef={colorButtonRef}
+            onPick={(next) => onPickColor(id, next)}
+            onOpenChange={(open) => onColorOpenChange(id, open)}
+          />
+        )}
       </div>
     </li>
   );
@@ -159,7 +248,11 @@ type SortableProjectTileProps = Omit<ProjectTileProps, 'gripProps' | 'nodeRef' |
 
 /** The tile in the Projects grid: dnd-kit's node on the `<li>`, its pointer listeners on the grip. */
 export function SortableProjectTile(props: SortableProjectTileProps) {
-  const { listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.id });
+  // v0.21.0 (O54): no drag while the person's settings cannot be read.
+  const { listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.id,
+    disabled: Boolean(props.dragBlockedReason),
+  });
   return (
     <ProjectTile
       {...props}

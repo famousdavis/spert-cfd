@@ -18,6 +18,7 @@ import {
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { useProjectList } from '@/contexts/project-list-context';
+import type { ProjectListItem, StorageMode } from '@/lib/storage-driver';
 import { useActiveProject } from '@/contexts/active-project-context';
 import { useStorage } from '@/contexts/storage-context';
 import { UNNAMED_PROJECT } from '@/lib/cloud-load-guards';
@@ -32,6 +33,8 @@ import { useImportState } from '@/hooks/use-import-state';
 import { ConfirmDialog } from './confirm-dialog';
 import { ProjectDialog } from './project-dialog';
 import { ProjectsEmptyState } from './projects-empty-state';
+import { AllArchivedLine, ArchiveRows } from './archive-controls';
+import { useProjectArchive } from './use-project-archive';
 import { ToolbarIcon } from './icons/toolbar-icon';
 import { TOOLBAR_ICON_PATHS } from './icons/toolbar-icon-paths';
 import { ImportPreviewSection } from './import-preview-section';
@@ -140,17 +143,32 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
-  const projectIds = projects.map((p) => p.id);
+  // v0.21.0 (DASH26 R2): colour and archive. `projects` stays the full list
+  // for every count, save, export and name check (O61); only the grid, the
+  // drag and focus read the shown list.
+  const requestFocus = useCallback((target: TileFocusTarget) => setFocusRequest({ target }), []);
+  const archiveView = useProjectArchive({
+    projects,
+    dialogOpen: [dialog, deleteConfirmId, sharingProjectId].some((open) => open !== null),
+    onOpenInCfd,
+    requestFocus,
+    showError,
+  });
+  const { shown } = archiveView;
+  // dnd-kit sorts the shown tiles only (DASH26 §7 answer 8): a hidden tile is
+  // never one of its items, and keeps its slot in the stored order.
+  const shownIds = shown.map((p) => p.id);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
       // v0.20.2 (DASH26 R2o): the move itself, never the list it gives here;
-      // the driver applies it to the order it reads now (O53a).
-      moveProject(String(active.id), String(over.id));
+      // the driver applies it to the order it reads now (O53a), among the
+      // tiles shown (v0.21.0).
+      moveProject(String(active.id), String(over.id), shownIds);
     },
-    [moveProject]
+    [moveProject, shownIds]
   );
 
   // Load full project data for the tiles' meta lines via driver (async).
@@ -290,12 +308,13 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
 
   const handleConfirmDelete = useCallback(() => {
     if (deleteConfirmId) {
-      const target = focusAfterTileLeaves(projects, deleteConfirmId);
+      // The shown list (v0.21.0, O61): a hidden neighbour cannot take focus.
+      const target = focusAfterTileLeaves(shown, deleteConfirmId);
       deleteProject(deleteConfirmId);
       setFocusRequest({ target });
     }
     setDeleteConfirmId(null);
-  }, [deleteConfirmId, deleteProject, projects]);
+  }, [deleteConfirmId, deleteProject, shown]);
 
   const handleCancelDelete = useCallback(() => {
     if (deleteConfirmId) setFocusRequest({ target: { kind: 'delete', projectId: deleteConfirmId } });
@@ -368,6 +387,14 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
             aria-label="Import project file"
           />
         </div>
+
+        <ArchiveRows
+          archivedCount={archiveView.archivedCount}
+          showArchived={archiveView.showArchived}
+          onShowArchivedChange={archiveView.setShowArchived}
+          unread={archiveView.read.status === 'failed'}
+          status={archiveView.status}
+        />
 
         {/* A failed create, Load Sample or Clone (v0.19.0: storage full in O24's words) */}
         {uiError && (
@@ -474,33 +501,19 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
             </div>
           )
         ) : (
-          <DndContext
+          <ProjectGrid
             sensors={sensors}
-            collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}
-          >
-            <SortableContext items={projectIds} strategy={rectSortingStrategy}>
-              <div className={GRID_AREA}>
-                <ul className={GRID} aria-label="Projects">
-                  {projects.map((p) => (
-                    <SortableProjectTile
-                      key={p.id}
-                      id={p.id}
-                      name={p.name}
-                      stats={projectStats.get(p.id)}
-                      access={tileAccess(driver.mode, p.role, p.memberCount)}
-                      onOpen={onOpenInCfd}
-                      onExport={handleExport}
-                      onEdit={handleEdit}
-                      onShare={setSharingProjectId}
-                      onClone={handleClone}
-                      onDelete={handleDeleteClick}
-                    />
-                  ))}
-                </ul>
-              </div>
-            </SortableContext>
-          </DndContext>
+            shown={shown}
+            stats={projectStats}
+            mode={driver.mode}
+            view={archiveView}
+            onExport={handleExport}
+            onEdit={handleEdit}
+            onShare={setSharingProjectId}
+            onClone={handleClone}
+            onDelete={handleDeleteClick}
+          />
         )}
 
         {/* The one project dialog, New or Edit (v0.18.0). Keyed by identity, so a
@@ -552,5 +565,72 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
         )}
       </div>
     </div>
+  );
+}
+
+/** The grid of shown tiles (v0.21.0: archived ones only with "Show archived"); dnd-kit sorts these and no others. */
+function ProjectGrid({
+  sensors,
+  onDragEnd,
+  shown,
+  stats,
+  mode,
+  view,
+  onExport,
+  onEdit,
+  onShare,
+  onClone,
+  onDelete,
+}: {
+  sensors: ReturnType<typeof useSensors>;
+  onDragEnd: (event: DragEndEvent) => void;
+  shown: ProjectListItem[];
+  stats: Map<string, ProjectStats>;
+  mode: StorageMode;
+  view: ReturnType<typeof useProjectArchive>;
+  onExport: (id: string) => void;
+  onEdit: (id: string) => void;
+  onShare: (id: string) => void;
+  onClone: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  // Every project archived and the filter off: this line, never the welcome panel (O50).
+  if (shown.length === 0) return <AllArchivedLine count={view.archivedCount} />;
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+      <SortableContext items={shown.map((p) => p.id)} strategy={rectSortingStrategy}>
+        <div className={GRID_AREA}>
+          <ul className={GRID} aria-label="Projects">
+            {shown.map((p) => {
+              const pref = view.prefOf(p.id);
+              return (
+                <SortableProjectTile
+                  key={p.id}
+                  id={p.id}
+                  name={p.name}
+                  stats={stats.get(p.id)}
+                  access={tileAccess(mode, p.role, p.memberCount)}
+                  onOpen={view.openProject}
+                  onExport={onExport}
+                  onEdit={onEdit}
+                  onShare={onShare}
+                  onClone={onClone}
+                  onDelete={onDelete}
+                  color={pref.color}
+                  archived={pref.archived === true}
+                  prefsBlockedReason={view.blockedReason(p.id)}
+                  dragBlockedReason={view.dragBlockedReason}
+                  colorOpen={view.colorOpenFor === p.id}
+                  onColorOpenChange={view.setColorOpen}
+                  onPickColor={view.pickColor}
+                  onArchive={view.archive}
+                  onUnarchive={view.unarchive}
+                />
+              );
+            })}
+          </ul>
+        </div>
+      </SortableContext>
+    </DndContext>
   );
 }

@@ -7,6 +7,7 @@ import {
   doc,
   getDoc,
   getDocFromCache,
+  getDocFromServer,
   setDoc,
   deleteDoc,
   deleteField,
@@ -44,6 +45,18 @@ import { callRevokeInvite, callResendInvite } from './callables';
 import { normalizeUpdatedAt } from './updated-at';
 import { placeAfter } from './project-order';
 import { moveAmongShown, withStoredSlots } from './order-move';
+import { writeProjectPrefs } from './firestore-prefs';
+import {
+  isRefusedPrefId,
+  overCap,
+  projectPrefOf,
+  sanitizeProjectPrefs,
+  withPrefField,
+  type PrefValue,
+  type PrefsRead,
+  type ProjectPrefField,
+  type ProjectPrefs,
+} from './project-prefs';
 import { cloudProjectData, cloudText, type CloudSetAsideReport } from './cloud-load-guards';
 import { noteCloudSetAside } from './cloud-load-notices';
 
@@ -287,6 +300,102 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     if (seen === orderWrites) lastOrder = order;
   }
 
+  // ── Tile colour and archive (v0.21.0, DASH26 R2) ─────
+  //
+  // The person's map, read ONCE with the order (O62): the first settings read
+  // that reaches the server makes it `ready` (a missing document is `{}`),
+  // and from then on it is the session's truth; list snapshots and reloads
+  // re-read the order only, so a change still waiting to be written is never
+  // replaced by an older server value (another device's change shows after a
+  // reload). A read that fails, or answers from the cache (offline), leaves
+  // `failed` (O54: a failed read is not "no settings"), and each later read
+  // retries until one succeeds: every list snapshot and reload, and
+  // `retryProjectPrefs` (the window's `online` event, the Projects tab
+  // mounting; DASH26 §7 answer 1). Measured: a list listener does not fire on
+  // reconnect when the list has not changed (pre-flight R09).
+  let prefsRead: PrefsRead = { status: 'loading' };
+  const prefsListeners = new Set<(read: PrefsRead) => void>();
+  // Changes not yet written, one per (id, field), under a timer of their own
+  // (never a project save's); the values are read when it fires.
+  const pendingPrefs = new Map<string, { id: string; field: ProjectPrefField }>();
+  let prefsTimer: ReturnType<typeof setTimeout> | undefined;
+  let prefsRetry: Promise<unknown> | null = null;
+  // Writes sent and not yet answered, each its changes (a put-back keeps them).
+  const prefsInFlight = new Set<ReadonlyArray<{ id: string; field: ProjectPrefField }>>();
+  const refusedListeners = new Set<() => void>();
+  // A refusal no listener heard (the Projects tab was not open): told to the next one.
+  let refusalUnheard = false;
+
+  function setPrefsRead(next: PrefsRead): void {
+    prefsRead = next;
+    for (const listener of prefsListeners) listener(next);
+  }
+
+  /**
+   * A colour or archive write the server refused (PR #115 review,
+   * Opus-PR115-2 -09). The map had shown the change since it was made, so it
+   * is put back from a fresh read of the person's settings, keeping the
+   * changes still waiting or on their way (each field takes the value the map
+   * holds for it now); a read that fails too leaves the map `failed`, as any
+   * failed read (O54: the line, the controls off, the retries), and drops
+   * what waits, which can no longer be written against a known map. Then the
+   * person is told, in the words a refused local write uses.
+   */
+  async function putPrefsBack(): Promise<void> {
+    let fresh: ProjectPrefs | null = null;
+    try {
+      const snap = await getDocFromServer(doc(db, SETTINGS_COL, uid));
+      fresh = sanitizeProjectPrefs(snap.exists() ? snap.data().projectPrefs : undefined);
+    } catch {
+      fresh = null;
+    }
+    if (fresh === null) {
+      clearTimeout(prefsTimer);
+      prefsTimer = undefined;
+      pendingPrefs.clear();
+      setPrefsRead({ status: 'failed' });
+    } else {
+      const held = prefsRead.status === 'ready' ? prefsRead.prefs : fresh;
+      let next = fresh;
+      for (const { id, field } of [...pendingPrefs.values(), ...[...prefsInFlight].flat()]) {
+        next = withPrefField(next, id, field, projectPrefOf(held, id)[field] as PrefValue<typeof field>);
+      }
+      setPrefsRead({ status: 'ready', prefs: next });
+    }
+    if (refusedListeners.size === 0) refusalUnheard = true;
+    for (const listener of refusedListeners) listener();
+  }
+
+  /** What a settings read means for the map: only the first good one counts. */
+  function notePrefsRead(snap: DocumentSnapshot | null): void {
+    if (prefsRead.status === 'ready') return;
+    if (!snap || snap.metadata?.fromCache) {
+      if (prefsRead.status !== 'failed') setPrefsRead({ status: 'failed' });
+      return;
+    }
+    setPrefsRead({ status: 'ready', prefs: sanitizeProjectPrefs(snap.exists() ? snap.data().projectPrefs : undefined) });
+  }
+
+  /** Send the changes waiting, with the values the map holds now. */
+  function writePendingPrefs(): void {
+    clearTimeout(prefsTimer);
+    prefsTimer = undefined;
+    if (pendingPrefs.size === 0 || prefsRead.status !== 'ready') return;
+    const changes = [...pendingPrefs.values()];
+    pendingPrefs.clear();
+    prefsInFlight.add(changes);
+    writeProjectPrefs(db, uid, changes, prefsRead.prefs).then(
+      () => {
+        prefsInFlight.delete(changes);
+      },
+      (err) => {
+        prefsInFlight.delete(changes);
+        console.error('setProjectPref: write failed:', (err as { code?: string }).code ?? 'unknown');
+        return putPrefsBack();
+      },
+    );
+  }
+
   /** Read the user's project order from settings. */
   async function loadProjectOrder(): Promise<string[]> {
     const seen = orderWrites;
@@ -295,6 +404,7 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       // Any read that answers, a cached one included (it holds the last
       // server read and this client's own pending writes), is an order read.
       noteRead(orderOf(snap), seen);
+      notePrefsRead(snap);
       if (snap.exists()) {
         const data = snap.data();
         if (Array.isArray(data.projectOrder)) {
@@ -302,7 +412,9 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
         }
       }
     } catch {
-      // Settings doc may not exist yet — that's fine
+      // A failed read: no order to sort by (unordered ids sort last), and
+      // the map, if not yet read, is `failed`, never "no settings".
+      notePrefsRead(null);
     }
     return [];
   }
@@ -391,6 +503,20 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       endTurn();
     }
     await written;
+  }
+
+  /**
+   * Whether a project document no longer exists on the server. A member's read
+   * of a document that does not exist is refused (the `get` rule reads
+   * `resource.data.members`), so a refusal means gone (or no longer theirs); a
+   * read that cannot reach the server answers false.
+   */
+  async function isGone(ref: ReturnType<typeof doc>): Promise<boolean> {
+    try {
+      return !(await getDocFromServer(ref)).exists();
+    } catch (err) {
+      return (err as { code?: string }).code === 'permission-denied';
+    }
   }
 
   /** Listen to one project doc; a permission-denied error reads as revoked access. */
@@ -606,7 +732,21 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
         pendingWrites.delete(id);
       }
 
-      await deleteDoc(doc(db, PROJECTS_COL, id));
+      const ref = doc(db, PROJECTS_COL, id);
+      try {
+        await deleteDoc(ref);
+      } catch (err) {
+        // v0.21.0 (PR #115, CI run 45112517962): a delete whose first commit
+        // landed but whose acknowledgement was lost is sent again by the SDK,
+        // and the rules then see no document (`isCfdOwner(null)`) and refuse
+        // it, though the project is gone (measured on the emulator: refused,
+        // and the document no longer there, 1 run in 30; ci-fix/probe5). The
+        // list then showed the project again until the server's removal came,
+        // and its colour and archive were kept. A refusal is checked against
+        // the server: a document still there (or a read that cannot answer)
+        // keeps the refusal; one gone means the delete was made.
+        if ((err as { code?: string }).code !== 'permission-denied' || !(await isGone(ref))) throw err;
+      }
 
       // Remove from project order. The mirror of createProject's arrayUnion,
       // and measured to match the old `filter(pid => pid !== id)` exactly,
@@ -681,6 +821,48 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
         if (orderWrites === issuedAt) lastOrder = base;
         return { kind: 'failed' };
       }
+    },
+
+    // ── Tile colour and archive (v0.21.0, DASH26 R2) ─────
+
+    getProjectPrefs(): PrefsRead {
+      return prefsRead;
+    },
+
+    onProjectPrefsChange(callback: (read: PrefsRead) => void): () => void {
+      prefsListeners.add(callback);
+      return () => {
+        prefsListeners.delete(callback);
+      };
+    },
+
+    setProjectPref(id, field, value) {
+      if (isRefusedPrefId(id)) return 'refused-id';
+      if (prefsRead.status !== 'ready') return 'unread';
+      if (overCap(prefsRead.prefs, id, value)) return 'cap';
+      setPrefsRead({ status: 'ready', prefs: withPrefField(prefsRead.prefs, id, field, value) });
+      pendingPrefs.set(JSON.stringify([id, field]), { id, field });
+      clearTimeout(prefsTimer);
+      prefsTimer = setTimeout(writePendingPrefs, DEBOUNCE_CLOUD_MS);
+      return null;
+    },
+
+    onProjectPrefsRefused(callback: () => void): () => void {
+      refusedListeners.add(callback);
+      if (refusalUnheard) {
+        refusalUnheard = false;
+        callback();
+      }
+      return () => {
+        refusedListeners.delete(callback);
+      };
+    },
+
+    retryProjectPrefs(): void {
+      if (prefsRead.status !== 'failed' || prefsRetry) return;
+      prefsRetry = loadProjectOrder().finally(() => {
+        prefsRetry = null;
+      });
     },
 
     // ── Real-time sync ───────────────────────────────────
@@ -777,6 +959,7 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     // ── Lifecycle ─────────────────────────────────────────
 
     flush(): void {
+      writePendingPrefs();
       for (const [id, { timeout, project, resolve }] of pendingWrites) {
         clearTimeout(timeout);
         pendingWrites.delete(id);
@@ -792,6 +975,11 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     },
 
     cancelPendingSaves(): void {
+      // The colour and archive changes waiting go too (v0.21.0, O55): one made
+      // before a sign-out never reaches the next account.
+      clearTimeout(prefsTimer);
+      prefsTimer = undefined;
+      pendingPrefs.clear();
       // Discard pending debounced writes without firing them. Used on
       // sign-out to avoid setDoc with revoked credentials. Resolve (not
       // reject) outstanding promises so fire-and-forget callers are not

@@ -62,6 +62,10 @@ function createMockDriver(projects: Project[]): StorageDriver {
     getActiveProjectId: () => null,
     setActiveProjectId: () => {},
     moveProject: async () => ({ kind: 'unchanged' as const }),
+    getProjectPrefs: () => ({ status: 'ready' as const, prefs: {} }),
+    onProjectPrefsChange: () => () => {},
+    setProjectPref: () => null,
+    onProjectPrefsRefused: () => () => {}, retryProjectPrefs: () => {},
     onProjectChange: () => () => {},
     onProjectListChange: () => () => {},
     exportProject: (p) => JSON.stringify(p),
@@ -102,7 +106,7 @@ describe('migrateLocalToCloud', () => {
   it('returns zero counts for an empty projects array', async () => {
     const cloudDriver = createMockDriver([]);
     const result = await migrateLocalToCloud(TEST_UID, FAKE_DB, [], cloudDriver);
-    expect(result).toEqual({ uploaded: 0, skipped: 0 });
+    expect(result).toEqual({ uploaded: 0, skipped: 0, pairs: [], prefsNotCarried: [] });
   });
 
   it('skips projects that already exist in cloud (user is member)', async () => {

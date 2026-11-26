@@ -5,6 +5,8 @@
 import { vi } from 'vitest'
 import { initializeApp, deleteApp } from 'firebase/app'
 import {
+  doc,
+  getDocFromServer,
   initializeFirestore,
   memoryLocalCache,
   connectFirestoreEmulator,
@@ -61,6 +63,7 @@ export function client(uid: string): Firestore {
 
 /** Unsubscribes every tracked listener, then closes every client opened since the last call (use in afterEach). */
 export async function closeClients() {
+  readers.clear()
   for (const unsubscribe of listening.splice(0)) unsubscribe()
   await Promise.all(open.splice(0).map((done) => done()))
 }
@@ -89,6 +92,39 @@ export function newProject(id: string, name = `Project ${id}`): Project {
 }
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+const readers = new Map<string, Firestore>()
+
+/**
+ * `spertcfd_settings/{uid}` as the SERVER holds it (null when absent), read
+ * the way a test observes stored state: through ONE reader device per user for
+ * the whole test, and a read the reader answers "offline" (`unavailable`) is
+ * tried again for up to 10 s. v0.21.0 (PR #115, CI run 45112517962): the
+ * helpers this replaces opened a fresh client for every read, polling ones
+ * included, and on CI one of them answered `Failed to get document because the
+ * client is offline.`, the SDK's words when a document read's listener gets a
+ * cached snapshot without the document, that is, from a client that has not
+ * (yet) reached the backend. Every product read of this document catches that
+ * error (firestore-driver.ts `loadProjectOrder`, `readStoredOrder`); only the
+ * test's own observation threw.
+ */
+export async function serverSettings(uid: string, ms = 10_000): Promise<Record<string, unknown> | null> {
+  let db = readers.get(uid)
+  if (!db) {
+    db = client(uid)
+    readers.set(uid, db)
+  }
+  const until = Date.now() + ms
+  for (;;) {
+    try {
+      const snap = await getDocFromServer(doc(db, 'spertcfd_settings', uid))
+      return snap.exists() ? snap.data() : null
+    } catch (err) {
+      if ((err as { code?: string }).code !== 'unavailable' || Date.now() > until) throw err
+      await sleep(200)
+    }
+  }
+}
 
 /** Polls until `pred` holds or `ms` passes; returns whether it held. */
 export async function waitFor(pred: () => boolean, ms = 10_000) {

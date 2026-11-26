@@ -189,6 +189,8 @@ describe('Clone, local mode (real driver)', () => {
   });
 });
 
+const PREFS_READY = { status: 'ready' as const, prefs: {} };
+
 describe('Clone, Create and Load Sample, cloud mode (a recording double)', () => {
   const created: Array<{ project: Project; placement: unknown }> = [];
   function cloudDouble(): StorageDriver {
@@ -206,6 +208,11 @@ describe('Clone, Create and Load Sample, cloud mode (a recording double)', () =>
       getActiveProjectId: vi.fn(() => null),
       setActiveProjectId: vi.fn(),
       moveProject: vi.fn(async () => ({ kind: 'unchanged' as const })),
+      getProjectPrefs: () => PREFS_READY,
+      onProjectPrefsChange: () => () => {},
+      setProjectPref: vi.fn(() => null),
+      onProjectPrefsRefused: () => () => {},
+      retryProjectPrefs: vi.fn(),
       onProjectChange: vi.fn(() => () => {}),
       onProjectListChange: vi.fn(() => () => {}),
       exportProject: vi.fn(() => '{}'),

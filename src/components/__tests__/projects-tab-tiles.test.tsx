@@ -23,6 +23,7 @@ import type { ProjectListItem } from '@/lib/storage-driver';
 
 type Item = ProjectListItem;
 const h = vi.hoisted(() => ({
+  prefsReady: { status: 'ready' as const, prefs: {} },
   list: {
     projects: [] as Item[],
     activeProjectId: null as string | null,
@@ -34,7 +35,7 @@ const h = vi.hoisted(() => ({
     renameProject: vi.fn(),
     moveProject: vi.fn(),
   },
-  storage: { driver: { mode: 'local' as 'local' | 'cloud', loadProject: vi.fn(), exportProject: vi.fn() } },
+  storage: { driver: { mode: 'local' as 'local' | 'cloud', loadProject: vi.fn(), exportProject: vi.fn(), getProjectPrefs: () => h.prefsReady, onProjectPrefsChange: () => () => {}, setProjectPref: () => null, onProjectPrefsRefused: () => () => {}, retryProjectPrefs: () => {} } },
   importPhase: { phase: 'idle' } as { phase: string },
   previewCancel: vi.fn(),
 }));
@@ -73,6 +74,7 @@ import { ProjectsTab } from '../projects-tab';
 const THREE: Item[] = [{ id: 'a', name: 'Alpha' }, { id: 'b', name: 'Beta' }, { id: 'c', name: 'Gamma' }];
 
 beforeEach(() => {
+  (h.prefsReady as { prefs: object }).prefs = {};
   h.list.projects = THREE;
   h.storage.driver.mode = 'local';
   h.storage.driver.loadProject.mockReset().mockResolvedValue(null);
@@ -215,14 +217,22 @@ describe('the dashboard\'s class pairs (PR #108 review, -05)', () => {
     expect(classes(tile)).toEqual(expect.arrayContaining(['group/tile', 'relative']));
   });
 
-  it('the name button\'s ::after covers the tile, and the grip, Delete and the revealed row sit above it', () => {
+  it('the name button\'s ::after covers the tile, and the grip, Delete, the revealed row and an archived tile\'s Unarchive sit above it', () => {
+    // v0.21.0 (PR #115 review, Opus-PR115-2 -01): without its lift a click on Unarchive opens the project (measured).
+    (h.prefsReady as { prefs: object }).prefs = { b: { archived: true } };
     render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText('Show archived (1)'));
     const tile = tiles()[0];
     expect(classes(tile.querySelector('h3 button')!)).toEqual(expect.arrayContaining(['after:absolute', 'after:inset-0']));
     const grip = tile.querySelector('[title="Drag to reorder"]')!;
     const del = tile.querySelector('button[aria-label^="Delete "]')!.parentElement!;
     const row = tile.querySelector('button[aria-label^="Export "]')!.parentElement!;
-    for (const above of [grip, del, row]) expect(classes(above)).toEqual(expect.arrayContaining(['relative', 'z-[1]']));
+    const archived = tiles()[1];
+    expect(archived.dataset.archived).toBe('true');
+    expect(classes(archived.querySelector('h3 button')!)).toEqual(expect.arrayContaining(['after:absolute', 'after:inset-0']));
+    const unarchive = button('Unarchive Beta').parentElement!;
+    expect(archived.contains(unarchive)).toBe(true);
+    for (const above of [grip, del, row, unarchive]) expect(classes(above)).toEqual(expect.arrayContaining(['relative', 'z-[1]']));
   });
 });
 

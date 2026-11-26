@@ -22,6 +22,7 @@ import {
   ICON_HUE_BLUE,
   ICON_HUE_CYAN,
   ICON_HUE_VIOLET,
+  ICON_HUE_SLATE,
 } from './icon-button-styles';
 
 export interface IconButtonProps {
@@ -134,6 +135,30 @@ export function CloneIconButton(props: IconButtonProps) {
         <rect x="9" y="9" width="13" height="13" rx="2" />
         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
       </svg>
+    </IconButton>
+  );
+}
+
+// GanttApp's glyphs, as SPERT® Forecaster's `ArchiveIconButton` at df59b2d: a
+// box, with a bar (Archive) or with an up arrow (Unarchive).
+const ARCHIVE_BOX = 'M21 8v13H3V8M1 3h22v5H1z';
+export const ARCHIVE_PATH = `${ARCHIVE_BOX}M10 12h4`;
+export const UNARCHIVE_PATH = `${ARCHIVE_BOX}M12 18v-6M9 15l3-3 3 3`;
+
+/** Archive (v0.21.0, DASH26 R2): every role that can see a tile may archive it for themselves (O51). */
+export function ArchiveIconButton(props: IconButtonProps) {
+  return (
+    <IconButton hue={ICON_HUE_SLATE} {...props}>
+      <PathGlyph d={ARCHIVE_PATH} />
+    </IconButton>
+  );
+}
+
+/** Unarchive (v0.21.0): always shown on an archived tile. */
+export function UnarchiveIconButton(props: IconButtonProps) {
+  return (
+    <IconButton hue={ICON_HUE_SLATE} {...props}>
+      <PathGlyph d={UNARCHIVE_PATH} />
     </IconButton>
   );
 }

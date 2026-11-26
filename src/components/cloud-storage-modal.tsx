@@ -9,7 +9,7 @@ import { X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useStorage } from "@/contexts/storage-context";
 import { useProjectList } from "@/contexts/project-list-context";
-import { createLocalStorageDriver } from "@/lib/local-storage-driver";
+import { keepLocalCopy } from "@/lib/keep-local-copy";
 import { useModalEscape } from "@/lib/use-dismiss";
 import { normalizeDisplayName } from "@/lib/user-display";
 import { LS_ACTIVE_PROJECT, LS_SUPPRESS_LS_WARNING } from "@/lib/constants";
@@ -84,20 +84,9 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
     // Mirror StorageSection's keep-local handler, but leave the modal open
     // so the user sees the in-place transition to the signed-in-local state.
     // See JSDoc in cloud-migration-flow.tsx for why this is duplicated.
-    const localDriver = createLocalStorageDriver();
-    for (const p of projects) {
-      try {
-        const full = await driver.loadProject(p.id);
-        if (full) {
-          await localDriver.createProject(full);
-        }
-      } catch (err) {
-        console.error(
-          "Failed to copy project to local storage:",
-          (err as { code?: string }).code ?? "unknown",
-        );
-      }
-    }
+    // v0.21.0 (DASH26 R36): the projects and, for those copied, the person's
+    // tile colours and archive (keep-local-copy.ts).
+    await keepLocalCopy(projects, driver);
     localStorage.removeItem(LS_ACTIVE_PROJECT);
     setShowSwitchToLocalConfirm(false);
     switchMode("local");

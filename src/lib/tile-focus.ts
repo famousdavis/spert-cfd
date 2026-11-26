@@ -11,9 +11,24 @@
 // compared as TEXT. A selector built from a name would throw on a name holding
 // `"` and find nothing for one holding `\`.
 
-export type TileControl = 'open' | 'edit' | 'delete';
+export type TileControl = 'open' | 'edit' | 'delete' | 'archive' | 'unarchive';
 
-const PREFIX: Record<TileControl, string> = { open: 'Open CFD for ', edit: 'Edit ', delete: 'Delete ' };
+/**
+ * v0.21.0 (DASH26 R2, O58, O61): an archived tile's name button says
+ * "Unarchive and open CFD for {name}", so `open` matches both names; and
+ * Unarchive's own name starts like it, so `unarchive` takes the one that is
+ * not the name button. The name button is the first `open` match (it comes
+ * first in the tile), never decided by the rest of the label: a project
+ * named "and open CFD for …" gives Unarchive the label "Unarchive and open
+ * CFD for …" (PR #115 review, Opus-PR115-2 -11).
+ */
+const OPEN_UNARCHIVE = 'Unarchive and open CFD for ';
+const MATCH: Record<Exclude<TileControl, 'unarchive'>, (label: string) => boolean> = {
+  open: (l) => l.startsWith('Open CFD for ') || l.startsWith(OPEN_UNARCHIVE),
+  edit: (l) => l.startsWith('Edit '),
+  delete: (l) => l.startsWith('Delete '),
+  archive: (l) => l.startsWith('Archive '),
+};
 
 const labelOf = (el: Element) => el.getAttribute('aria-label') ?? '';
 
@@ -26,7 +41,10 @@ function tileButtons(root: ParentNode | null, projectId: string): HTMLElement[] 
 
 /** The control on `projectId`'s tile under `root`; null when the tile or the control is not there. */
 export function findTileControl(root: ParentNode | null, projectId: string, control: TileControl): HTMLElement | null {
-  return tileButtons(root, projectId).find((b) => labelOf(b).startsWith(PREFIX[control])) ?? null;
+  const buttons = tileButtons(root, projectId);
+  if (control !== 'unarchive') return buttons.find((b) => MATCH[control](labelOf(b))) ?? null;
+  const name = buttons.find((b) => MATCH.open(labelOf(b)));
+  return buttons.find((b) => b !== name && labelOf(b).startsWith('Unarchive ')) ?? null;
 }
 
 /** Where focus goes once the tiles have re-rendered. */
