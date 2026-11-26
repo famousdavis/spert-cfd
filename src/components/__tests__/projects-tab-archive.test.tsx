@@ -28,7 +28,7 @@ import { createLocalStorageDriver } from '@/lib/local-storage-driver';
 import { LS_PROJECT_PREFS } from '@/lib/constants';
 import { STORAGE_FULL_MESSAGE } from '@/lib/storage-errors';
 import { PREFS_UNREAD_REASON, PREFS_UNREAD_TEXT, REFUSED_ID_REASON } from '../archive-controls';
-import { PREFS_CAP_MESSAGE } from '../use-project-archive';
+import { PREFS_CAP_MESSAGE, PREFS_FAILED_MESSAGE } from '../use-project-archive';
 
 function project(id: string, name: string): Project {
   return {
@@ -120,6 +120,33 @@ describe('Archive and Show archived (N) (O50)', () => {
     expect(tiles()).toEqual(['a', 'b', 'c']);
     expect(document.activeElement).toBe(button('Unarchive Charlie'));
     expect(live()).toBe('Archived "Charlie".');
+  });
+
+  // PR #115 review (Opus-PR115-2 -11): two projects of one name archived in turn, the filter on, say the same
+  // words; React writes nothing for the same text, so the second was not announced. The region is emptied first.
+  it('the same words twice are said twice: the region is emptied, then filled', async () => {
+    await mount([['a', 'Same'], ['b', 'Same'], ['c', 'Other']], { c: { archived: true } });
+    await click(screen.getByLabelText('Show archived (1)'));
+    await click(within(tile('a')).getByRole('button', { name: 'Archive Same' }));
+    expect(live()).toBe('Archived "Same".');
+    const region = document.querySelector('p[aria-live="polite"][aria-atomic="true"]')!;
+    const seen: string[] = [];
+    const observer = new MutationObserver(() => seen.push(region.textContent ?? ''));
+    observer.observe(region, { childList: true, characterData: true, subtree: true });
+    await click(within(tile('b')).getByRole('button', { name: 'Archive Same' }));
+    await act(async () => {
+      await new Promise((res) => setTimeout(res, 0));
+    });
+    observer.disconnect();
+    expect(seen).toEqual(['', 'Archived "Same".']);
+    expect(live()).toBe('Archived "Same".');
+  });
+
+  it('a project named "and open CFD for …": Archive with the filter on still finds its Unarchive', async () => {
+    await mount([['a', 'Alpha'], ['q', 'and open CFD for Q']], { a: { archived: true } });
+    await click(screen.getByLabelText('Show archived (1)'));
+    await click(button('Archive and open CFD for Q'));
+    expect(document.activeElement).toBe(button('Unarchive and open CFD for Q'));
   });
 
   it('every project archived: the all-archived line, never the welcome panel', async () => {
@@ -343,5 +370,43 @@ describe('a failed read of the person\'s settings (O54)', () => {
     h.driver = { ...d, getProjectPrefs: () => loading };
     await mount();
     expect(screen.queryByText(PREFS_UNREAD_TEXT)).toBeNull();
+  });
+});
+
+// PR #115 review (Opus-PR115-2 -09): a cloud write refused after the change showed. The driver puts the map
+// back (driver and emulator tests); the tab says so in the local path's words.
+describe('a colour or archive write refused later', () => {
+  function refusing() {
+    const local = createLocalStorageDriver();
+    const listeners = new Set<() => void>();
+    const driver: StorageDriver = {
+      ...local,
+      onProjectPrefsRefused: (cb) => {
+        listeners.add(cb);
+        return () => listeners.delete(cb);
+      },
+    };
+    return { driver, refuse: () => listeners.forEach((l) => l()), listening: () => listeners.size };
+  }
+
+  it('shows the retry message', async () => {
+    const r = refusing();
+    h.driver = r.driver;
+    await mount();
+    expect(r.listening()).toBe(1);
+    expect(screen.queryByRole('alert')).toBeNull();
+    await act(async () => {
+      r.refuse();
+      await new Promise((res) => setTimeout(res, 0));
+    });
+    expect(screen.getByRole('alert').textContent).toContain(PREFS_FAILED_MESSAGE);
+  });
+
+  it('stops listening when the tab goes', async () => {
+    const r = refusing();
+    h.driver = r.driver;
+    const { unmount } = await mount();
+    unmount();
+    expect(r.listening()).toBe(0);
   });
 });

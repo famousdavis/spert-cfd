@@ -27,7 +27,7 @@ const h = vi.hoisted(() => ({
     renameProject: vi.fn(),
     moveProject: vi.fn(),
   },
-  storage: { driver: { mode: 'local' as const, loadProject: vi.fn(async () => null), exportProject: vi.fn(), getProjectPrefs: () => h.prefsReady, onProjectPrefsChange: () => () => {}, setProjectPref: () => null, retryProjectPrefs: () => {} } },
+  storage: { driver: { mode: 'local' as const, loadProject: vi.fn(async () => null), exportProject: vi.fn(), getProjectPrefs: () => h.prefsReady, onProjectPrefsChange: () => () => {}, setProjectPref: () => null, onProjectPrefsRefused: () => () => {}, retryProjectPrefs: () => {} } },
 }));
 
 vi.mock('@dnd-kit/core', async (original) => ({

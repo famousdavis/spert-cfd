@@ -65,7 +65,7 @@ function createMockDriver(projects: Project[]): StorageDriver {
     getProjectPrefs: () => ({ status: 'ready' as const, prefs: {} }),
     onProjectPrefsChange: () => () => {},
     setProjectPref: () => null,
-    retryProjectPrefs: () => {},
+    onProjectPrefsRefused: () => () => {}, retryProjectPrefs: () => {},
     onProjectChange: () => () => {},
     onProjectListChange: () => () => {},
     exportProject: (p) => JSON.stringify(p),

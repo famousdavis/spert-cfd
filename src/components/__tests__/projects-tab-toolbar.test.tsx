@@ -29,7 +29,7 @@ const h = vi.hoisted(() => {
       moveProject: () => {},
     },
     prefsReady: { status: 'ready' as const, prefs: {} },
-    storageValue: { driver: { mode: 'local', loadProject: async () => null, getProjectPrefs: () => h.prefsReady, onProjectPrefsChange: () => () => {}, setProjectPref: () => null, retryProjectPrefs: () => {} } },
+    storageValue: { driver: { mode: 'local', loadProject: async () => null, getProjectPrefs: () => h.prefsReady, onProjectPrefsChange: () => () => {}, setProjectPref: () => null, onProjectPrefsRefused: () => () => {}, retryProjectPrefs: () => {} } },
   };
 });
 

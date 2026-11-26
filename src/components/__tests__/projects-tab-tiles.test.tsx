@@ -35,7 +35,7 @@ const h = vi.hoisted(() => ({
     renameProject: vi.fn(),
     moveProject: vi.fn(),
   },
-  storage: { driver: { mode: 'local' as 'local' | 'cloud', loadProject: vi.fn(), exportProject: vi.fn(), getProjectPrefs: () => h.prefsReady, onProjectPrefsChange: () => () => {}, setProjectPref: () => null, retryProjectPrefs: () => {} } },
+  storage: { driver: { mode: 'local' as 'local' | 'cloud', loadProject: vi.fn(), exportProject: vi.fn(), getProjectPrefs: () => h.prefsReady, onProjectPrefsChange: () => () => {}, setProjectPref: () => null, onProjectPrefsRefused: () => () => {}, retryProjectPrefs: () => {} } },
   importPhase: { phase: 'idle' } as { phase: string },
   previewCancel: vi.fn(),
 }));

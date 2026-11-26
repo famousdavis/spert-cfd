@@ -22,7 +22,7 @@ const h = vi.hoisted(() => {
         getProjectPrefs: () => ready,
         onProjectPrefsChange: () => () => {},
         setProjectPref: vi.fn(() => null),
-        retryProjectPrefs: () => {},
+        onProjectPrefsRefused: () => () => {}, retryProjectPrefs: () => {},
       },
     },
   };

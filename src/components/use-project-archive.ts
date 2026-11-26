@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ProjectListItem } from '@/lib/storage-driver';
 import { useStorage } from '@/contexts/storage-context';
 import { useProjectPrefs } from '@/lib/use-project-prefs';
@@ -26,7 +26,8 @@ const EMPTY: ProjectPrefs = {};
 const LOADING_REASON = 'Unavailable until your tile colors and archive load';
 export const PREFS_CAP_MESSAGE =
   'This can hold tile colors and archive for 1,000 projects, and that many are set. Clear a color or unarchive a project, then try again.';
-const PREFS_FAILED_MESSAGE = "Couldn't save the tile color or archive. Please try again.";
+/** The retry message: a local write refused for any reason but storage full, and a cloud write the server refused. */
+export const PREFS_FAILED_MESSAGE = "Couldn't save the tile color or archive. Please try again.";
 
 interface UseProjectArchiveArgs {
   /** The full list: every count and every save reads this, never the shown list (O61). */
@@ -63,6 +64,16 @@ export function useProjectArchive({ projects, dialogOpen, onOpenInCfd, requestFo
   const [showArchived, setShowArchived] = useState(false);
   const [colorOpenFor, setColorOpenFor] = useState<string | null>(null);
   const [status, setStatus] = useState('');
+  // Archive and Unarchive speak by emptying the region, then filling it after a macrotask, so the same words
+  // twice (two projects of one name, the filter on) are said twice (PR #115 review, Opus-PR115-2 -11; Clone's
+  // pattern, DASH26 O19 F5): React writes nothing for an unchanged text.
+  const statusTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(statusTimer.current), []);
+  const announce = useCallback((text: string) => {
+    window.clearTimeout(statusTimer.current);
+    setStatus('');
+    statusTimer.current = window.setTimeout(() => setStatus(text), 0);
+  }, []);
 
   // DASH26 §7 answer 1: a failed read is tried again when the tab mounts.
   useEffect(() => {
@@ -98,6 +109,11 @@ export function useProjectArchive({ projects, dialogOpen, onOpenInCfd, requestFo
     [showError],
   );
 
+  // A change the server refused after it showed (cloud; PR #115 review,
+  // Opus-PR115-2 -09): the driver has put the map back; say so as a refused
+  // local write does.
+  useEffect(() => driver.onProjectPrefsRefused(() => showError(PREFS_FAILED_MESSAGE)), [driver, showError]);
+
   const nameOf = useCallback((id: string) => projects.find((p) => p.id === id)?.name || UNNAMED_PROJECT, [projects]);
 
   const archive = useCallback(
@@ -107,22 +123,22 @@ export function useProjectArchive({ projects, dialogOpen, onOpenInCfd, requestFo
       const name = nameOf(id);
       if (showArchived) {
         requestFocus({ kind: 'unarchive', projectId: id });
-        setStatus(`Archived "${name}".`);
+        announce(`Archived "${name}".`);
         return;
       }
       requestFocus(focusAfterTileLeaves(shown, id));
-      setStatus(`Archived "${name}". Show archived (${archivedCount + 1}) lists it.`);
+      announce(`Archived "${name}". Show archived (${archivedCount + 1}) lists it.`);
     },
-    [driver, refused, nameOf, showArchived, shown, archivedCount, requestFocus],
+    [driver, refused, nameOf, showArchived, shown, archivedCount, requestFocus, announce],
   );
 
   const unarchive = useCallback(
     (id: string) => {
       if (refused(driver.setProjectPref(id, 'archived', undefined))) return;
       requestFocus({ kind: 'archive', projectId: id });
-      setStatus(`Unarchived "${nameOf(id)}".`);
+      announce(`Unarchived "${nameOf(id)}".`);
     },
-    [driver, refused, nameOf, requestFocus],
+    [driver, refused, nameOf, requestFocus, announce],
   );
 
   /** A tile's click: an archived project is unarchived first (O58), then the CFD tab opens, with no message after. */

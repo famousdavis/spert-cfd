@@ -169,6 +169,17 @@ export interface StorageDriver {
    */
   setProjectPref<F extends ProjectPrefField>(id: string, field: F, value: PrefValue<F>): PrefRefusal | null;
 
+  /**
+   * Called when a change `setProjectPref` took was refused later, by the
+   * server (PR #115 review, Opus-PR115-2 -09). Cloud: the write goes after the
+   * debounce, so a refusal comes after the change showed; the map is then put
+   * back from a fresh read of the person's settings (changes still waiting or
+   * on their way kept), or `failed` when that read fails too, and each
+   * listener is called once. A refusal no listener heard is told to the next
+   * one that subscribes. Local: never (its refusals are returned at once).
+   */
+  onProjectPrefsRefused(callback: () => void): () => void;
+
   /** Read the person's settings again if the last read failed (O54, DASH26 §7 answer 1). Local: nothing. */
   retryProjectPrefs(): void;
 

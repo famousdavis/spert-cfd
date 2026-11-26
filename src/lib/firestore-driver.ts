@@ -49,10 +49,13 @@ import { writeProjectPrefs } from './firestore-prefs';
 import {
   isRefusedPrefId,
   overCap,
+  projectPrefOf,
   sanitizeProjectPrefs,
   withPrefField,
+  type PrefValue,
   type PrefsRead,
   type ProjectPrefField,
+  type ProjectPrefs,
 } from './project-prefs';
 import { cloudProjectData, cloudText, type CloudSetAsideReport } from './cloud-load-guards';
 import { noteCloudSetAside } from './cloud-load-notices';
@@ -317,10 +320,50 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
   const pendingPrefs = new Map<string, { id: string; field: ProjectPrefField }>();
   let prefsTimer: ReturnType<typeof setTimeout> | undefined;
   let prefsRetry: Promise<unknown> | null = null;
+  // Writes sent and not yet answered, each its changes (a put-back keeps them).
+  const prefsInFlight = new Set<ReadonlyArray<{ id: string; field: ProjectPrefField }>>();
+  const refusedListeners = new Set<() => void>();
+  // A refusal no listener heard (the Projects tab was not open): told to the next one.
+  let refusalUnheard = false;
 
   function setPrefsRead(next: PrefsRead): void {
     prefsRead = next;
     for (const listener of prefsListeners) listener(next);
+  }
+
+  /**
+   * A colour or archive write the server refused (PR #115 review,
+   * Opus-PR115-2 -09). The map had shown the change since it was made, so it
+   * is put back from a fresh read of the person's settings, keeping the
+   * changes still waiting or on their way (each field takes the value the map
+   * holds for it now); a read that fails too leaves the map `failed`, as any
+   * failed read (O54: the line, the controls off, the retries), and drops
+   * what waits, which can no longer be written against a known map. Then the
+   * person is told, in the words a refused local write uses.
+   */
+  async function putPrefsBack(): Promise<void> {
+    let fresh: ProjectPrefs | null = null;
+    try {
+      const snap = await getDocFromServer(doc(db, SETTINGS_COL, uid));
+      fresh = sanitizeProjectPrefs(snap.exists() ? snap.data().projectPrefs : undefined);
+    } catch {
+      fresh = null;
+    }
+    if (fresh === null) {
+      clearTimeout(prefsTimer);
+      prefsTimer = undefined;
+      pendingPrefs.clear();
+      setPrefsRead({ status: 'failed' });
+    } else {
+      const held = prefsRead.status === 'ready' ? prefsRead.prefs : fresh;
+      let next = fresh;
+      for (const { id, field } of [...pendingPrefs.values(), ...[...prefsInFlight].flat()]) {
+        next = withPrefField(next, id, field, projectPrefOf(held, id)[field] as PrefValue<typeof field>);
+      }
+      setPrefsRead({ status: 'ready', prefs: next });
+    }
+    if (refusedListeners.size === 0) refusalUnheard = true;
+    for (const listener of refusedListeners) listener();
   }
 
   /** What a settings read means for the map: only the first good one counts. */
@@ -340,9 +383,17 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
     if (pendingPrefs.size === 0 || prefsRead.status !== 'ready') return;
     const changes = [...pendingPrefs.values()];
     pendingPrefs.clear();
-    writeProjectPrefs(db, uid, changes, prefsRead.prefs).catch((err) => {
-      console.error('setProjectPref: write failed:', (err as { code?: string }).code ?? 'unknown');
-    });
+    prefsInFlight.add(changes);
+    writeProjectPrefs(db, uid, changes, prefsRead.prefs).then(
+      () => {
+        prefsInFlight.delete(changes);
+      },
+      (err) => {
+        prefsInFlight.delete(changes);
+        console.error('setProjectPref: write failed:', (err as { code?: string }).code ?? 'unknown');
+        return putPrefsBack();
+      },
+    );
   }
 
   /** Read the user's project order from settings. */
@@ -794,6 +845,17 @@ export function createFirestoreDriver(uid: string, db: Firestore): StorageDriver
       clearTimeout(prefsTimer);
       prefsTimer = setTimeout(writePendingPrefs, DEBOUNCE_CLOUD_MS);
       return null;
+    },
+
+    onProjectPrefsRefused(callback: () => void): () => void {
+      refusedListeners.add(callback);
+      if (refusalUnheard) {
+        refusalUnheard = false;
+        callback();
+      }
+      return () => {
+        refusedListeners.delete(callback);
+      };
     },
 
     retryProjectPrefs(): void {

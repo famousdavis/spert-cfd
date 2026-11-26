@@ -222,6 +222,31 @@ it('O64: a colour/archive write refused after the project landed names it, and e
   expect(listed.docs.map((x) => x.data().name).sort()).toEqual(['L1', 'L2'])
 })
 
+it('PR #115 review (Opus-PR115-2 -09): a colour or archive write the rules refuse puts the map back from the server and is told', async () => {
+  const uid = uniqueId('u')
+  const d = await ready(uid)
+  const [p1, p2] = ['Kept', 'Refused'].map((n) => newProject(uniqueId('p'), n))
+  for (const p of [p1, p2]) await d.createProject(p)
+  d.setProjectPref(p1.id, 'color', 'pink')
+  await landed(d, uid, (x) => !!prefsOf(x)?.[p1.id])
+  // A key the rules refuse, added beside what is stored: every later settings write is refused.
+  await asOwner(uid, '?updateMask.fieldPaths=stray', { stray: { booleanValue: true } })
+  let told = 0
+  const unsubscribe = d.onProjectPrefsRefused(() => { told++ })
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  expect(d.setProjectPref(p2.id, 'archived', true)).toBeNull()
+  expect(d.setProjectPref(p1.id, 'color', 'teal')).toBeNull()
+  expect(d.getProjectPrefs()).toEqual({ status: 'ready', prefs: { [p1.id]: { color: 'teal' }, [p2.id]: { archived: true } } })
+  d.flush()
+  expect(await waitFor(() => told > 0, 10000)).toBe(true)
+  unsubscribe()
+  expect(told).toBe(1)
+  expect(d.getProjectPrefs()).toEqual({ status: 'ready', prefs: { [p1.id]: { color: 'pink' } } })
+  const stored = await raw(uid)
+  expect(prefsOf(stored)).toEqual({ [p1.id]: { color: 'pink' } })
+  expect(stored?.stray).toBe(true)
+})
+
 it('O64: a project that fails stops the upload with the pairs so far, and the projects before it carried their entries', async () => {
   const uid = uniqueId('u')
   const db = client(uid)

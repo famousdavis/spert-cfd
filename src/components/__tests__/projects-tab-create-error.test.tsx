@@ -28,7 +28,7 @@ const { createProject, listValue, storageValue } = vi.hoisted(() => {
       renameProject: () => {},
       moveProject: () => {},
     },
-    storageValue: { driver: { mode: 'cloud', loadProject: async () => null, getProjectPrefs: () => prefsReady, onProjectPrefsChange: () => () => {}, setProjectPref: () => null, retryProjectPrefs: () => {} } },
+    storageValue: { driver: { mode: 'cloud', loadProject: async () => null, getProjectPrefs: () => prefsReady, onProjectPrefsChange: () => () => {}, setProjectPref: () => null, onProjectPrefsRefused: () => () => {}, retryProjectPrefs: () => {} } },
   };
 });
 

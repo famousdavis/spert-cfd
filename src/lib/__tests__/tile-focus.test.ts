@@ -50,4 +50,26 @@ describe('findTileControl / resolveFocusTarget', () => {
     expect(resolveFocusTarget(root, { kind: 'new' }, newProject)).toBe(newProject);
     expect(resolveFocusTarget(root, { kind: 'open', projectId: 'p2' }, newProject)?.getAttribute('aria-label')).toBe('Open CFD for B');
   });
+
+  // v0.21.0 (PR #115 review, Opus-PR115-2 -11): a project named "and open CFD for …" gives its Unarchive the name
+  // "Unarchive and open CFD for …", which starts like an archived tile's name button. The name button comes first.
+  it('finds Unarchive on a tile whose project name starts "and open CFD for"', () => {
+    const root = document.createElement('div');
+    root.innerHTML = `
+      <li data-tile="true" data-project-id="q">
+        <h3><button aria-label="Unarchive and open CFD for and open CFD for Q"></button></h3>
+        <button aria-label="Delete and open CFD for Q"></button>
+        <button aria-label="Unarchive and open CFD for Q"></button>
+      </li>
+      <li data-tile="true" data-project-id="b">
+        <h3><button aria-label="Unarchive and open CFD for Bravo"></button></h3>
+        <button aria-label="Unarchive Bravo"></button>
+      </li>
+      <li data-tile="true" data-project-id="c"><h3><button aria-label="Open CFD for Charlie"></button></h3></li>`;
+    expect(findTileControl(root, 'q', 'unarchive')?.getAttribute('aria-label')).toBe('Unarchive and open CFD for Q');
+    expect(findTileControl(root, 'q', 'open')?.getAttribute('aria-label')).toBe('Unarchive and open CFD for and open CFD for Q');
+    expect(findTileControl(root, 'b', 'unarchive')?.getAttribute('aria-label')).toBe('Unarchive Bravo');
+    expect(findTileControl(root, 'b', 'open')?.getAttribute('aria-label')).toBe('Unarchive and open CFD for Bravo');
+    expect(findTileControl(root, 'c', 'unarchive')).toBeNull();
+  });
 });

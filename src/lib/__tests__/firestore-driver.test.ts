@@ -1360,6 +1360,141 @@ describe('tile colour and archive (v0.21.0)', () => {
     await vi.advanceTimersByTimeAsync(200);
     expect(prefsWrites().map((w) => w.mask)).toEqual([['projectPrefs/p1/color']]);
   });
+
+  // PR #115 review (Opus-PR115-1 -05, M6): a must-differ case. A cancel that cleared the timer but kept the
+  // changes would send the cancelled one with the next change; only the change made after the cancel goes.
+  it('cancelPendingSaves() drops the changes themselves, not only their timer: a later change goes alone', async () => {
+    const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+    mockGetDoc.mockResolvedValueOnce(settings(null));
+    await driver.loadProjectList();
+    driver.setProjectPref('a', 'archived', true);
+    driver.cancelPendingSaves();
+    driver.setProjectPref('b', 'color', 'teal');
+    await vi.advanceTimersByTimeAsync(200);
+    expect(prefsWrites().map((w) => w.mask)).toEqual([['projectPrefs/b/color']]);
+  });
+
+  // PR #115 review (Opus-PR115-2 -09): a refused write is not silent. Every change waiting in one 200 ms
+  // window goes in one write, so one refusal loses all of them; the map shows what the server holds again.
+  describe('a write the server refuses', () => {
+    const denied = () => Object.assign(new Error('denied'), { code: 'permission-denied' });
+    const refuseSettingsWrites = () =>
+      mockSetDoc.mockImplementation(async (ref: { path: string }, _data: unknown, opts?: { mergeFields?: unknown }) => {
+        if (ref.path.startsWith('spertcfd_settings/') && opts?.mergeFields) throw denied();
+      });
+    async function readyWith(prefs: Record<string, unknown>) {
+      const driver = createFirestoreDriver(TEST_UID, FAKE_DB);
+      mockGetDoc.mockResolvedValueOnce(settings({ projectPrefs: prefs }));
+      await driver.loadProjectList();
+      return driver;
+    }
+    beforeEach(() => vi.spyOn(console, 'error').mockImplementation(() => {}));
+    afterEach(() => {
+      mockSetDoc.mockReset().mockResolvedValue(undefined);
+      mockGetDocFromServer.mockReset();
+    });
+
+    it('puts the map back from a fresh server read and tells each listener once', async () => {
+      const driver = await readyWith({ a: { color: 'blue' } });
+      const refused = vi.fn();
+      driver.onProjectPrefsRefused(refused);
+      refuseSettingsWrites();
+      mockGetDocFromServer.mockResolvedValueOnce(settings({ projectPrefs: { a: { color: 'blue' }, z: { archived: true } } }));
+      driver.setProjectPref('a', 'color', 'pink');
+      driver.setProjectPref('b', 'archived', true);
+      expect(driver.getProjectPrefs()).toEqual({ status: 'ready', prefs: { a: { color: 'pink' }, b: { archived: true } } });
+      await vi.advanceTimersByTimeAsync(200);
+      await vi.runAllTimersAsync();
+      expect(prefsWrites()).toHaveLength(1);
+      expect(driver.getProjectPrefs()).toEqual({ status: 'ready', prefs: { a: { color: 'blue' }, z: { archived: true } } });
+      expect(refused).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps a change made after the refused write was sent, and still writes it', async () => {
+      const driver = await readyWith({});
+      const refused = vi.fn();
+      driver.onProjectPrefsRefused(refused);
+      let refuse!: () => void;
+      mockSetDoc.mockImplementationOnce(() => new Promise((_res, rej) => { refuse = () => rej(denied()); }));
+      mockGetDocFromServer.mockResolvedValueOnce(settings(null));
+      driver.setProjectPref('a', 'archived', true);
+      driver.flush(); // sent; its answer waits
+      driver.setProjectPref('c', 'color', 'teal'); // waiting for its own timer
+      refuse();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(driver.getProjectPrefs()).toEqual({ status: 'ready', prefs: { c: { color: 'teal' } } });
+      expect(refused).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(prefsWrites().map((w) => w.mask)).toEqual([['projectPrefs/a/archived'], ['projectPrefs/c/color']]);
+      expect(prefsWrites()[1].data).toEqual({ projectPrefs: { c: { color: 'teal' } } });
+    });
+
+    it('keeps a change whose own write is still on its way', async () => {
+      const driver = await readyWith({});
+      let refuse!: () => void;
+      let land!: () => void;
+      mockSetDoc
+        .mockImplementationOnce(() => new Promise((_res, rej) => { refuse = () => rej(denied()); }))
+        .mockImplementationOnce(() => new Promise<void>((res) => { land = () => res(); }));
+      mockGetDocFromServer.mockResolvedValueOnce(settings(null)); // the server has neither yet
+      driver.setProjectPref('a', 'archived', true);
+      driver.flush();
+      driver.setProjectPref('c', 'color', 'teal');
+      driver.flush(); // its own write, unanswered
+      refuse();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(driver.getProjectPrefs()).toEqual({ status: 'ready', prefs: { c: { color: 'teal' } } });
+      land();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(driver.getProjectPrefs()).toEqual({ status: 'ready', prefs: { c: { color: 'teal' } } });
+    });
+
+    it('a fresh read that fails too leaves the map failed (the line, the retries), drops what waits, and still tells', async () => {
+      const driver = await readyWith({ a: { color: 'blue' } });
+      const refused = vi.fn();
+      driver.onProjectPrefsRefused(refused);
+      let refuse!: () => void;
+      mockSetDoc.mockImplementationOnce(() => new Promise((_res, rej) => { refuse = () => rej(denied()); }));
+      mockGetDocFromServer.mockRejectedValueOnce(Object.assign(new Error('offline'), { code: 'unavailable' }));
+      driver.setProjectPref('a', 'color', 'pink');
+      driver.flush();
+      driver.setProjectPref('b', 'archived', true);
+      refuse();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(driver.getProjectPrefs()).toEqual({ status: 'failed' });
+      expect(refused).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(prefsWrites()).toHaveLength(1);
+      expect(driver.setProjectPref('b', 'archived', true)).toBe('unread');
+    });
+
+    it('a refusal no listener heard is told to the next one that subscribes, once', async () => {
+      const driver = await readyWith({});
+      refuseSettingsWrites();
+      mockGetDocFromServer.mockResolvedValueOnce(settings(null));
+      driver.setProjectPref('a', 'archived', true);
+      await vi.advanceTimersByTimeAsync(200);
+      await vi.runAllTimersAsync();
+      const late = vi.fn();
+      driver.onProjectPrefsRefused(late);
+      expect(late).toHaveBeenCalledTimes(1);
+      const later = vi.fn();
+      driver.onProjectPrefsRefused(later);
+      expect(later).not.toHaveBeenCalled();
+    });
+
+    it('a write that lands tells no one and reads nothing', async () => {
+      const driver = await readyWith({});
+      const refused = vi.fn();
+      driver.onProjectPrefsRefused(refused);
+      driver.setProjectPref('a', 'archived', true);
+      await vi.advanceTimersByTimeAsync(200);
+      await vi.runAllTimersAsync();
+      expect(refused).not.toHaveBeenCalled();
+      expect(mockGetDocFromServer).not.toHaveBeenCalled();
+      expect(driver.getProjectPrefs()).toEqual({ status: 'ready', prefs: { a: { archived: true } } });
+    });
+  });
 });
 
 // v0.21.0 (PR #115, CI run 45112517962): a delete refused although it landed

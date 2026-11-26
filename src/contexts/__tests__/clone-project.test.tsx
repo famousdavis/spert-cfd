@@ -211,6 +211,7 @@ describe('Clone, Create and Load Sample, cloud mode (a recording double)', () =>
       getProjectPrefs: () => PREFS_READY,
       onProjectPrefsChange: () => () => {},
       setProjectPref: vi.fn(() => null),
+      onProjectPrefsRefused: () => () => {},
       retryProjectPrefs: vi.fn(),
       onProjectChange: vi.fn(() => () => {}),
       onProjectListChange: vi.fn(() => () => {}),

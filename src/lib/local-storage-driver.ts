@@ -178,6 +178,11 @@ export function createLocalStorageDriver(): StorageDriver {
       return null;
     },
 
+    // Local refusals are returned by setProjectPref at once; none comes later.
+    onProjectPrefsRefused(): () => void {
+      return () => {};
+    },
+
     retryProjectPrefs(): void {},
 
     // ── Real-time sync (no-op for local) ─────────────────
