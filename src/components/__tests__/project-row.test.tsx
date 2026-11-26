@@ -12,6 +12,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ProjectTile, type ProjectTileProps } from '../project-row';
 import { tileAccess, OWNER_ONLY_DELETE_REASON, VIEW_ONLY_REASON } from '@/lib/tile-access';
+import { PROJECT_COLORS } from '@/lib/project-prefs';
+import { NAME_ARCHIVED, NAME_COLOR, REVEAL, STAY } from '../dashboard-styles';
+import { TILE_TINT, TILE_TINT_ARCHIVED } from '../tile-color-styles';
 
 function renderTile(over: Partial<ProjectTileProps> = {}) {
   const props: ProjectTileProps = {
@@ -133,13 +136,47 @@ describe('Clone (v0.19.0, DASH26 R1b)', () => {
 
 describe('v0.21.0 (DASH26 R2, O66): the grip on a coloured tile', () => {
   const dots = () => [...document.querySelectorAll('[title="Drag to reorder"] div div')].map((d) => d.className);
-  it('takes gray-400 in dark on a tint or an archived tint; the untinted tile keeps gray-500', () => {
-    renderTile({ color: 'teal' });
+  // PR #115 review (Opus-PR115-2 -04): every tint AND every archived tint (gray-500 measures 2.73–2.93:1 on
+  // the dark archived tints, under O66's 3:1), not one tint.
+  it.each(PROJECT_COLORS.flatMap((color) => [[color, false], [color, true]] as const))(
+    'takes gray-400 in dark on a %s tile (archived: %s)',
+    (color, archived) => {
+      renderTile({ color, archived });
+      expect(dots()).toHaveLength(6);
+      expect(dots().every((c) => c.includes('dark:bg-gray-400') && c.includes('bg-gray-400') && !c.includes('gray-500'))).toBe(true);
+    },
+  );
+  it.each([false, true])('untinted (archived: %s): unchanged, gray-500 in dark', (archived) => {
+    renderTile({ archived });
     expect(dots()).toHaveLength(6);
-    expect(dots().every((c) => c.includes('dark:bg-gray-400') && c.includes('bg-gray-400'))).toBe(true);
-  });
-  it('untinted, archived or not: unchanged', () => {
-    renderTile({ archived: true });
     expect(dots().every((c) => c.includes('dark:bg-gray-500'))).toBe(true);
+  });
+});
+
+describe('PR #115 review (Opus-PR115-2 -03): the archived look a person sees', () => {
+  it('an archived tile\'s name takes the meta colour; a plain one keeps the name colour', () => {
+    renderTile({ color: 'blue', archived: true });
+    expect(document.querySelector('h3')!.className).toContain(NAME_ARCHIVED);
+    expect(document.querySelector('h3')!.className).not.toContain(NAME_COLOR);
+  });
+  it('a plain tile\'s name keeps the name colour', () => {
+    renderTile({ color: 'blue' });
+    expect(document.querySelector('h3')!.className).toContain(NAME_COLOR);
+  });
+  it('Unarchive is shown at rest: its group is never one of the revealed ones (O50)', () => {
+    renderTile({ archived: true });
+    const group = screen.getByRole('button', { name: 'Unarchive Alpha' }).parentElement!;
+    expect(group.className.split(/\s+/)).not.toContain('opacity-0');
+    expect(group.className).toContain(STAY);
+    expect(group.className).not.toContain(REVEAL);
+    expect(screen.getByRole('button', { name: 'Unarchive Alpha' }).title).toBe('Unarchive project');
+  });
+  it('the tile takes its tint, or its archived half tint, from the tables', () => {
+    renderTile({ color: 'pink' });
+    expect(document.querySelector('li')!.className).toContain(TILE_TINT.pink);
+  });
+  it('archived: the half tint', () => {
+    renderTile({ color: 'pink', archived: true });
+    expect(document.querySelector('li')!.className).toContain(TILE_TINT_ARCHIVED.pink);
   });
 });

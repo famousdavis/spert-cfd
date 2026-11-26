@@ -106,6 +106,35 @@ describe('the popover', () => {
     });
     expect(screen.queryByRole('dialog')).toBeNull();
   });
+
+  // PR #115 review (Opus-PR115-2 -05, M5): on the last row it opens past the scroll area's bottom edge and
+  // would be cut by the pinned footer (110 px below its top edge, measured with the call stubbed out).
+  it('brings itself into view when it opens, the nearest edge only', () => {
+    const scroll = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scroll;
+    try {
+      render(<Harness />);
+      openPopover();
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(scroll.mock.contexts[0]).toBe(screen.getByRole('dialog'));
+    expect(scroll).toHaveBeenCalledWith({ block: 'nearest' });
+  });
+
+  // M6: in a browser a press moves focus first; on the open popover's button that blur would close it and the
+  // click would open it again (measured: it stayed open). jsdom's click fires no mousedown, so check the guard.
+  it('a press on its button while open does not take focus, so the click closes it; closed, a press is left alone', () => {
+    render(<Harness />);
+    expect(fireEvent.mouseDown(colorButton())).toBe(true); // closed: not prevented
+    openPopover();
+    expect(fireEvent.mouseDown(colorButton())).toBe(false); // open: prevented
+    fireEvent.click(colorButton());
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(colorButton());
+  });
 });
 
 describe('Escape (O57)', () => {

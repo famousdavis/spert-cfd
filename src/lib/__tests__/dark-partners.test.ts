@@ -44,8 +44,8 @@ import { describe, it, expect } from 'vitest';
  * Colours are every palette the installed Tailwind defines (read from its
  * theme.css, so a new palette such as 4.3's mauve, mist, olive and taupe is
  * seen), white and black, the SPERT® blues, and arbitrary colours: `[#…]`,
- * `[rgb(…)]`, `[hsl(…)]`, `[oklch(…)]`, `[lab(…)]`, `[var(…)]`, `[color:…]` and
- * named ones such as `[white]`.
+ * `[rgb(…)]`, `[hsl(…)]`, `[oklch(…)]`, `[lab(…)]`, `[color-mix(…)]` (v0.21.0),
+ * `[var(…)]`, `[color:…]` and named ones such as `[white]`.
  *
  * Not seen by this test (v0.19.1, PR #110 review -04, kept as known limits):
  * inline `style` colours; colours passed as JavaScript props (recharts); an
@@ -65,7 +65,8 @@ const THEME_PALETTES = [
   ),
 ];
 
-const ARBITRARY_COLOUR = '\\[(?:#|rgb|hsl|oklch|oklab|lab|lch|hwb|color:|var\\(|0_|[a-z]+\\])';
+// `color-mix(` since v0.21.0 (PR #115 review, Opus-PR115-2 -02): the archived tints are written with it.
+const ARBITRARY_COLOUR = '\\[(?:#|rgb|hsl|oklch|oklab|lab|lch|hwb|color-mix\\(|color:|var\\(|0_|[a-z]+\\])';
 const PALETTE = `(?:${THEME_PALETTES.join('|')})-\\d{2,3}|white|black|spert-blue(?:-light|-dark)?|${ARBITRARY_COLOUR}`;
 const PROPERTY =
   '(bg|text|border(?:-[trblxyse])?|ring(?:-offset)?|divide|outline|fill|stroke|from|to|via|placeholder|accent|shadow|decoration|caret)';
@@ -325,6 +326,15 @@ describe('every light colour has a dark partner', () => {
       '1:hover:text-gray-400',
       '1:ring-blue-500',
     ]);
+    // v0.21.0 (PR #115 review, Opus-PR115-2 -02): `color-mix(…)` is a colour. An archived tint with its dark
+    // partner removed (M2) is found; with the partner, passed; the plain-hex control is still found.
+    expect(
+      unpairedLightColours("const M = 'bg-[color-mix(in_srgb,#e0ebfe_50%,#f9f9f9)]';"),
+    ).toEqual(['1:bg-[color-mix(in_srgb,#e0ebfe_50%,#f9f9f9)]']);
+    expect(
+      unpairedLightColours("const N = 'bg-[color-mix(in_srgb,#e0ebfe_50%,#f9f9f9)] dark:bg-[color-mix(in_srgb,#1e3667_50%,#16213e)]';"),
+    ).toEqual([]);
+    expect(unpairedLightColours("const O = 'bg-[#edf2fc]';")).toEqual(['1:bg-[#edf2fc]']);
     // A comment is not a class string.
     expect(unpairedLightColours("// write 'hover:bg-gray-50' with a partner\nconst D = 1;")).toEqual([]);
     // A partner under different variants does not count.

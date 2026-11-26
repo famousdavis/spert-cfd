@@ -105,6 +105,12 @@ describe('Archive and Show archived (N) (O50)', () => {
     expect(live()).toBe('Unarchived "Bravo".');
     expect(document.activeElement).toBe(button('Archive Bravo'));
     expect(screen.queryByLabelText(/Show archived/)).toBeNull(); // N back to 0: the filter goes, off
+    // PR #115 review (Opus-PR115-2 -06, M21): off, not just gone: the next Archive hides its tile, and the filter
+    // comes back unticked, as Archive's announcement says.
+    await click(button('Archive Charlie'));
+    expect(tiles()).toEqual(['a', 'b']);
+    expect((screen.getByLabelText('Show archived (1)') as HTMLInputElement).checked).toBe(false);
+    expect(live()).toBe('Archived "Charlie". Show archived (1) lists it.');
   });
 
   it('with Show archived on, Archive keeps the tile and focus goes to its Unarchive', async () => {
