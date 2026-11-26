@@ -49,9 +49,11 @@ export const NONE_DOT = 'bg-[linear-gradient(135deg,transparent_44%,currentColor
 
 /**
  * Placed from the tile (its containing block): 6 px in from its right edge, 6 px above its bottom edge.
- * v0.21.0 (CFD): on the last row it is scrolled into view when it opens; the `after:` strip below it
- * extends the scroll area 16 px past it and `scroll-mb-4` keeps that gap, so it never sits flush on
- * the pinned footer with its shadow cut (measured flush, 0.2 px over, without them).
+ * v0.21.0 (CFD): on the last row it is scrolled into view when it opens; the 16 px `after:` strip below
+ * it extends the scroll area past it, so it never sits flush on the pinned footer with its shadow cut
+ * (measured flush, 0.2 px over, without it). The gap it leaves is about 15 px, measured 14.8–15 px at
+ * 1280, 1024 and 768, DPR 1 and 2, both themes: the strip starts inside the popover's 1 px border, and
+ * the scroll stops at its end, so the strip, not `scroll-mb-4`, sets it (PR #115 review, Opus-PR115-2 -08).
  */
 export const POPOVER =
   "absolute z-20 right-1.5 top-[calc(100%-6px)] w-max max-w-[280px] p-2.5 rounded-[8px] border cursor-default bg-white text-[#333] border-[#ddd] shadow-[0_8px_24px_rgba(15,23,42,0.10)] dark:bg-gray-900 dark:text-[#e2e8f0] dark:border-[#4a5568] dark:shadow-[0_8px_24px_rgba(0,0,0,0.35)] scroll-mb-4 after:absolute after:left-0 after:top-full after:h-4 after:w-px after:content-['']";
