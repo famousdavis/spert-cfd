@@ -7,29 +7,10 @@
 import { useId } from 'react';
 import { TOOLBAR_BUTTON, TOOLBAR_PRIMARY, TOOLBAR_SECONDARY } from './toolbar-button-styles';
 
-// SPERT® Forecaster's `ProjectsEmptyState` (the welcome variant,
-// `src/shared/components/ProjectsEmptyState.tsx` at df59b2d), with CFD's words
-// (DASH26 R11, R27). Forecaster's shadcn tokens are written out as the values
-// they measure there (`A-measurements.md`): `rounded-lg` is 10 px in
-// Forecaster (its `--radius`) but 8 px here, so the corner is given in px;
-// `border-border` is #e5e5e5, `bg-card` white (#171717 dark), and its text
-// tokens #333 and #666. The `dark:` classes are Forecaster's, inert until CFD
-// has dark mode (R5).
-const PANEL =
-  'rounded-[10px] border border-dashed border-[#e5e5e5] bg-white p-8 text-center dark:border-gray-700 dark:bg-[#171717]';
-const TITLE = 'mb-3 text-xl font-semibold text-[#333] dark:text-gray-100';
-const TEXT = 'mx-auto max-w-prose text-sm text-[#666] dark:text-gray-400';
-const BUTTONS = 'mt-6 flex flex-wrap items-center justify-center gap-3';
-const NOTE = 'mx-auto mt-4 max-w-prose text-xs italic text-[#666] dark:text-gray-500';
-/**
- * Load Sample Project: the toolbar's secondary look, transparent in dark mode
- * on this panel (Forecaster v0.50.3: its gray-900 showed as a bluer box on the
- * card). Forecaster appends `dark:bg-transparent` and lets tailwind-merge drop
- * the toolbar's `dark:bg-gray-900`; CFD has no tailwind-merge, where two
- * classes for one property are settled by stylesheet order, so the dark
- * background is replaced here instead.
- */
-export const PANEL_SECONDARY = TOOLBAR_SECONDARY.replace('dark:bg-gray-900', 'dark:bg-transparent');
+// The panel's buttons are the toolbar's: the frame's 36 px `.sf-btn` for the
+// size, CFD's own strings for colour, corners and hover (contract §10).
+const PRIMARY = `sf-btn ${TOOLBAR_BUTTON} ${TOOLBAR_PRIMARY}`;
+const SECONDARY = `sf-btn ${TOOLBAR_BUTTON} ${TOOLBAR_SECONDARY}`;
 
 interface ProjectsEmptyStateProps {
   onCreateNew: () => void;
@@ -37,34 +18,36 @@ interface ProjectsEmptyStateProps {
 }
 
 /**
- * The welcome panel (v0.19.0, DASH26 R11): shown on the Projects tab when there
- * are no projects, once the list has loaded and while no import preview is
- * open (the tab decides). Its buttons are the toolbar's: Create New Project
- * opens the New Project dialog, Load Sample Project loads the sample (R12).
+ * The Welcome panel (contract §3, §7; stylesheet v3): shown in the tile grid's
+ * place when there are no projects, once the list has loaded and while no
+ * import preview is open (the tab decides). The frame's `.sf-empty` draws it:
+ * 16 px below the heading row, the full column wide, a 1 px dashed border on
+ * the page ground in both themes. It carries the frame's `data-sf="empty"`
+ * itself (until v0.23.0 a wrapper did, around CFD's own card: 24 px down,
+ * 10 px corners, a #171717 card in dark, 35 px buttons and a dark note at
+ * 3.71:1). The title is "Welcome to " and the brand row's title, its ® in the
+ * same `.sf-mark`. Create New Project opens the New Project dialog, Load Sample
+ * Project loads and opens the sample (DASH26 R11, R12; FRAME26 L).
  */
 export function ProjectsEmptyState({ onCreateNew, onLoadSample }: ProjectsEmptyStateProps) {
   const headingId = useId();
   return (
-    <div className={PANEL} role="region" aria-labelledby={headingId}>
-      <h2 id={headingId} className={TITLE}>
-        Welcome to SPERT® CFD
+    <div className="sf-empty" data-sf="empty" role="region" aria-labelledby={headingId}>
+      <h2 id={headingId} className="sf-empty-title">
+        Welcome to SPERT<span className="sf-mark">®</span> CFD
       </h2>
-      <p className={TEXT}>
+      <p className="sf-empty-text">
         See how work items flow through your process over time, and spot bottlenecks and WIP buildup early.
       </p>
-      <div className={BUTTONS}>
-        <button type="button" onClick={onCreateNew} className={`${TOOLBAR_BUTTON} ${TOOLBAR_PRIMARY}`}>
+      <div className="sf-empty-actions">
+        <button type="button" onClick={onCreateNew} className={PRIMARY}>
           Create New Project
         </button>
-        <button
-          type="button"
-          onClick={onLoadSample}
-          className={`${TOOLBAR_BUTTON} ${PANEL_SECONDARY}`}
-        >
+        <button type="button" onClick={onLoadSample} className={SECONDARY}>
           Load Sample Project
         </button>
       </div>
-      <p className={NOTE}>
+      <p className="sf-empty-note">
         The sample project is a working example with 14 days of snapshots. You can explore it, edit it, or delete it
         at any time.
       </p>

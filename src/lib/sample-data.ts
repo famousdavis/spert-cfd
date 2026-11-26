@@ -5,6 +5,7 @@
 import { nanoid } from 'nanoid';
 import type { Project, WorkflowState, Snapshot } from '@/types';
 import { PRESET_COLORS } from './colors';
+import { SAMPLE_PROJECT_NAME } from './sample-name';
 
 function makeWorkflow(): WorkflowState[] {
   return [
@@ -53,13 +54,14 @@ function makeSnapshots(): Snapshot[] {
 }
 
 /**
- * Creates a fresh sample project. Each call produces a new unique ID.
+ * Creates a fresh sample project. Each call produces a new unique ID. Its name
+ * is the caller's (v0.23.0: `sampleProjectName`, numbered against the list).
  */
-export function createSampleProject(): Project {
+export function createSampleProject(name: string = SAMPLE_PROJECT_NAME): Project {
   const now = new Date().toISOString();
   return {
     id: nanoid(8),
-    name: 'Sample: 2-Week Sprint',
+    name,
     createdAt: '2026-06-01T00:00:00.000Z',
     updatedAt: now,
     workflow: makeWorkflow(),

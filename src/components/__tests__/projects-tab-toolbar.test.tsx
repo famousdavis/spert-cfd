@@ -84,13 +84,13 @@ beforeEach(() => {
   h.listValue.projects = PROJECTS;
   h.listValue.driverLoading = false;
   h.createProject.mockReset().mockResolvedValue('new-id');
-  h.loadSampleProject.mockReset().mockResolvedValue('sample-id');
+  h.loadSampleProject.mockReset().mockResolvedValue({ id: 'sample-id', name: 'Sample: 2-Week Sprint' });
   h.handleImportClick.mockReset();
 });
 
 describe('Projects tab: the heading and toolbar row', () => {
   it('shows the heading, then the four buttons in the suite order', () => {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     // v0.18.0: "Projects", as across the suite, with no count. v0.22.0
     // (FRAME26): the page's h1, in the frame's heading row.
     expect(screen.getByRole('heading', { name: 'Projects', level: 1 })).toBeTruthy();
@@ -100,7 +100,7 @@ describe('Projects tab: the heading and toolbar row', () => {
 
   it('keeps every button, in the same order, with no projects; Export All is disabled, not hidden', () => {
     h.listValue.projects = [];
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     expect(toolbarLabels()).toEqual(TOOLBAR);
     expect((screen.getByRole('button', { name: 'Export all projects as JSON' }) as HTMLButtonElement).disabled).toBe(true);
     // v0.19.0 (DASH26 R11; Char-DASH-1 §B #33 changed): the welcome panel replaces "No projects yet…".
@@ -110,7 +110,7 @@ describe('Projects tab: the heading and toolbar row', () => {
 
   it('keeps every button while the project list is loading; only Import is disabled', () => {
     h.listValue.driverLoading = true;
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     expect(toolbarLabels()).toEqual(TOOLBAR);
     const disabled = (name: string) => (screen.getByRole('button', { name }) as HTMLButtonElement).disabled;
     expect(disabled('Import projects from JSON')).toBe(true);
@@ -120,7 +120,7 @@ describe('Projects tab: the heading and toolbar row', () => {
   });
 
   it('names begin with the visible label (Label in Name), and the icons are hidden', () => {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     for (const label of TOOLBAR) {
       const button = screen.getByRole('button', { name: new RegExp(`^${label}`, 'i') });
       expect(button.textContent).toBe(label);
@@ -130,7 +130,7 @@ describe('Projects tab: the heading and toolbar row', () => {
   });
 
   it('Import opens the file picker', () => {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Import projects from JSON' }));
     expect(h.handleImportClick).toHaveBeenCalledTimes(1);
   });
@@ -139,32 +139,37 @@ describe('Projects tab: the heading and toolbar row', () => {
 describe('Projects tab: Load Sample', () => {
   it('loads a sample and opens it once it is saved', async () => {
     const onOpenInCfd = vi.fn();
-    render(<ProjectsTab onOpenInCfd={onOpenInCfd} />);
+    const onOpenSample = vi.fn();
+    render(<ProjectsTab onOpenInCfd={onOpenInCfd} onOpenSample={onOpenSample} />);
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Load Sample' })); });
     expect(h.loadSampleProject).toHaveBeenCalledTimes(1);
-    expect(onOpenInCfd).toHaveBeenCalledWith('sample-id');
+    // v0.23.0: the saved sample goes to the shell, which opens and announces it.
+    expect(onOpenSample).toHaveBeenCalledWith({ id: 'sample-id', name: 'Sample: 2-Week Sprint' });
+    expect(onOpenInCfd).not.toHaveBeenCalled();
   });
 
   it('says so, and opens nothing, when the sample could not be saved', async () => {
     h.loadSampleProject.mockRejectedValue(Object.assign(new Error('denied'), { code: 'permission-denied' }));
     const onOpenInCfd = vi.fn();
-    render(<ProjectsTab onOpenInCfd={onOpenInCfd} />);
+    const onOpenSample = vi.fn();
+    render(<ProjectsTab onOpenInCfd={onOpenInCfd} onOpenSample={onOpenSample} />);
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Load Sample' })); });
     expect(onOpenInCfd).not.toHaveBeenCalled();
+    expect(onOpenSample).not.toHaveBeenCalled();
     expect(screen.getByRole('alert').textContent).toContain("Couldn't load the sample project");
   });
 });
 
 describe('Projects tab: the New Project dialog', () => {
   function open() {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     const trigger = screen.getByRole('button', { name: 'New Project' });
     fireEvent.click(trigger);
     return { trigger, dialog: screen.getByRole('dialog', { name: 'New Project' }) };
   }
 
   it('has no inline name field on the tab', () => {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     expect(screen.queryByLabelText('Project Name')).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
   });

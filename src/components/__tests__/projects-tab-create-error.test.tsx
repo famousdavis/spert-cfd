@@ -69,7 +69,7 @@ describe('Projects tab: creating a project', () => {
     createProject.mockReturnValue(
       Promise.reject(Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' })),
     );
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     expect(screen.queryByRole('alert')).toBeNull();
 
     // v0.17.0: the name is asked for in the New Project dialog.

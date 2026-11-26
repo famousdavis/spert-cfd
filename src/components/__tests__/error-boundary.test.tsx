@@ -32,6 +32,31 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Something went wrong')).toBeTruthy();
   });
 
+  // v0.23.0 (FRAME26 clean-up C11, contract §7): the outermost crash screen stays outside the frame, on the page
+  // ground in the frame's heading and muted colours, with a way to reload; one wording in every SPERT® app.
+  it('the crash screen: page ground and text colours in both themes, the one wording, and Reload', () => {
+    const reload = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...original, reload } });
+    try {
+      render(<ErrorBoundary><View /></ErrorBoundary>);
+      const title = screen.getByRole('heading', { level: 1, name: 'Something went wrong' });
+      const box = title.parentElement!;
+      expect(box.className.split(' ')).toEqual(expect.arrayContaining(['min-h-screen', 'bg-white', 'dark:bg-[#101828]']));
+      expect(title.className.split(' ')).toEqual(expect.arrayContaining(['text-[#333333]', 'dark:text-[#e2e8f0]']));
+      expect(title.className).not.toMatch(/red/);
+      const line = box.querySelector('p')!;
+      expect(line.innerHTML).toBe('SPERT<span class="sf-mark">®</span> CFD could not display this page. Reload to try again.');
+      expect(line.className.split(' ')).toEqual(expect.arrayContaining(['text-[#6a7282]', 'dark:text-[#99a1af]']));
+      expect(box.textContent).not.toMatch(/local storage/);
+      const button = screen.getByRole('button', { name: 'Reload' });
+      button.click();
+      expect(reload).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original });
+    }
+  });
+
   it('shows its fallback in place of the view, and leaves the rest of the page', () => {
     render(
       <>

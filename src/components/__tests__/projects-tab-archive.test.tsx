@@ -50,7 +50,7 @@ async function mount(ids: Array<[string, string]> = [['a', 'Alpha'], ['b', 'Brav
   h.driver ??= createLocalStorageDriver();
   const r = render(
     <ProjectListProvider>
-      <ProjectsTab onOpenInCfd={onOpen} />
+      <ProjectsTab onOpenInCfd={onOpen} onOpenSample={vi.fn()} />
     </ProjectListProvider>,
   );
   await act(async () => {
@@ -153,6 +153,19 @@ describe('Archive and Show archived (N) (O50)', () => {
     await mount([['a', 'Alpha']], { a: { archived: true } });
     expect(screen.getByText('All projects are archived. Select "Show archived (1)" to see them.')).toBeTruthy();
     expect(screen.queryByRole('region', { name: /Welcome/ })).toBeNull();
+  });
+
+  // v0.23.0 (FRAME26 clean-up A, contract §7): the line stands in the grid's place, 16 px below the filter row
+  // (the frame's `.sf-below`), hooked empty; until then `mt-6`, 24 px. The words and colours are unchanged.
+  it('every project archived: the line is hooked empty, right after the filter row, 16 px below it (sf-below)', async () => {
+    await mount([['a', 'Alpha']], { a: { archived: true } });
+    const line = screen.getByText('All projects are archived. Select "Show archived (1)" to see them.');
+    expect(line.getAttribute('data-sf')).toBe('empty');
+    expect(line.className.split(' ')).toEqual(['sf-below', 'leading-[normal]', 'italic', 'text-[#666]', 'dark:text-[#a0aec0]']);
+    const filters = document.querySelector('[data-sf="filters"]')!;
+    let next = filters.nextElementSibling;
+    while (next && (next.classList.contains('sr-only') || next.getAttribute('aria-live') !== null || next.getAttribute('role') === 'status')) next = next.nextElementSibling;
+    expect(next).toBe(line);
   });
 
   it('an archived tile\'s name unarchives and opens the CFD tab, with no message after (O58)', async () => {

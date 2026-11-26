@@ -31,6 +31,8 @@ import { tileAccess } from '@/lib/tile-access';
 import { findTileControl, focusAfterTileLeaves, resolveFocusTarget, type TileFocusTarget } from '@/lib/tile-focus';
 import { useImportState } from '@/hooks/use-import-state';
 import { ConfirmDialog } from './confirm-dialog';
+import { ErrorBoundary } from './error-boundary';
+import { ViewErrorNotice } from './view-error-notice';
 import { ProjectDialog } from './project-dialog';
 import { ProjectsEmptyState } from './projects-empty-state';
 import { AllArchivedLine, ArchiveRows } from './archive-controls';
@@ -51,6 +53,8 @@ import {
 
 interface ProjectsTabProps {
   onOpenInCfd: (id: string) => void;
+  /** v0.23.0 (FRAME26 clean-up L): a saved sample, opened on the CFD tab and announced by the shell. */
+  onOpenSample: (sample: { id: string; name: string }) => void;
 }
 
 /** The project dialog: New Project, or Edit for one project, by id. */
@@ -72,7 +76,7 @@ function failureText(err: unknown, own: string): string {
 
 const cloneFailedText = (name: string) => `Couldn't clone "${name}" — the copy wasn't saved. Please try again.`;
 
-export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
+export function ProjectsTab({ onOpenInCfd, onOpenSample }: ProjectsTabProps) {
   const {
     projects,
     driverLoading,
@@ -236,12 +240,14 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
   }, [projects]);
 
   // v0.17.0: a fresh sample, in either storage mode, opened the way a tile
-  // opens a project once it is saved.
+  // opens a project once it is saved. v0.23.0 (FRAME26 clean-up L): the one
+  // handler for the toolbar's Load Sample and the Welcome panel's; a repeat is
+  // numbered, and the shell announces the sample it opened.
   const handleLoadSample = useCallback(() => {
-    loadSampleProject().then(onOpenInCfd, (err: unknown) => {
+    loadSampleProject().then(onOpenSample, (err: unknown) => {
       showError(failureText(err, "Couldn't load the sample project — it wasn't saved. Please try again."));
     });
-  }, [loadSampleProject, onOpenInCfd, showError]);
+  }, [loadSampleProject, onOpenSample, showError]);
 
   // The welcome panel's Load Sample Project (v0.19.0): focus moves to the
   // toolbar's Load Sample first. The insert unmounts the panel, and focus
@@ -330,7 +336,8 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     // v0.22.0 (FRAME26): the collection under the frame, in `main`. The page
     // scrolls, not this (until v0.22.0 it was its own scroll area). Block flow,
     // not a flex gap, so each row's own top margin is the gap: the frame's
-    // 16 px (`.sf-below`, `.sf-tiles`) and the empty panels' 24 px.
+    // 16 px (`.sf-below`, `.sf-tiles`, `.sf-empty`) and the cloud pending
+    // line's 24 px.
     <div ref={rootRef}>
       {/* The frame's heading row: "Projects", the page's h1, and the toolbar,
           the same order as across the SPERT suite (v0.17.0). Every button is
@@ -397,185 +404,192 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
         Projects
       </HeadingRow>
 
-      <ArchiveRows
-        archivedCount={archiveView.archivedCount}
-        showArchived={archiveView.showArchived}
-        onShowArchivedChange={archiveView.setShowArchived}
-        unread={archiveView.read.status === 'failed'}
-        status={archiveView.status}
-      />
+      {/* v0.23.0 (FRAME26 clean-up C17): everything below the heading row has
+          its own boundary, so a view that fails (a tile, the grid, the
+          Welcome panel, a dialog) leaves the page's h1 and the four buttons
+          in place, as the CFD tab, Settings and About keep theirs. The shell's
+          boundary around the whole tab stays, for a failure in this
+          component's own state. */}
+      <ErrorBoundary fallback={<ViewErrorNotice />}>
+        <ArchiveRows
+          archivedCount={archiveView.archivedCount}
+          showArchived={archiveView.showArchived}
+          onShowArchivedChange={archiveView.setShowArchived}
+          unread={archiveView.read.status === 'failed'}
+          status={archiveView.status}
+        />
 
-      {/* A failed create, Load Sample or Clone (v0.19.0: storage full in O24's words) */}
-      {uiError && (
-        <div role="alert" className="sf-below flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100">
-          <span>{uiError}</span>
-          <button
-            onClick={() => setUiError(null)}
-            className="ml-4 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {/* v0.19.0 (DASH26 O19, Q3): Clone's words. The status region is always
-          mounted, so its first message is announced, and sr-only, so an
-          empty one takes no space in this column (+16 px measured with a
-          visible empty one). The visible line repeats the words, hidden
-          from screen readers so they are read once, beside a Dismiss that
-          stays reachable; it renders only while there is text. */}
-      <div role="status" aria-live="polite" className="sr-only" data-clone-status="">
-        {cloneStatus}
-      </div>
-      {cloneStatus && (
-        <div className="sf-below flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100">
-          <span aria-hidden="true">{cloneStatus}</span>
-          <button
-            type="button"
-            onClick={() => {
-              // DASH26 O25 (PR #109 review -05, G5): this button unmounts with
-              // its line, so focus goes to the toolbar's New Project first,
-              // never to <body>.
-              newProjectButtonRef.current?.focus();
-              setCloneStatus('');
-            }}
-            aria-label="Dismiss clone message"
-            className="ml-4 text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {/* Import error phase */}
-      {importFlowPhase.phase === 'error' && (
-        <div
-          role="alert"
-          className="sf-below flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100"
-        >
-          <span>{importFlowPhase.message}</span>
-          <button
-            onClick={onDismissImportBanner}
-            className="ml-4 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {/* Import success banner */}
-      {importFlowPhase.phase === 'banner' && (
-        <div
-          role="status"
-          className="sf-below flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100"
-        >
-          <span>{buildBannerText(importFlowPhase.outcome)}</span>
-          <button
-            onClick={onDismissImportBanner}
-            className="ml-4 text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {/* Import preview */}
-      {importFlowPhase.phase === 'preview' && (
-        <div className="sf-below">
-          <ImportPreviewSection
-            incoming={importFlowPhase.incoming}
-            conflicts={importFlowPhase.conflicts}
-            decisions={importFlowPhase.decisions}
-            applying={importApplying}
-            driverLoading={driverLoading}
-            existingCount={projects.length}
-            onSetDecision={setImportDecision}
-            onConfirm={onConfirmImport}
-            onCancel={onCancelImport}
-          />
-        </div>
-      )}
-
-      {/* Project grid (v0.18.0: SPERT® Forecaster's tiles and grid). With no
-          projects (v0.19.0, DASH26 R11, O21): Forecaster's pending line while
-          the cloud list loads, else the welcome panel once it has loaded,
-          unless an import preview is open. 24 px below the row above, as
-          Forecaster's mt-6 sections. The welcome panel and the all-archived
-          line stand in for the tile grid, so they carry the frame's
-          `data-sf="empty"` (contract §7); their place stays v0.19.0's. */}
-      {projects.length === 0 ? (
-        driverLoading ? (
-          <p role="status" aria-live="polite" className="mt-6 text-sm text-[#666] dark:text-gray-400">
-            {CLOUD_PENDING_TEXT}
-          </p>
-        ) : importFlowPhase.phase !== 'preview' && (
-          <div className="mt-6" data-sf="empty">
-            <ProjectsEmptyState onCreateNew={() => setDialog({ kind: 'new' })} onLoadSample={handlePanelLoadSample} />
+        {/* A failed create, Load Sample or Clone (v0.19.0: storage full in O24's words) */}
+        {uiError && (
+          <div role="alert" className="sf-below flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100">
+            <span>{uiError}</span>
+            <button
+              onClick={() => setUiError(null)}
+              className="ml-4 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200"
+            >
+              Dismiss
+            </button>
           </div>
-        )
-      ) : (
-        <ProjectGrid
-          sensors={sensors}
-          onDragEnd={handleDragEnd}
-          shown={shown}
-          stats={projectStats}
-          mode={driver.mode}
-          view={archiveView}
-          onExport={handleExport}
-          onEdit={handleEdit}
-          onShare={setSharingProjectId}
-          onClone={handleClone}
-          onDelete={handleDeleteClick}
-        />
-      )}
+        )}
 
-      {/* The one project dialog, New or Edit (v0.18.0). Keyed by identity, so a
-          different project's Edit starts a fresh form. Its DOM goes to
-          document.body. */}
-      {dialog && (
-        <ProjectDialog
-          key={dialog.kind === 'edit' ? dialog.projectId : 'new'}
-          identity={dialog.kind === 'edit' ? dialog.projectId : 'new'}
-          title={dialog.kind === 'edit' ? 'Edit Project' : 'New Project'}
-          initialName={dialog.kind === 'edit' ? dialog.name : ''}
-          submitLabel={dialog.kind === 'edit' ? 'Update' : 'Create'}
-          onSubmit={dialog.kind === 'edit' ? handleUpdate : handleCreate}
-          onCancel={closeDialog}
-          returnFocusTo={returnFocusFromDialog}
-        />
-      )}
+        {/* v0.19.0 (DASH26 O19, Q3): Clone's words. The status region is always
+            mounted, so its first message is announced, and sr-only, so an
+            empty one takes no space in this column (+16 px measured with a
+            visible empty one). The visible line repeats the words, hidden
+            from screen readers so they are read once, beside a Dismiss that
+            stays reachable; it renders only while there is text. */}
+        <div role="status" aria-live="polite" className="sr-only" data-clone-status="">
+          {cloneStatus}
+        </div>
+        {cloneStatus && (
+          <div className="sf-below flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100">
+            <span aria-hidden="true">{cloneStatus}</span>
+            <button
+              type="button"
+              onClick={() => {
+                // DASH26 O25 (PR #109 review -05, G5): this button unmounts with
+                // its line, so focus goes to the toolbar's New Project first,
+                // never to <body>.
+                newProjectButtonRef.current?.focus();
+                setCloneStatus('');
+              }}
+              aria-label="Dismiss clone message"
+              className="ml-4 text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
-      {/* Sharing modal */}
-      {sharingProjectId && (
-        <SharingModal
-          projectId={sharingProjectId}
-          onClose={() => setSharingProjectId(null)}
-        />
-      )}
+        {/* Import error phase */}
+        {importFlowPhase.phase === 'error' && (
+          <div
+            role="alert"
+            className="sf-below flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100"
+          >
+            <span>{importFlowPhase.message}</span>
+            <button
+              onClick={onDismissImportBanner}
+              className="ml-4 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
-      {/* Delete confirmation */}
-      {deleteConfirmId && (
-        <ConfirmDialog
-          title="Delete Project"
-          message={`Delete "${deleteTargetName}"? This cannot be undone.`}
-          confirmLabel="Delete"
-          variant="danger"
-          onConfirm={handleConfirmDelete}
-          onCancel={handleCancelDelete}
-        />
-      )}
+        {/* Import success banner */}
+        {importFlowPhase.phase === 'banner' && (
+          <div
+            role="status"
+            className="sf-below flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100"
+          >
+            <span>{buildBannerText(importFlowPhase.outcome)}</span>
+            <button
+              onClick={onDismissImportBanner}
+              className="ml-4 text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
-      {/* Replace-confirm gate for imports */}
-      {importFlowPhase.phase === 'replace-confirm' && (
-        <ConfirmDialog
-          title="Replace projects?"
-          message="One or more projects in your workspace will be overwritten by the import. This cannot be undone."
-          confirmLabel="Replace"
-          variant="danger"
-          onConfirm={onReplaceConfirmed}
-          onCancel={onDismissReplaceConfirm}
-        />
-      )}
+        {/* Import preview */}
+        {importFlowPhase.phase === 'preview' && (
+          <div className="sf-below">
+            <ImportPreviewSection
+              incoming={importFlowPhase.incoming}
+              conflicts={importFlowPhase.conflicts}
+              decisions={importFlowPhase.decisions}
+              applying={importApplying}
+              driverLoading={driverLoading}
+              existingCount={projects.length}
+              onSetDecision={setImportDecision}
+              onConfirm={onConfirmImport}
+              onCancel={onCancelImport}
+            />
+          </div>
+        )}
+
+        {/* Project grid (v0.18.0: SPERT® Forecaster's tiles and grid). With no
+            projects (v0.19.0, DASH26 R11, O21): Forecaster's pending line while
+            the cloud list loads, else the welcome panel once it has loaded,
+            unless an import preview is open. The pending line sits 24 px below
+            the row above, as Forecaster's mt-6 sections. The Welcome panel and
+            the all-archived line stand in for the tile grid, so they carry the
+            frame's `data-sf="empty"` (contract §7) and sit 16 px below the row
+            above, as the grid does (v0.23.0: `.sf-empty`, `.sf-below`). */}
+        {projects.length === 0 ? (
+          driverLoading ? (
+            <p role="status" aria-live="polite" className="mt-6 text-sm text-[#666] dark:text-gray-400">
+              {CLOUD_PENDING_TEXT}
+            </p>
+          ) : importFlowPhase.phase !== 'preview' && (
+            <ProjectsEmptyState onCreateNew={() => setDialog({ kind: 'new' })} onLoadSample={handlePanelLoadSample} />
+          )
+        ) : (
+          <ProjectGrid
+            sensors={sensors}
+            onDragEnd={handleDragEnd}
+            shown={shown}
+            stats={projectStats}
+            mode={driver.mode}
+            view={archiveView}
+            onExport={handleExport}
+            onEdit={handleEdit}
+            onShare={setSharingProjectId}
+            onClone={handleClone}
+            onDelete={handleDeleteClick}
+          />
+        )}
+
+        {/* The one project dialog, New or Edit (v0.18.0). Keyed by identity, so a
+            different project's Edit starts a fresh form. Its DOM goes to
+            document.body. */}
+        {dialog && (
+          <ProjectDialog
+            key={dialog.kind === 'edit' ? dialog.projectId : 'new'}
+            identity={dialog.kind === 'edit' ? dialog.projectId : 'new'}
+            title={dialog.kind === 'edit' ? 'Edit Project' : 'New Project'}
+            initialName={dialog.kind === 'edit' ? dialog.name : ''}
+            submitLabel={dialog.kind === 'edit' ? 'Update' : 'Create'}
+            onSubmit={dialog.kind === 'edit' ? handleUpdate : handleCreate}
+            onCancel={closeDialog}
+            returnFocusTo={returnFocusFromDialog}
+          />
+        )}
+
+        {/* Sharing modal */}
+        {sharingProjectId && (
+          <SharingModal
+            projectId={sharingProjectId}
+            onClose={() => setSharingProjectId(null)}
+          />
+        )}
+
+        {/* Delete confirmation */}
+        {deleteConfirmId && (
+          <ConfirmDialog
+            title="Delete Project"
+            message={`Delete "${deleteTargetName}"? This cannot be undone.`}
+            confirmLabel="Delete"
+            variant="danger"
+            onConfirm={handleConfirmDelete}
+            onCancel={handleCancelDelete}
+          />
+        )}
+
+        {/* Replace-confirm gate for imports */}
+        {importFlowPhase.phase === 'replace-confirm' && (
+          <ConfirmDialog
+            title="Replace projects?"
+            message="One or more projects in your workspace will be overwritten by the import. This cannot be undone."
+            confirmLabel="Replace"
+            variant="danger"
+            onConfirm={onReplaceConfirmed}
+            onCancel={onDismissReplaceConfirm}
+          />
+        )}
+      </ErrorBoundary>
     </div>
   );
 }

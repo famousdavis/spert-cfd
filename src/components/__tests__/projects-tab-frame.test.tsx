@@ -50,7 +50,7 @@ async function mount(ids: Array<[string, string]>, prefs?: Record<string, unknow
   h.driver ??= createLocalStorageDriver();
   const r = render(
     <ProjectListProvider>
-      <ProjectsTab onOpenInCfd={vi.fn()} />
+      <ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />
     </ProjectListProvider>,
   );
   await act(async () => {
@@ -147,11 +147,12 @@ describe('the Projects tab under the frame', () => {
     expect([...row.children].map((e) => e.textContent)).toEqual(['Show archived (2)', PREFS_UNREAD_TEXT]);
   });
 
-  it('no projects: the welcome panel, hooked empty, 24 px down (mt-6) and never beside a grid', async () => {
+  // v0.23.0 (FRAME26 clean-up W): the hook is on the Welcome panel itself, whose `.sf-empty` puts it 16 px down.
+  it('no projects: the Welcome panel, hooked empty itself (.sf-empty, 16 px down) and never beside a grid', async () => {
     const { container } = await mount([]);
     expect(empty()).toHaveLength(1);
-    expect(empty()[0].className).toBe('mt-6');
-    expect(empty()[0].querySelector('[role="region"]')).toBeTruthy();
+    expect(empty()[0].className).toBe('sf-empty');
+    expect(empty()[0].getAttribute('role')).toBe('region');
     expect(grid()).toBeNull();
     expect(rows(container)).toEqual(['headrow', 'empty']);
   });

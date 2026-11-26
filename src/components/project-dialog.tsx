@@ -33,6 +33,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { MAX_NAME_LENGTH } from '@/lib/constants';
 import { useModalEscape } from '@/lib/use-dismiss';
+import { useScrollLock } from '@/lib/use-scroll-lock';
 import {
   DIALOG,
   DIALOG_BG,
@@ -134,6 +135,7 @@ export function ProjectDialog({
   // Escape: the shared capture-phase listener for modals, which closes only
   // the innermost one and stops the key there (use-dismiss.ts).
   useModalEscape(() => cancelRef.current());
+  useScrollLock();
 
   // Tab, in the capture phase, registered once. Removed with the same flag.
   useEffect(() => {

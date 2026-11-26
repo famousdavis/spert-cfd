@@ -63,8 +63,10 @@ export const STAY = 'flex flex-wrap items-center gap-0.5';
 // ── Archive on the Projects tab (v0.21.0, DASH26 R2, O50; Forecaster's) ──
 export const CHECK = 'inline-flex items-center gap-2 text-[0.9rem] leading-[normal] cursor-pointer text-[#666] dark:text-[#a0aec0]';
 export const CHECKBOX = 'size-4 m-0 accent-spert-blue dark:accent-spert-blue';
-/** "All projects are archived…": the meta grey, italic, where the grid would be, 24 px below the row above. */
-export const ALL_ARCHIVED = 'mt-6 leading-[normal] italic text-[#666] dark:text-[#a0aec0]';
+/** "All projects are archived…": the meta grey, italic, where the grid would be, 16 px below the filter row. */
+// v0.23.0 (FRAME26 clean-up A): 16 px below the filter row, the frame's
+// `.sf-below` (contract §7), as the grid would be; until then `mt-6`, 24 px.
+export const ALL_ARCHIVED = 'sf-below leading-[normal] italic text-[#666] dark:text-[#a0aec0]';
 /** O54's line: the person's settings could not be read. */
 export const PREFS_UNREAD = 'text-sm leading-[normal] text-[#666] dark:text-[#a0aec0]';
 

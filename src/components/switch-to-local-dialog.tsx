@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useModalEscape } from '@/lib/use-dismiss';
+import { useScrollLock } from '@/lib/use-scroll-lock';
 import { X } from 'lucide-react';
 
 interface SwitchToLocalDialogProps {
@@ -29,6 +30,7 @@ export function SwitchToLocalDialog({
   useModalEscape(() => {
     if (!copying) onCancel();
   });
+  useScrollLock();
 
   useEffect(() => {
     modalRef.current?.focus();
@@ -62,7 +64,7 @@ export function SwitchToLocalDialog({
           <button
             onClick={onCancel}
             disabled={copying}
-            className="rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
             aria-label="Close"
           >
             <X size={16} />

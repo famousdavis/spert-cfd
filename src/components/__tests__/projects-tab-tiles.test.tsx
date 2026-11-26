@@ -91,7 +91,7 @@ const button = (name: string) => screen.getByRole('button', { name }) as HTMLBut
 describe('access, from the list item (P5)', () => {
   it('local mode: no badge and no gate, even for an item that carries a role (a kept cloud copy)', () => {
     h.list.projects = [{ id: 'a', name: 'Alpha', role: 'viewer', memberCount: 3 }, { id: 'b', name: 'Beta' }];
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     expect(screen.queryByText('Shared')).toBeNull();
     expect(screen.queryByText('View only')).toBeNull();
     expect(button('Delete Alpha').disabled).toBe(false);
@@ -107,7 +107,7 @@ describe('access, from the list item (P5)', () => {
       { id: 'v', name: 'View', role: 'viewer', memberCount: 3 },
       { id: 'n', name: 'New' },
     ];
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     const tile = (id: string) => within(document.querySelector(`li[data-project-id="${id}"]`) as HTMLElement);
     // owner
     expect(tile('o').getByText('Shared')).toBeTruthy();
@@ -133,7 +133,7 @@ describe('access, from the list item (P5)', () => {
     h.list.projects = [{ id: 'o', name: 'Own', role: 'owner', memberCount: 1 }, { id: 'p', name: 'Two', role: 'owner', memberCount: 1 }];
     let release!: () => void;
     h.storage.driver.loadProject.mockImplementation(() => new Promise((r) => { release = () => r({ snapshots: [], workflow: [{}] }); }));
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     expect(screen.getAllByText('Loading…')).toHaveLength(2);
     expect(button('Delete Own').disabled).toBe(false);
     await act(async () => { release(); });
@@ -147,7 +147,7 @@ describe('the tiles\' meta lines and the stats load (Char-DASH-1 §B #19, #22)',
       if (id === 'b') throw new Error('unreadable');
       return { snapshots: [{ date: '2026-06-18' }, { date: '2026-05-01' }], workflow: [{}, {}, {}] };
     });
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     await act(async () => {});
     const tile = (id: string) => within(document.querySelector(`li[data-project-id="${id}"]`) as HTMLElement);
     expect(tile('a').getByText('2 snapshots · 3 states')).toBeTruthy();
@@ -162,7 +162,7 @@ describe('the tiles\' meta lines and the stats load (Char-DASH-1 §B #19, #22)',
 describe('the last project may be deleted (v0.19.0, DASH26 R10; Char-DASH-1 §B #16 removed)', () => {
   it('Delete on the only tile asks, deletes, says nothing else, and focus goes to New Project (O12\'s third branch)', async () => {
     h.list.projects = [THREE[0]];
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     fireEvent.click(button('Delete Alpha'));
     const dialog = screen.getByRole('alertdialog');
     expect(dialog.textContent).toContain('Delete "Alpha"? This cannot be undone.');
@@ -177,7 +177,7 @@ describe('Share and the member count, wired through the tab (PR #108 review, -05
   it('a cloud owner\'s Share opens the sharing window for that project, and nothing before', () => {
     h.storage.driver.mode = 'cloud';
     h.list.projects = [{ id: 'o', name: 'Own', role: 'owner', memberCount: 1 }, { id: 'p', name: 'Two', role: 'owner', memberCount: 1 }];
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     expect(screen.queryByRole('dialog', { name: 'Sharing o' })).toBeNull();
     fireEvent.click(button('Share Own'));
     expect(screen.getByRole('dialog', { name: 'Sharing o' })).toBeTruthy();
@@ -186,7 +186,7 @@ describe('Share and the member count, wired through the tab (PR #108 review, -05
   it('a sole cloud owner shows no "Shared"; with a second member, "Shared"', () => {
     h.storage.driver.mode = 'cloud';
     h.list.projects = [{ id: 'o', name: 'Own', role: 'owner', memberCount: 1 }, { id: 'p', name: 'Two', role: 'owner', memberCount: 2 }];
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     const tile = (id: string) => within(document.querySelector(`li[data-project-id="${id}"]`) as HTMLElement);
     expect(tile('o').queryByText('Shared')).toBeNull();
     expect(tile('p').getByText('Shared')).toBeTruthy();
@@ -204,7 +204,7 @@ describe('the dashboard\'s class pairs (PR #108 review, -05)', () => {
   // columns, 16 px gaps, contract §3), hooked for frame-check. The container
   // queries and their @container ancestor went with it.
   it('the grid is the frame\'s tile grid, with no container-query columns left', () => {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     const grid = document.querySelector('ul[aria-label="Projects"]')!;
     expect(classes(grid)).toEqual(['sf-tiles']);
     expect(grid.getAttribute('data-sf')).toBe('tiles');
@@ -212,7 +212,7 @@ describe('the dashboard\'s class pairs (PR #108 review, -05)', () => {
   });
 
   it('the revealed row shows on tile hover, on focus inside the tile and without hover, and the tile root is the group it reads', () => {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     const tile = tiles()[0];
     const row = tile.querySelector('button[aria-label^="Export "]')!.parentElement!;
     expect(classes(row)).toEqual(expect.arrayContaining(['opacity-0', 'group-hover/tile:opacity-100', 'group-focus-within/tile:opacity-100', '[@media(hover:none)]:opacity-100']));
@@ -223,7 +223,7 @@ describe('the dashboard\'s class pairs (PR #108 review, -05)', () => {
   it('the name button\'s ::after covers the tile, and the grip, Delete, the revealed row and an archived tile\'s Unarchive sit above it', () => {
     // v0.21.0 (PR #115 review, Opus-PR115-2 -01): without its lift a click on Unarchive opens the project (measured).
     (h.prefsReady as { prefs: object }).prefs = { b: { archived: true } };
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     fireEvent.click(screen.getByLabelText('Show archived (1)'));
     const tile = tiles()[0];
     expect(classes(tile.querySelector('h3 button')!)).toEqual(expect.arrayContaining(['after:absolute', 'after:inset-0']));
@@ -241,7 +241,7 @@ describe('the dashboard\'s class pairs (PR #108 review, -05)', () => {
 
 describe('focus after the Delete confirmation (O12, D7)', () => {
   async function confirmDelete(name: string) {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     fireEvent.click(button(`Delete ${name}`));
     await act(async () => { fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' })); });
   }
@@ -258,7 +258,7 @@ describe('focus after the Delete confirmation (O12, D7)', () => {
   });
 
   it('Cancel returns focus to that tile\'s Delete and deletes nothing', async () => {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     fireEvent.click(button('Delete Beta'));
     await act(async () => { fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Cancel' })); });
     expect(h.list.deleteProject).not.toHaveBeenCalled();
@@ -266,7 +266,7 @@ describe('focus after the Delete confirmation (O12, D7)', () => {
   });
 
   it('Escape returns focus to that tile\'s Delete', async () => {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     fireEvent.click(button('Delete Beta'));
     await act(async () => { fireEvent.keyDown(document, { key: 'Escape' }); });
     expect(screen.queryByRole('alertdialog')).toBeNull();
@@ -276,7 +276,7 @@ describe('focus after the Delete confirmation (O12, D7)', () => {
 
 describe('Edit (one dialog, R1a §2.4)', () => {
   it('opens named "Edit Project" with the name, renames through renameProject, returns focus to that Edit', async () => {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     fireEvent.click(button('Edit Beta'));
     const dialog = screen.getByRole('dialog', { name: 'Edit Project' });
     const input = within(dialog).getByLabelText('Project Name') as HTMLInputElement;
@@ -289,17 +289,17 @@ describe('Edit (one dialog, R1a §2.4)', () => {
   });
 
   it('an unchanged name saves nothing', async () => {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     fireEvent.click(button('Edit Beta'));
     await act(async () => { fireEvent.click(button('Update')); });
     expect(h.list.renameProject).not.toHaveBeenCalled();
   });
 
   it('closes, saving nothing, when its project leaves the list (L9)', () => {
-    const view = render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    const view = render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     fireEvent.click(button('Edit Beta'));
     h.list.projects = [THREE[0], THREE[2]];
-    view.rerender(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    view.rerender(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(h.list.renameProject).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(button('New Project'));
@@ -309,7 +309,7 @@ describe('Edit (one dialog, R1a §2.4)', () => {
 describe('one Escape, one surface', () => {
   it('Escape in the New Project dialog leaves a waiting import preview', () => {
     h.importPhase = { phase: 'preview', incoming: [], conflicts: [], decisions: {} } as never;
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     fireEvent.click(button('New Project'));
     fireEvent.keyDown(screen.getByLabelText('Project Name'), { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'New Project' })).toBeNull();
@@ -319,7 +319,7 @@ describe('one Escape, one surface', () => {
 
   it('Escape on the Delete confirmation leaves a waiting import preview (D2)', async () => {
     h.importPhase = { phase: 'preview', incoming: [], conflicts: [], decisions: {} } as never;
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     fireEvent.click(button('Delete Beta'));
     await act(async () => { fireEvent.keyDown(document, { key: 'Escape' }); });
     expect(screen.queryByRole('alertdialog')).toBeNull();
@@ -328,7 +328,7 @@ describe('one Escape, one surface', () => {
 
   it('control: Escape with no dialog open does reach the preview', () => {
     h.importPhase = { phase: 'preview', incoming: [], conflicts: [], decisions: {} } as never;
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(h.previewCancel).toHaveBeenCalledTimes(1);
   });
@@ -342,7 +342,7 @@ describe('Clone through the tab (v0.19.0, DASH26 R1b)', () => {
   it('O19: the polite region is there and empty before the click; then exactly "Cloned "X" as "X (copy)".", read once', async () => {
     h.storage.driver.loadProject.mockResolvedValue(stored);
     h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     expect(region()).not.toBeNull();
     expect(region().getAttribute('aria-live')).toBe('polite');
     expect(region().className).toBe('sr-only');
@@ -364,7 +364,7 @@ describe('Clone through the tab (v0.19.0, DASH26 R1b)', () => {
   it('F5: the same words twice are announced twice: the region is emptied in between (recorded)', async () => {
     h.storage.driver.loadProject.mockResolvedValue(stored);
     h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     const seen: string[] = [];
     const observer = new MutationObserver(() => seen.push(region().textContent ?? ''));
     observer.observe(region(), { childList: true, characterData: true, subtree: true });
@@ -384,7 +384,7 @@ describe('Clone through the tab (v0.19.0, DASH26 R1b)', () => {
     h.storage.driver.loadProject.mockResolvedValue(stored);
     h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
     const onOpenInCfd = vi.fn();
-    render(<ProjectsTab onOpenInCfd={onOpenInCfd} />);
+    render(<ProjectsTab onOpenInCfd={onOpenInCfd} onOpenSample={vi.fn()} />);
     button('Clone Alpha').focus();
     await act(async () => { fireEvent.click(button('Clone Alpha')); });
     await settle();
@@ -394,7 +394,7 @@ describe('Clone through the tab (v0.19.0, DASH26 R1b)', () => {
 
   it('a source that cannot be read: the alert names it, nothing is cloned', async () => {
     h.storage.driver.loadProject.mockResolvedValue(null);
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     await act(async () => { fireEvent.click(button('Clone Beta')); });
     await settle();
     expect(screen.getByRole('alert').textContent).toContain('Couldn\'t clone "Beta" — the copy wasn\'t saved. Please try again.');
@@ -404,7 +404,7 @@ describe('Clone through the tab (v0.19.0, DASH26 R1b)', () => {
   it('a refused save: Clone\'s words, or O24\'s when storage is full; either alert clears the clone\'s words', async () => {
     h.storage.driver.loadProject.mockResolvedValue(stored);
     h.list.cloneProject.mockResolvedValueOnce({ id: 'k', name: 'Alpha (copy)' });
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     await act(async () => { fireEvent.click(button('Clone Alpha')); });
     await settle();
     expect(region().textContent).not.toBe('');
@@ -423,7 +423,7 @@ describe('Clone through the tab (v0.19.0, DASH26 R1b)', () => {
     h.storage.driver.loadProject.mockResolvedValue(stored);
     h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
     h.list.loadSampleProject.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     await act(async () => { fireEvent.click(button('Clone Alpha')); });
     await settle();
     expect(region().textContent).toBe('Cloned "Alpha" as "Alpha (copy)".');
@@ -437,12 +437,12 @@ describe('Clone through the tab (v0.19.0, DASH26 R1b)', () => {
   it('O19 (PR #109 review -04): the import\'s error alert clears the clone\'s words too', async () => {
     h.storage.driver.loadProject.mockResolvedValue(stored);
     h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
-    const view = render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    const view = render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     await act(async () => { fireEvent.click(button('Clone Alpha')); });
     await settle();
     expect(region().textContent).toBe('Cloned "Alpha" as "Alpha (copy)".');
     h.importPhase = { phase: 'error', message: 'Invalid JSON. The file may be corrupted.' } as { phase: string };
-    view.rerender(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    view.rerender(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     expect(screen.getByRole('alert').textContent).toContain('Invalid JSON.');
     expect(region().textContent).toBe('');
     expect(screen.queryByRole('button', { name: 'Dismiss clone message' })).toBeNull();
@@ -451,7 +451,7 @@ describe('Clone through the tab (v0.19.0, DASH26 R1b)', () => {
   it('O25 (PR #109 review -05): Dismiss on the clone\'s line sends focus to New Project, never <body>', async () => {
     h.storage.driver.loadProject.mockResolvedValue(stored);
     h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     await act(async () => { fireEvent.click(button('Clone Alpha')); });
     await settle();
     const dismiss = button('Dismiss clone message');
@@ -464,7 +464,7 @@ describe('Clone through the tab (v0.19.0, DASH26 R1b)', () => {
     const inMemory = { ...stored, snapshots: [{ date: '2026-02-02', counts: { x: 1 } }] };
     activeValue.project = inMemory;
     h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     await act(async () => { fireEvent.click(button('Clone Alpha')); });
     // The stored copy (the driver here holds none: null) would have failed the clone.
     expect(h.list.cloneProject).toHaveBeenCalledWith(inMemory);
@@ -476,7 +476,7 @@ describe('Clone through the tab (v0.19.0, DASH26 R1b)', () => {
     activeValue.project = { ...stored, id: 'b', name: 'Beta' };
     h.storage.driver.loadProject.mockResolvedValue(stored);
     h.list.cloneProject.mockResolvedValue({ id: 'k', name: 'Alpha (copy)' });
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     await act(async () => { fireEvent.click(button('Clone Alpha')); });
     expect(h.storage.driver.loadProject).toHaveBeenCalledWith('a');
     expect(h.list.cloneProject).toHaveBeenCalledWith(stored);

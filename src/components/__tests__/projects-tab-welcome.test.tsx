@@ -55,7 +55,6 @@ vi.mock('../import-preview-section', () => ({ ImportPreviewSection: () => <secti
 vi.mock('../sharing-modal', () => ({ SharingModal: () => null }));
 
 import { ProjectsTab, CLOUD_PENDING_TEXT } from '../projects-tab';
-import { PANEL_SECONDARY } from '../projects-empty-state';
 
 const WELCOME = 'Welcome to SPERT® CFD';
 const panel = () => screen.queryByRole('region', { name: WELCOME });
@@ -71,7 +70,7 @@ beforeEach(() => {
 
 describe('the welcome panel (R11, R27)', () => {
   it('says R27\'s words, with Create New Project and Load Sample Project', () => {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     const region = panel()!;
     expect(within(region).getByRole('heading', { level: 2 }).textContent).toBe(WELCOME);
     const texts = [...region.querySelectorAll('p')].map((p) => p.textContent);
@@ -82,31 +81,44 @@ describe('the welcome panel (R11, R27)', () => {
     expect(within(region).getAllByRole('button').map((b) => b.textContent)).toEqual(['Create New Project', 'Load Sample Project']);
   });
 
-  it('is drawn as Forecaster\'s panel: 10 px corners, 1 px dashed #e5e5e5, white, 32 px padding, centred (class pairs; P1 measures)', () => {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
-    const cls = panel()!.className.split(' ');
-    expect(cls).toEqual(expect.arrayContaining(['rounded-[10px]', 'border', 'border-dashed', 'border-[#e5e5e5]', 'bg-white', 'p-8', 'text-center', 'dark:border-gray-700', 'dark:bg-[#171717]']));
-    // Load Sample Project is transparent in dark on the panel; the toolbar's dark gray-900 is replaced, not overridden.
-    expect(PANEL_SECONDARY).toContain('dark:bg-transparent');
-    expect(PANEL_SECONDARY).not.toContain('dark:bg-gray-900');
+  // v0.23.0 (FRAME26 clean-up W): the frame's Welcome panel (stylesheet v3) draws it; CFD's own card went.
+  it('is the frame\'s Welcome panel: .sf-empty hooked empty itself, its parts, the ® in .sf-mark, 36 px .sf-btn actions', () => {
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
+    const region = panel()!;
+    expect(region.className).toBe('sf-empty');
+    expect(region.getAttribute('data-sf')).toBe('empty');
+    expect(document.querySelectorAll('[data-sf="empty"]')).toHaveLength(1);
+    const title = within(region).getByRole('heading', { level: 2 });
+    expect(title.className).toBe('sf-empty-title');
+    expect(title.innerHTML).toBe('Welcome to SPERT<span class="sf-mark">®</span> CFD');
+    const [text, note] = [...region.querySelectorAll('p')];
+    expect(text.className).toBe('sf-empty-text');
+    expect(note.className).toBe('sf-empty-note');
+    const actions = region.querySelector('.sf-empty-actions')!;
+    const [create, sample] = [...actions.querySelectorAll('button')];
+    expect(create.className.split(' ')).toEqual(expect.arrayContaining(['sf-btn', 'bg-spert-blue']));
+    // The toolbar's own secondary, dark ground included: the panel is on the page ground now, not a #171717 card.
+    expect(sample.className.split(' ')).toEqual(expect.arrayContaining(['sf-btn', 'bg-white', 'dark:bg-gray-900']));
+    // None of CFD's old card classes is left on any of it.
+    expect(region.outerHTML).not.toMatch(/rounded-\[10px\]|border-dashed|dark:bg-\[#171717\]|dark:text-gray-500|dark:bg-transparent|max-w-prose/);
   });
 
   it('shows only with no projects', () => {
     h.list.projects = [{ id: 'a', name: 'Alpha' }];
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     expect(panel()).toBeNull();
   });
 
   it('never under an import preview', () => {
     h.importFlow = { phase: 'preview' };
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     expect(screen.getByRole('region', { name: 'Import preview' })).toBeTruthy();
     expect(panel()).toBeNull();
   });
 
   it('while the list loads with nothing listed: Forecaster\'s pending line, politely, and no panel (O21)', () => {
     h.list.driverLoading = true;
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     const line = screen.getByText(CLOUD_PENDING_TEXT);
     expect(CLOUD_PENDING_TEXT).toBe('Loading your cloud projects — import will be available shortly.');
     expect(line.getAttribute('role')).toBe('status');
@@ -117,14 +129,14 @@ describe('the welcome panel (R11, R27)', () => {
   it('the pending line goes once something is listed, even while still loading', () => {
     h.list.driverLoading = true;
     h.list.projects = [{ id: 'a', name: 'Alpha' }];
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     expect(screen.queryByText(CLOUD_PENDING_TEXT)).toBeNull();
   });
 });
 
 describe('the panel\'s buttons (R12, Opus-R1b-1 -12)', () => {
   it('Create New Project opens the New Project dialog; Cancel returns focus to the toolbar\'s New Project', async () => {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     fireEvent.click(button('Create New Project'));
     const dialog = screen.getByRole('dialog', { name: 'New Project' });
     await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' })); });
@@ -135,22 +147,27 @@ describe('the panel\'s buttons (R12, Opus-R1b-1 -12)', () => {
     let focusedAtStart: Element | null = null;
     h.list.loadSampleProject.mockImplementation(() => {
       focusedAtStart = document.activeElement;
-      return Promise.resolve('sample-id');
+      return Promise.resolve({ id: 'sample-id', name: 'Sample: 2-Week Sprint' });
     });
     const onOpenInCfd = vi.fn();
-    render(<ProjectsTab onOpenInCfd={onOpenInCfd} />);
+    const onOpenSample = vi.fn();
+    render(<ProjectsTab onOpenInCfd={onOpenInCfd} onOpenSample={onOpenSample} />);
     const toolbarLoadSample = button('Load Sample');
     await act(async () => { fireEvent.click(button('Load Sample Project')); });
     expect(focusedAtStart).toBe(toolbarLoadSample);
-    expect(onOpenInCfd).toHaveBeenCalledWith('sample-id');
+    // v0.23.0: the shell opens and announces it (onOpenSample), never the tile's plain open.
+    expect(onOpenSample).toHaveBeenCalledWith({ id: 'sample-id', name: 'Sample: 2-Week Sprint' });
+    expect(onOpenInCfd).not.toHaveBeenCalled();
   });
 
   it('Load Sample Project that fails: the alert, and focus still on the toolbar\'s Load Sample, never <body>', async () => {
     h.list.loadSampleProject.mockRejectedValue(Object.assign(new Error('denied'), { code: 'permission-denied' }));
     const onOpenInCfd = vi.fn();
-    render(<ProjectsTab onOpenInCfd={onOpenInCfd} />);
+    const onOpenSample = vi.fn();
+    render(<ProjectsTab onOpenInCfd={onOpenInCfd} onOpenSample={onOpenSample} />);
     await act(async () => { fireEvent.click(button('Load Sample Project')); });
     expect(onOpenInCfd).not.toHaveBeenCalled();
+    expect(onOpenSample).not.toHaveBeenCalled();
     expect(screen.getByRole('alert').textContent).toContain("Couldn't load the sample project — it wasn't saved. Please try again.");
     expect(document.activeElement).toBe(button('Load Sample'));
   });
@@ -162,14 +179,14 @@ describe('storage full, on the add paths (O24)', () => {
 
   it('Load Sample says so in O24\'s words', async () => {
     h.list.loadSampleProject.mockRejectedValue(quota());
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     await act(async () => { fireEvent.click(button('Load Sample')); });
     expect(screen.getByRole('alert').textContent).toContain(O24);
   });
 
   it('Create says so in O24\'s words; another failure keeps Create\'s', async () => {
     h.list.createProject.mockRejectedValueOnce(quota());
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     fireEvent.click(button('New Project'));
     fireEvent.change(screen.getByLabelText('Project Name'), { target: { value: 'Big' } });
     await act(async () => { fireEvent.click(button('Create')); });
