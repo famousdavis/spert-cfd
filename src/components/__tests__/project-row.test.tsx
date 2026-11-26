@@ -9,8 +9,10 @@
 // are pinned in src/lib/__tests__/project-tile-meta.test.ts).
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { ProjectTile, type ProjectTileProps } from '../project-row';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
+import { ProjectTile, SortableProjectTile, type ProjectTileProps } from '../project-row';
 import { tileAccess, OWNER_ONLY_DELETE_REASON, VIEW_ONLY_REASON } from '@/lib/tile-access';
 import { PROJECT_COLORS } from '@/lib/project-prefs';
 import { NAME_ARCHIVED, NAME_COLOR, REVEAL, STAY } from '../dashboard-styles';
@@ -178,5 +180,53 @@ describe('PR #115 review (Opus-PR115-2 -03): the archived look a person sees', (
   it('archived: the half tint', () => {
     renderTile({ color: 'pink', archived: true });
     expect(document.querySelector('li')!.className).toContain(TILE_TINT_ARCHIVED.pink);
+  });
+});
+
+// PR #115 review (Opus-PR115-1 -05, M20): O54's "drag … off" while the person's settings cannot be read, held by
+// dnd-kit itself: a real pointer drag on the grip (the tab's sensor, 8 px) starts only when nothing blocks it.
+describe('the drag, through dnd-kit', () => {
+  function Grid({ blocked, onStart }: { blocked: string | null; onStart: () => void }) {
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+    return (
+      <DndContext sensors={sensors} onDragStart={onStart}>
+        <SortableContext items={['a', 'b']} strategy={rectSortingStrategy}>
+          <ul>
+            {['a', 'b'].map((id) => (
+              <SortableProjectTile
+                key={id}
+                id={id}
+                name={id}
+                stats={undefined}
+                access={tileAccess('local', undefined, undefined)}
+                onOpen={vi.fn()}
+                onExport={vi.fn()}
+                onEdit={vi.fn()}
+                onDelete={vi.fn()}
+                onShare={vi.fn()}
+                onClone={vi.fn()}
+                dragBlockedReason={blocked}
+              />
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
+    );
+  }
+  async function drag(blocked: string | null) {
+    const onStart = vi.fn();
+    render(<Grid blocked={blocked} onStart={onStart} />);
+    const grip = document.querySelector(`[data-project-id="a"] [title="${blocked ?? 'Drag to reorder'}"]`)!;
+    await act(async () => {
+      fireEvent.pointerDown(grip, { isPrimary: true, button: 0, clientX: 10, clientY: 10 });
+      fireEvent.pointerMove(document, { isPrimary: true, clientX: 40, clientY: 10 });
+    });
+    return onStart;
+  }
+  it('starts from the grip when nothing blocks it (control)', async () => {
+    expect(await drag(null)).toHaveBeenCalledTimes(1);
+  });
+  it('does not start while blocked, and the grip says why', async () => {
+    expect(await drag("Unavailable: your tile colors and archive couldn't be loaded")).not.toHaveBeenCalled();
   });
 });
