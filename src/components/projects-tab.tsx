@@ -332,156 +332,156 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     // not a flex gap, so each row's own top margin is the gap: the frame's
     // 16 px (`.sf-below`, `.sf-tiles`) and the empty panels' 24 px.
     <div ref={rootRef}>
-        {/* The frame's heading row: "Projects", the page's h1, and the toolbar,
-            the same order as across the SPERT suite (v0.17.0). Every button is
-            always rendered; none moves with the project count or a load. Each
-            is the frame's 36 px `.sf-btn` (contract §2), its colours and
-            corners its own. Deliberately NOT role="toolbar": that role promises
-            arrow-key navigation, and nothing here provides it. */}
-        <HeadingRow
-          toolbar={
+      {/* The frame's heading row: "Projects", the page's h1, and the toolbar,
+          the same order as across the SPERT suite (v0.17.0). Every button is
+          always rendered; none moves with the project count or a load. Each
+          is the frame's 36 px `.sf-btn` (contract §2), its colours and
+          corners its own. Deliberately NOT role="toolbar": that role promises
+          arrow-key navigation, and nothing here provides it. */}
+      <HeadingRow
+        toolbar={
           <>
-          <div className="sf-toolbar" data-sf="toolbar">
-            <button
-              type="button"
-              onClick={handleExportAll}
-              disabled={projects.length === 0}
-              aria-label="Export all projects as JSON"
-              className={SECONDARY}
-            >
-              <ToolbarIcon d={TOOLBAR_ICON_PATHS.export} className={TOOLBAR_ICON_SECONDARY} />
-              Export All
-            </button>
-            <button
-              type="button"
-              onClick={onImportClick}
-              disabled={driverLoading}
-              aria-label="Import projects from JSON"
-              className={SECONDARY}
-            >
-              <ToolbarIcon d={TOOLBAR_ICON_PATHS.import} className={TOOLBAR_ICON_SECONDARY} />
-              Import
-            </button>
-            <button
-              ref={loadSampleButtonRef}
-              type="button"
-              onClick={handleLoadSample}
-              className={SECONDARY}
-            >
-              <ToolbarIcon d={TOOLBAR_ICON_PATHS.sample} className={TOOLBAR_ICON_SECONDARY} />
-              Load Sample
-            </button>
-            <button
-              ref={newProjectButtonRef}
-              type="button"
-              onClick={() => setDialog({ kind: 'new' })}
-              className={PRIMARY}
-            >
-              <ToolbarIcon d={TOOLBAR_ICON_PATHS.plus} className={TOOLBAR_ICON_PRIMARY} />
-              New Project
-            </button>
-          </div>
-          <input
-            id="import-project-file"
-            name="import-project-file"
-            ref={importInputRef}
-            type="file"
-            accept=".json,application/json"
-            onChange={onImportFileChange}
-            className="hidden"
-            aria-label="Import project file"
-          />
+            <div className="sf-toolbar" data-sf="toolbar">
+              <button
+                type="button"
+                onClick={handleExportAll}
+                disabled={projects.length === 0}
+                aria-label="Export all projects as JSON"
+                className={SECONDARY}
+              >
+                <ToolbarIcon d={TOOLBAR_ICON_PATHS.export} className={TOOLBAR_ICON_SECONDARY} />
+                Export All
+              </button>
+              <button
+                type="button"
+                onClick={onImportClick}
+                disabled={driverLoading}
+                aria-label="Import projects from JSON"
+                className={SECONDARY}
+              >
+                <ToolbarIcon d={TOOLBAR_ICON_PATHS.import} className={TOOLBAR_ICON_SECONDARY} />
+                Import
+              </button>
+              <button
+                ref={loadSampleButtonRef}
+                type="button"
+                onClick={handleLoadSample}
+                className={SECONDARY}
+              >
+                <ToolbarIcon d={TOOLBAR_ICON_PATHS.sample} className={TOOLBAR_ICON_SECONDARY} />
+                Load Sample
+              </button>
+              <button
+                ref={newProjectButtonRef}
+                type="button"
+                onClick={() => setDialog({ kind: 'new' })}
+                className={PRIMARY}
+              >
+                <ToolbarIcon d={TOOLBAR_ICON_PATHS.plus} className={TOOLBAR_ICON_PRIMARY} />
+                New Project
+              </button>
+            </div>
+            <input
+              id="import-project-file"
+              name="import-project-file"
+              ref={importInputRef}
+              type="file"
+              accept=".json,application/json"
+              onChange={onImportFileChange}
+              className="hidden"
+              aria-label="Import project file"
+            />
           </>
-          }
-        >
-          Projects
-        </HeadingRow>
+        }
+      >
+        Projects
+      </HeadingRow>
 
-        <ArchiveRows
-          archivedCount={archiveView.archivedCount}
-          showArchived={archiveView.showArchived}
-          onShowArchivedChange={archiveView.setShowArchived}
-          unread={archiveView.read.status === 'failed'}
-          status={archiveView.status}
-        />
+      <ArchiveRows
+        archivedCount={archiveView.archivedCount}
+        showArchived={archiveView.showArchived}
+        onShowArchivedChange={archiveView.setShowArchived}
+        unread={archiveView.read.status === 'failed'}
+        status={archiveView.status}
+      />
 
-        {/* A failed create, Load Sample or Clone (v0.19.0: storage full in O24's words) */}
-        {uiError && (
-          <div role="alert" className="sf-below flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100">
-            <span>{uiError}</span>
-            <button
-              onClick={() => setUiError(null)}
-              className="ml-4 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {/* v0.19.0 (DASH26 O19, Q3): Clone's words. The status region is always
-            mounted, so its first message is announced, and sr-only, so an
-            empty one takes no space in this column (+16 px measured with a
-            visible empty one). The visible line repeats the words, hidden
-            from screen readers so they are read once, beside a Dismiss that
-            stays reachable; it renders only while there is text. */}
-        <div role="status" aria-live="polite" className="sr-only" data-clone-status="">
-          {cloneStatus}
+      {/* A failed create, Load Sample or Clone (v0.19.0: storage full in O24's words) */}
+      {uiError && (
+        <div role="alert" className="sf-below flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100">
+          <span>{uiError}</span>
+          <button
+            onClick={() => setUiError(null)}
+            className="ml-4 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200"
+          >
+            Dismiss
+          </button>
         </div>
-        {cloneStatus && (
-          <div className="sf-below flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100">
-            <span aria-hidden="true">{cloneStatus}</span>
-            <button
-              type="button"
-              onClick={() => {
-                // DASH26 O25 (PR #109 review -05, G5): this button unmounts with
-                // its line, so focus goes to the toolbar's New Project first,
-                // never to <body>.
-                newProjectButtonRef.current?.focus();
-                setCloneStatus('');
-              }}
-              aria-label="Dismiss clone message"
-              className="ml-4 text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
+      )}
 
-        {/* Import error phase */}
-        {importFlowPhase.phase === 'error' && (
-          <div
-            role="alert"
-            className="sf-below flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100"
+      {/* v0.19.0 (DASH26 O19, Q3): Clone's words. The status region is always
+          mounted, so its first message is announced, and sr-only, so an
+          empty one takes no space in this column (+16 px measured with a
+          visible empty one). The visible line repeats the words, hidden
+          from screen readers so they are read once, beside a Dismiss that
+          stays reachable; it renders only while there is text. */}
+      <div role="status" aria-live="polite" className="sr-only" data-clone-status="">
+        {cloneStatus}
+      </div>
+      {cloneStatus && (
+        <div className="sf-below flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100">
+          <span aria-hidden="true">{cloneStatus}</span>
+          <button
+            type="button"
+            onClick={() => {
+              // DASH26 O25 (PR #109 review -05, G5): this button unmounts with
+              // its line, so focus goes to the toolbar's New Project first,
+              // never to <body>.
+              newProjectButtonRef.current?.focus();
+              setCloneStatus('');
+            }}
+            aria-label="Dismiss clone message"
+            className="ml-4 text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200"
           >
-            <span>{importFlowPhase.message}</span>
-            <button
-              onClick={onDismissImportBanner}
-              className="ml-4 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
+            Dismiss
+          </button>
+        </div>
+      )}
 
-        {/* Import success banner */}
-        {importFlowPhase.phase === 'banner' && (
-          <div
-            role="status"
-            className="sf-below flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100"
+      {/* Import error phase */}
+      {importFlowPhase.phase === 'error' && (
+        <div
+          role="alert"
+          className="sf-below flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100"
+        >
+          <span>{importFlowPhase.message}</span>
+          <button
+            onClick={onDismissImportBanner}
+            className="ml-4 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200"
           >
-            <span>{buildBannerText(importFlowPhase.outcome)}</span>
-            <button
-              onClick={onDismissImportBanner}
-              className="ml-4 text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
+            Dismiss
+          </button>
+        </div>
+      )}
 
-        {/* Import preview */}
-        {importFlowPhase.phase === 'preview' && (
-          <div className="sf-below">
+      {/* Import success banner */}
+      {importFlowPhase.phase === 'banner' && (
+        <div
+          role="status"
+          className="sf-below flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100"
+        >
+          <span>{buildBannerText(importFlowPhase.outcome)}</span>
+          <button
+            onClick={onDismissImportBanner}
+            className="ml-4 text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Import preview */}
+      {importFlowPhase.phase === 'preview' && (
+        <div className="sf-below">
           <ImportPreviewSection
             incoming={importFlowPhase.incoming}
             conflicts={importFlowPhase.conflicts}
@@ -493,89 +493,89 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
             onConfirm={onConfirmImport}
             onCancel={onCancelImport}
           />
+        </div>
+      )}
+
+      {/* Project grid (v0.18.0: SPERT® Forecaster's tiles and grid). With no
+          projects (v0.19.0, DASH26 R11, O21): Forecaster's pending line while
+          the cloud list loads, else the welcome panel once it has loaded,
+          unless an import preview is open. 24 px below the row above, as
+          Forecaster's mt-6 sections. The welcome panel and the all-archived
+          line stand in for the tile grid, so they carry the frame's
+          `data-sf="empty"` (contract §7); their place stays v0.19.0's. */}
+      {projects.length === 0 ? (
+        driverLoading ? (
+          <p role="status" aria-live="polite" className="mt-6 text-sm text-[#666] dark:text-gray-400">
+            {CLOUD_PENDING_TEXT}
+          </p>
+        ) : importFlowPhase.phase !== 'preview' && (
+          <div className="mt-6" data-sf="empty">
+            <ProjectsEmptyState onCreateNew={() => setDialog({ kind: 'new' })} onLoadSample={handlePanelLoadSample} />
           </div>
-        )}
+        )
+      ) : (
+        <ProjectGrid
+          sensors={sensors}
+          onDragEnd={handleDragEnd}
+          shown={shown}
+          stats={projectStats}
+          mode={driver.mode}
+          view={archiveView}
+          onExport={handleExport}
+          onEdit={handleEdit}
+          onShare={setSharingProjectId}
+          onClone={handleClone}
+          onDelete={handleDeleteClick}
+        />
+      )}
 
-        {/* Project grid (v0.18.0: SPERT® Forecaster's tiles and grid). With no
-            projects (v0.19.0, DASH26 R11, O21): Forecaster's pending line while
-            the cloud list loads, else the welcome panel once it has loaded,
-            unless an import preview is open. 24 px below the row above, as
-            Forecaster's mt-6 sections. The welcome panel and the all-archived
-            line stand in for the tile grid, so they carry the frame's
-            `data-sf="empty"` (contract §7); their place stays v0.19.0's. */}
-        {projects.length === 0 ? (
-          driverLoading ? (
-            <p role="status" aria-live="polite" className="mt-6 text-sm text-[#666] dark:text-gray-400">
-              {CLOUD_PENDING_TEXT}
-            </p>
-          ) : importFlowPhase.phase !== 'preview' && (
-            <div className="mt-6" data-sf="empty">
-              <ProjectsEmptyState onCreateNew={() => setDialog({ kind: 'new' })} onLoadSample={handlePanelLoadSample} />
-            </div>
-          )
-        ) : (
-          <ProjectGrid
-            sensors={sensors}
-            onDragEnd={handleDragEnd}
-            shown={shown}
-            stats={projectStats}
-            mode={driver.mode}
-            view={archiveView}
-            onExport={handleExport}
-            onEdit={handleEdit}
-            onShare={setSharingProjectId}
-            onClone={handleClone}
-            onDelete={handleDeleteClick}
-          />
-        )}
+      {/* The one project dialog, New or Edit (v0.18.0). Keyed by identity, so a
+          different project's Edit starts a fresh form. Its DOM goes to
+          document.body. */}
+      {dialog && (
+        <ProjectDialog
+          key={dialog.kind === 'edit' ? dialog.projectId : 'new'}
+          identity={dialog.kind === 'edit' ? dialog.projectId : 'new'}
+          title={dialog.kind === 'edit' ? 'Edit Project' : 'New Project'}
+          initialName={dialog.kind === 'edit' ? dialog.name : ''}
+          submitLabel={dialog.kind === 'edit' ? 'Update' : 'Create'}
+          onSubmit={dialog.kind === 'edit' ? handleUpdate : handleCreate}
+          onCancel={closeDialog}
+          returnFocusTo={returnFocusFromDialog}
+        />
+      )}
 
-        {/* The one project dialog, New or Edit (v0.18.0). Keyed by identity, so a
-            different project's Edit starts a fresh form. Its DOM goes to
-            document.body. */}
-        {dialog && (
-          <ProjectDialog
-            key={dialog.kind === 'edit' ? dialog.projectId : 'new'}
-            identity={dialog.kind === 'edit' ? dialog.projectId : 'new'}
-            title={dialog.kind === 'edit' ? 'Edit Project' : 'New Project'}
-            initialName={dialog.kind === 'edit' ? dialog.name : ''}
-            submitLabel={dialog.kind === 'edit' ? 'Update' : 'Create'}
-            onSubmit={dialog.kind === 'edit' ? handleUpdate : handleCreate}
-            onCancel={closeDialog}
-            returnFocusTo={returnFocusFromDialog}
-          />
-        )}
+      {/* Sharing modal */}
+      {sharingProjectId && (
+        <SharingModal
+          projectId={sharingProjectId}
+          onClose={() => setSharingProjectId(null)}
+        />
+      )}
 
-        {/* Sharing modal */}
-        {sharingProjectId && (
-          <SharingModal
-            projectId={sharingProjectId}
-            onClose={() => setSharingProjectId(null)}
-          />
-        )}
+      {/* Delete confirmation */}
+      {deleteConfirmId && (
+        <ConfirmDialog
+          title="Delete Project"
+          message={`Delete "${deleteTargetName}"? This cannot be undone.`}
+          confirmLabel="Delete"
+          variant="danger"
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
+        />
+      )}
 
-        {/* Delete confirmation */}
-        {deleteConfirmId && (
-          <ConfirmDialog
-            title="Delete Project"
-            message={`Delete "${deleteTargetName}"? This cannot be undone.`}
-            confirmLabel="Delete"
-            variant="danger"
-            onConfirm={handleConfirmDelete}
-            onCancel={handleCancelDelete}
-          />
-        )}
-
-        {/* Replace-confirm gate for imports */}
-        {importFlowPhase.phase === 'replace-confirm' && (
-          <ConfirmDialog
-            title="Replace projects?"
-            message="One or more projects in your workspace will be overwritten by the import. This cannot be undone."
-            confirmLabel="Replace"
-            variant="danger"
-            onConfirm={onReplaceConfirmed}
-            onCancel={onDismissReplaceConfirm}
-          />
-        )}
+      {/* Replace-confirm gate for imports */}
+      {importFlowPhase.phase === 'replace-confirm' && (
+        <ConfirmDialog
+          title="Replace projects?"
+          message="One or more projects in your workspace will be overwritten by the import. This cannot be undone."
+          confirmLabel="Replace"
+          variant="danger"
+          onConfirm={onReplaceConfirmed}
+          onCancel={onDismissReplaceConfirm}
+        />
+      )}
     </div>
   );
 }
@@ -615,33 +615,33 @@ function ProjectGrid({
             gaps, 16 px below the row above (3 columns at 1280 and 1440, 4 at
             1920). Until v0.22.0 it was a container-query grid of 1 to 3. */}
         <ul className="sf-tiles" data-sf="tiles" aria-label="Projects">
-            {shown.map((p) => {
-              const pref = view.prefOf(p.id);
-              return (
-                <SortableProjectTile
-                  key={p.id}
-                  id={p.id}
-                  name={p.name}
-                  stats={stats.get(p.id)}
-                  access={tileAccess(mode, p.role, p.memberCount)}
-                  onOpen={view.openProject}
-                  onExport={onExport}
-                  onEdit={onEdit}
-                  onShare={onShare}
-                  onClone={onClone}
-                  onDelete={onDelete}
-                  color={pref.color}
-                  archived={pref.archived === true}
-                  prefsBlockedReason={view.blockedReason(p.id)}
-                  dragBlockedReason={view.dragBlockedReason}
-                  colorOpen={view.colorOpenFor === p.id}
-                  onColorOpenChange={view.setColorOpen}
-                  onPickColor={view.pickColor}
-                  onArchive={view.archive}
-                  onUnarchive={view.unarchive}
-                />
-              );
-            })}
+          {shown.map((p) => {
+            const pref = view.prefOf(p.id);
+            return (
+              <SortableProjectTile
+                key={p.id}
+                id={p.id}
+                name={p.name}
+                stats={stats.get(p.id)}
+                access={tileAccess(mode, p.role, p.memberCount)}
+                onOpen={view.openProject}
+                onExport={onExport}
+                onEdit={onEdit}
+                onShare={onShare}
+                onClone={onClone}
+                onDelete={onDelete}
+                color={pref.color}
+                archived={pref.archived === true}
+                prefsBlockedReason={view.blockedReason(p.id)}
+                dragBlockedReason={view.dragBlockedReason}
+                colorOpen={view.colorOpenFor === p.id}
+                onColorOpenChange={view.setColorOpen}
+                onPickColor={view.pickColor}
+                onArchive={view.archive}
+                onUnarchive={view.unarchive}
+              />
+            );
+          })}
         </ul>
       </SortableContext>
     </DndContext>
