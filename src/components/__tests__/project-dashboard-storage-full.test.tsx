@@ -50,12 +50,13 @@ describe('the CFD tab\'s storage-full alert', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('says O24\'s words above the bordered panel, outside main, and Dismiss clears it', () => {
+  // v0.22.0 (FRAME26): "main" here is the panel's content scroller, <div data-cfd-content>.
+  it('says O24\'s words above the bordered panel, outside the content scroller, and Dismiss clears it', () => {
     h.active.storageFull = true;
     render(<ProjectDashboard />);
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain(O24);
-    const main = document.querySelector('main')!;
+    const main = document.querySelector('[data-cfd-content]')!;
     expect(main.contains(alert)).toBe(false);
     const panel = main.parentElement!;
     expect(alert.nextElementSibling).toBe(panel);

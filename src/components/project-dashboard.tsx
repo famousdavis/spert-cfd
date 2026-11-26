@@ -17,7 +17,6 @@ import { MetricsPanel } from './metrics/metrics-panel';
 import { ErrorBoundary } from './error-boundary';
 import { ProjectPicker, PICKER_ID } from './project-picker';
 import { ViewErrorNotice } from './view-error-notice';
-import { PAGE_COLUMN } from './page-column';
 
 interface ProjectDashboardProps {
   onGoToProjects?: () => void;
@@ -46,19 +45,19 @@ interface ProjectDashboardProps {
  * notice in place (DASH26 PR #108 review, -01; measured).
  *
  * The tree keeps the same shape with and without an open project (the aside
- * slot and `main` are always at the same positions), so the picker also
+ * slot and the content scroller are always at the same positions), so the picker also
  * survives the moment a project first opens.
  *
  * v0.19.0 (DASH26 R25, O24, F4): an edit refused because the browser's storage
- * is full shows an alert ABOVE the bordered panel, outside `main`'s scroll
- * area, so it is seen wherever the edit was made (the grid is usually
+ * is full shows an alert ABOVE the bordered panel, outside the content's
+ * scroll area, so it is seen wherever the edit was made (the grid is usually
  * scrolled below the chart). Dismiss, or the next save that succeeds, clears it.
  */
 export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDashboardProps) {
   const { project, storageFull, dismissStorageFull } = useActiveProject();
   const { projects, activeProjectId } = useProjectList();
   const { driver } = useStorage();
-  const mainRef = useRef<HTMLElement>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
   // Memoize storage usage calculation — recompute when the active
   // project saves. updatedAt isn't used inside the memo body; it's an
   // intentional invalidation trigger because a save is what mutates
@@ -84,8 +83,10 @@ export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDas
   const showPicker = projects.length > 0;
 
   return (
-    // A bordered panel in the page's column, under the header and the tabs.
-    <div className={`${PAGE_COLUMN} flex flex-1 flex-col overflow-hidden py-4`}>
+    // A bordered panel filling the rest of the frame's fitted `main` (FRAME26
+    // exception X1, DASH26 R18, v0.22.0), under the heading row AppShell
+    // renders. Until v0.22.0 this was the page's column itself.
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {storageFull && (
         <div role="alert" className="mb-4 flex flex-none items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100">
           <span>{STORAGE_FULL_MESSAGE}</span>
@@ -124,8 +125,9 @@ export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDas
           </aside>
         )}
 
-        {/* Main content */}
-        <main ref={mainRef} className={open ? 'flex-1 overflow-y-auto p-4' : 'flex flex-1 flex-col overflow-y-auto p-4'}>
+        {/* The panel's content, its own scroller. v0.22.0: a <div>, no longer
+            a <main>: the frame's `main` holds the whole tab, and a page has one. */}
+        <div ref={mainRef} data-cfd-content="" className={open ? 'flex-1 overflow-y-auto p-4' : 'flex flex-1 flex-col overflow-y-auto p-4'}>
           {showPicker && <ProjectPicker takeFocus={takePickerFocus} />}
 
           {open ? (
@@ -147,7 +149,7 @@ export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDas
               )}
             </div>
           )}
-        </main>
+        </div>
       </div>
     </div>
   );

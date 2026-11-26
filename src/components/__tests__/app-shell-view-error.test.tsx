@@ -22,6 +22,9 @@ const { passThrough } = vi.hoisted(() => ({
   passThrough: ({ children }: { children: ReactNode }) => children,
 }));
 
+// v0.22.0 (FRAME26): AppShell routes back to "/" from another route (the frame is held by the layout), and Next's
+// useRouter throws outside the App Router. On "/" it never routes.
+vi.mock('next/navigation', () => ({ usePathname: () => '/', useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/contexts/auth-context', () => ({
   AuthProvider: passThrough,
   useAuth: () => ({
@@ -46,7 +49,8 @@ vi.mock('@/contexts/project-list-context', () => ({
   ProjectListProvider: passThrough,
   useProjectList: () => ({ isLoaded: true, projects: [], activeProjectId: 'p1', switchProject: vi.fn() }),
 }));
-vi.mock('@/contexts/active-project-context', () => ({ ActiveProjectProvider: passThrough }));
+// v0.22.0 (FRAME26): AppShell's CFD heading row reads the loaded project (none here: "CFD").
+vi.mock('@/contexts/active-project-context', () => ({ ActiveProjectProvider: passThrough, useActiveProject: () => ({ project: null }) }));
 vi.mock('../invitation-banner', () => ({ InvitationBanner: () => null }));
 vi.mock('../cloud-migration-flow', () => ({
   CloudMigrationFlow: forwardRef(function CloudMigrationFlow(_props, ref) {

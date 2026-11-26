@@ -265,6 +265,11 @@ async function compileGlobals(candidates: string[]): Promise<string> {
   const compiler = await compile(readFileSync(join(app, 'globals.css'), 'utf8'), {
     base: app,
     loadStylesheet: async (id: string) => {
+      // v0.22.0 (FRAME26): globals.css imports the vendored frame stylesheet.
+      if (id === '../styles/spert-frame.css') {
+        const path = join(app, '..', 'styles', 'spert-frame.css');
+        return { path, base: dirname(path), content: readFileSync(path, 'utf8') };
+      }
       if (id !== 'tailwindcss') throw new Error(`unexpected @import ${id}`);
       const path = resolveFromApp('tailwindcss/index.css');
       return { path, base: dirname(path), content: readFileSync(path, 'utf8') };

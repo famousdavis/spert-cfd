@@ -4,23 +4,19 @@
 
 'use client';
 
-import { PAGE_COLUMN } from './page-column';
 import { StorageSection } from './storage-section';
 import { ProjectExportSection } from './project-export-section';
 import { LocalWarningSetting } from './local-warning-setting';
 
 export function SettingsTab() {
   return (
-    // Left-aligned in the page's column under the tabs; each block keeps a
-    // reading width.
-    <div className="flex-1 overflow-y-auto py-4">
-      <div className={`${PAGE_COLUMN} *:max-w-4xl`}>
-        <h2 className="text-2xl mb-6 text-gray-900 dark:text-gray-100">Settings</h2>
-
-        <StorageSection />
-        <ProjectExportSection />
-        <LocalWarningSetting />
-      </div>
+    // v0.22.0 (FRAME26): the body under the frame's heading row ("Settings",
+    // the page's h1, rendered by AppShell), in X4's capped column. The page
+    // scrolls, not this; each block keeps its reading width.
+    <div className="*:max-w-4xl">
+      <StorageSection />
+      <ProjectExportSection />
+      <LocalWarningSetting />
     </div>
   );
 }

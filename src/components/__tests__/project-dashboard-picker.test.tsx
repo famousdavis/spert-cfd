@@ -74,6 +74,9 @@ beforeEach(() => {
 });
 
 const picker = () => screen.getByRole('combobox', { name: 'Cumulative flow for' }) as HTMLSelectElement;
+// v0.22.0 (FRAME26): the panel's content scroller is a <div data-cfd-content>, no longer a <main>: the frame's main
+// holds the whole tab, and a page has one.
+const content = () => document.querySelector('[data-cfd-content]') as HTMLElement;
 
 describe('the picker', () => {
   it('names the open project, in a 16 px heading row above the chart, and lists every project', () => {
@@ -83,14 +86,14 @@ describe('the picker', () => {
     expect(picker().value).toBe('a');
     expect([...picker().options].map((o) => o.text)).toEqual(['Alpha', 'Untitled project', 'Gamma']);
     // Above the chart, inside the scroll area.
-    const main = screen.getByRole('main');
+    const main = content();
     expect(main.firstElementChild).toBe(row);
   });
 
   it('also heads a project with snapshots', () => {
     h.active.snapshots = [{}];
     render(<ProjectDashboard />);
-    expect(screen.getByRole('main').firstElementChild?.textContent).toMatch(/^Cumulative flow for/);
+    expect(content().firstElementChild?.textContent).toMatch(/^Cumulative flow for/);
     expect(document.querySelector('[aria-label="Cumulative Flow Diagram"]')).toBeTruthy();
   });
 
@@ -127,7 +130,7 @@ describe('the picker', () => {
     h.list.activeProjectId = 'bad';
     h.active.project = project('bad', 'Bad chart');
     render(<ProjectDashboard />);
-    const main = screen.getByRole('main');
+    const main = content();
     expect(within(main).getByRole('alert').textContent).toContain('This view could not be displayed.');
     expect(main.firstElementChild).toBe(screen.getByRole('heading', { level: 2, name: /^Cumulative flow for/ }));
     expect(screen.getByText('workflow')).toBeTruthy();
@@ -154,7 +157,7 @@ describe('the picker', () => {
 
   it('a switch shows the new project from the top of the scroll area', () => {
     const view = render(<ProjectDashboard />);
-    const main = screen.getByRole('main');
+    const main = content();
     main.scrollTop = 120;
     h.list.activeProjectId = 'c';
     view.rerender(<ProjectDashboard />);

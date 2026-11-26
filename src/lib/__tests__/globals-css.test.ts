@@ -49,6 +49,12 @@ async function compiler(css: string) {
   return compile(css, {
     base: APP,
     loadStylesheet: async (id: string) => {
+      // v0.22.0 (FRAME26): globals.css imports the vendored frame stylesheet
+      // once; frame-stylesheet.test.ts pins that file and that import.
+      if (id === '../styles/spert-frame.css') {
+        const path = join(APP, '..', 'styles', 'spert-frame.css');
+        return { path, base: dirname(path), content: readFileSync(path, 'utf8') };
+      }
       if (id !== 'tailwindcss') throw new Error(`unexpected @import ${id}`);
       const path = resolve('tailwindcss/index.css');
       return { path, base: dirname(path), content: readFileSync(path, 'utf8') };

@@ -5,67 +5,86 @@
 'use client';
 
 import { HELP_CENTER_URL } from '@/lib/constants';
-import { PAGE_COLUMN } from './page-column';
 
 export type TabId = 'projects' | 'cfd' | 'settings' | 'about';
 
-interface TabNavigationProps {
-  activeTab: TabId;
-  onTabChange: (tab: TabId) => void;
+interface Tab {
+  id: TabId;
+  label: string;
 }
 
-const TABS: { id: TabId; label: string }[] = [
+// The navigation row's two zones (FRAME26, contract §3 "Navigation zones",
+// v0.22.0), in row order. The DOM order, and so the tab order, is the same as
+// before the frame: Projects, CFD, Settings, About, Help Center.
+// - WORK_TABS, on the left: the collection first ("Projects"), then the CFD tab.
+// - APP_TABS, on the right: Settings · About, always in that order, then the
+//   Help Center link.
+const WORK_TABS: readonly Tab[] = [
   { id: 'projects', label: 'Projects' },
   { id: 'cfd', label: 'CFD' },
+];
+const APP_TABS: readonly Tab[] = [
   { id: 'settings', label: 'Settings' },
   { id: 'about', label: 'About' },
 ];
 
-// v0.17.9: the SPERT® suite's tab bar, as SPERT® Forecaster draws it
-// (TabNavigation.tsx), itself matched to GanttApp: 37px tabs with 8px top
-// corners over a 2px #eee rule, the active tab filled blue with a 3px border of
-// the same blue, the others grey with a light grey hover. `leading-[normal]` is
-// the CSS `normal` line-height (Tailwind's own "normal" leading is 1.5). The blue
-// comes from globals.css's @theme block; Forecaster's other token colours are
-// written here as hex (#666, #f5f5f5, #eee).
-const TAB =
-  'px-5 py-2 border-0 border-b-[3px] rounded-t-[8px] cursor-pointer font-semibold text-base leading-[normal] transition-all duration-200';
-const TAB_ACTIVE = 'bg-spert-blue text-white border-b-spert-blue dark:bg-[#3b82f6] dark:border-b-[#3b82f6]';
-const TAB_INACTIVE = 'bg-transparent text-[#666] border-b-transparent hover:bg-[#f5f5f5] dark:text-[#a0aec0] dark:hover:bg-[#2d3748]';
+interface TabNavigationProps {
+  /** The tab shown, or null on a screen no item leads to (the changelog, a 404): then no item is active. */
+  activeTab: TabId | null;
+  onTabChange: (tab: TabId) => void;
+}
 
+function TabButton({ tab, activeTab, onTabChange }: { tab: Tab } & TabNavigationProps) {
+  return (
+    <button
+      type="button"
+      onClick={() => onTabChange(tab.id)}
+      // The active item is marked by `aria-current="page"` alone: the frame's
+      // stylesheet draws its underline and accent colour from that attribute,
+      // at the same weight as every other item, so nothing moves when the
+      // selection changes (contract §3, "Active item"). `undefined`, never
+      // "false", on the others: "false" is a value some assistive technology
+      // announces. Not role="tab": that pattern promises a roving tabindex and
+      // arrow keys, which these plain buttons do not have.
+      aria-current={activeTab === tab.id ? 'page' : undefined}
+      className="sf-tab"
+    >
+      {tab.label}
+    </button>
+  );
+}
+
+/**
+ * The frame's navigation row (FRAME26, contract §3, v0.22.0): a full-width
+ * 44 px band under the brand row, with a 1 px rule. v0.17.9's filled blue pill
+ * on a 2 px rule went with v0.22.0; the active item is the frame's underline.
+ */
 export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
   return (
-    // The rule under the tabs spans the page's column, not the window.
-    <nav className={PAGE_COLUMN}>
-      <div className="flex gap-2 border-b-2 border-[#eee] dark:border-[#2d3748]">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => onTabChange(tab.id)}
-            className={`${TAB} ${activeTab === tab.id ? TAB_ACTIVE : TAB_INACTIVE}`}
-            aria-current={activeTab === tab.id ? 'page' : undefined}
-          >
-            {tab.label}
-          </button>
-        ))}
-        {/* Help Center (v0.17.8): a LINK that leaves the app, never a tab. So
-            it is not in TABS, not a <button>, has none of the tabs' shape or
-            fill, and no aria-current.
-            It sits after About at the bar's right-hand end, in the inactive
-            tabs' grey, underlined on hover. The arrow is hidden from assistive
-            technology and the sr-only text completes the accessible name,
-            "Help Center (opens in a new tab)". ⚠️ The spaces are their own text
-            nodes, outside the spans: a space inside a span is trimmed by the
-            accessible-name computation, giving "Help Center(opens in a new tab)". */}
-        <a
-          href={HELP_CENTER_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ml-auto self-center whitespace-nowrap text-sm text-[#666] dark:text-[#a0aec0] underline-offset-2 hover:underline"
-        >
-          Help Center{' '}<span aria-hidden="true">↗</span>{' '}<span className="sr-only">(opens in a new tab)</span>
-        </a>
+    <nav className="sf-nav" data-sf="nav">
+      <div className="sf-col sf-nav-row">
+        <div className="sf-nav-work" data-sf="nav-work">
+          {WORK_TABS.map((tab) => (
+            <TabButton key={tab.id} tab={tab} activeTab={activeTab} onTabChange={onTabChange} />
+          ))}
+        </div>
+        <div className="sf-nav-app" data-sf="nav-app">
+          {APP_TABS.map((tab) => (
+            <TabButton key={tab.id} tab={tab} activeTab={activeTab} onTabChange={onTabChange} />
+          ))}
+          {/* Help Center (v0.17.8): a LINK that leaves the app, never a tab. So
+              it is not in APP_TABS, not a <button>, and has no aria-current. It
+              sits after About at the row's right-hand end, as the frame's quiet
+              400-weight muted `.sf-help`, underlined on hover. The arrow is
+              hidden from assistive technology and the sr-only text completes
+              the accessible name, "Help Center (opens in a new tab)". ⚠️ The
+              spaces are their own text nodes, outside the spans: a space inside
+              a span is trimmed by the accessible-name computation, giving
+              "Help Center(opens in a new tab)". */}
+          <a href={HELP_CENTER_URL} target="_blank" rel="noopener noreferrer" className="sf-help">
+            Help Center{' '}<span aria-hidden="true">↗</span>{' '}<span className="sr-only">(opens in a new tab)</span>
+          </a>
+        </div>
       </div>
     </nav>
   );

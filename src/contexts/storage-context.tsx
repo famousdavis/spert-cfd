@@ -78,7 +78,13 @@ function getPersistedMode(): StorageMode {
   return stored === 'cloud' ? 'cloud' : 'local';
 }
 
-export function StorageProvider({ children }: { children: ReactNode }) {
+/**
+ * `fallback` (v0.22.0, FRAME26 contract §7, "Loading"): what the gate shows
+ * while the driver is not ready, rendered INSIDE this provider, so it can read
+ * `mode` (the driver is not there yet). AppShell passes the frame with only its
+ * body loading; without it, the gate shows its own bare "Loading...".
+ */
+export function StorageProvider({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
   const { user, isAuthLoading } = useAuth();
   const [persistedMode, setPersistedMode] = useState<StorageMode>(getPersistedMode);
 
@@ -199,9 +205,11 @@ export function StorageProvider({ children }: { children: ReactNode }) {
           storageReady: false,
         }}
       >
-        <div className="flex h-screen items-center justify-center text-gray-400">
-          Loading...
-        </div>
+        {fallback ?? (
+          <div className="flex h-screen items-center justify-center text-gray-400">
+            Loading...
+          </div>
+        )}
       </StorageContext.Provider>
     );
   }

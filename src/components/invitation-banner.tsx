@@ -58,13 +58,14 @@ export function InvitationBanner() {
     <div
       role="region"
       aria-label="Invitation banner"
-      // Centered card per Lesson 56 (was full-width strip max-w-7xl).
-      // `relative` anchors the absolute-positioned dismiss button.
-      // `pr-6` on the inner content reserves room so longer copy
-      // (e.g., several claimed model names) doesn't run under the ×.
-      className="relative mx-auto mt-3 max-w-lg rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 text-sm text-blue-900 dark:text-gray-200"
+      // v0.22.0 (FRAME26): the frame's notice, first in the notices slot, at
+      // the full column width (contract §3), so Lesson 56's centred
+      // `max-w-lg` card goes, as in SPERT® Forecaster. Info before the
+      // claim, success after it. Its text takes the notice's colour; the two
+      // sign-in buttons and the "×" keep their own look.
+      className={`sf-notice ${state.kind === 'claimed' ? 'sf-notice--success' : 'sf-notice--info'}`}
     >
-      <div className="pr-6">
+      <div className="flex-1">
         {state.kind === 'pre_auth' && (
           <>
             <div className="font-medium">
@@ -72,7 +73,7 @@ export function InvitationBanner() {
             </div>
             {firebaseAvailable ? (
               <>
-                <div className="mt-0.5 text-xs text-blue-800 dark:text-gray-400">
+                <div className="mt-0.5 text-xs">
                   Sign in with the email address that received this
                   invitation to accept.
                 </div>
@@ -102,7 +103,7 @@ export function InvitationBanner() {
                 </div>
               </>
             ) : (
-              <div className="mt-0.5 text-xs text-blue-800 dark:text-gray-400">
+              <div className="mt-0.5 text-xs">
                 Cloud sign-in is unavailable in this build.
               </div>
             )}
@@ -124,7 +125,7 @@ export function InvitationBanner() {
         type="button"
         onClick={dismiss}
         aria-label="Dismiss invitation banner"
-        className="absolute right-2 top-2 rounded px-2 py-0.5 text-blue-600 dark:text-gray-500 hover:bg-blue-100 dark:hover:bg-blue-800/50 hover:text-blue-800 dark:hover:text-gray-300"
+        className="flex-none rounded px-2 py-0.5 hover:bg-black/5 dark:hover:bg-white/10"
       >
         ×
       </button>

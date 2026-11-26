@@ -7,7 +7,6 @@
 import { useState, useEffect } from 'react';
 import { useStorage } from '@/contexts/storage-context';
 import { LS_SUPPRESS_LS_WARNING } from '@/lib/constants';
-import { PAGE_COLUMN } from './page-column';
 
 /**
  * The local-storage caution. Shown on each page load while storage is local,
@@ -34,20 +33,15 @@ export function LocalStorageWarningBanner() {
   const handleDismiss = () => setVisible(false);
 
   return (
-    <div className={`${PAGE_COLUMN} pt-3`}>
-      <div className="flex items-center gap-4 rounded-md border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-gray-200">
-        <p className="flex-1">
-          <strong>Your data exists only in this browser</strong> and can be lost
-          without warning. Export at the end of every session to protect your work.
-        </p>
-        <button
-          type="button"
-          onClick={handleDismiss}
-          className="shrink-0 rounded border border-amber-600 dark:border-amber-600 px-3 py-1 text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800/50"
-        >
-          Got it
-        </button>
-      </div>
+    // v0.22.0 (FRAME26): the frame's caution notice, in the notices slot.
+    <div className="sf-notice sf-notice--caution">
+      <p className="flex-1">
+        <strong>Your data exists only in this browser</strong> and can be lost
+        without warning. Export at the end of every session to protect your work.
+      </p>
+      <button type="button" onClick={handleDismiss} className="sf-notice-dismiss">
+        Got it
+      </button>
     </div>
   );
 }
