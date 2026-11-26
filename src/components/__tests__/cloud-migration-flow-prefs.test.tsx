@@ -75,6 +75,20 @@ it('counts and uploads every project, the archived one included, with this brows
   expect(h.switchMode).toHaveBeenCalledWith('cloud');
 });
 
+it('PR #115 review (Opus-PR115-1 -01): the upload carries this browser\'s key as it is now, another tab\'s change included', async () => {
+  // This tab (B) read its map; then another tab (A) archives Alpha. B's copy in memory does not have it.
+  expect((h.driver as ReturnType<typeof createLocalStorageDriver>).getProjectPrefs()).toEqual({ status: 'ready', prefs: { b: { archived: true, color: 'pink' } } });
+  expect(createLocalStorageDriver().setProjectPref('a', 'archived', true)).toBeNull();
+  h.migrate.mockResolvedValue({ uploaded: 3, skipped: 0, pairs: [], prefsNotCarried: [] });
+  await startUpload();
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
+    await new Promise((res) => setTimeout(res, 0));
+  });
+  const prefs = (h.migrate.mock.calls[0] as unknown[])[4];
+  expect(prefs).toEqual({ a: { archived: true }, b: { archived: true, color: 'pink' } });
+});
+
 it('a colour/archive write that did not carry: still switches to Cloud, and names the project', async () => {
   h.migrate.mockResolvedValue({ uploaded: 3, skipped: 0, pairs: [], prefsNotCarried: ['Bravo'] });
   await startUpload();

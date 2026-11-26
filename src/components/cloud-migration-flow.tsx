@@ -33,6 +33,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useProjectList } from '@/contexts/project-list-context';
 import { createFirestoreDriver } from '@/lib/firestore-driver';
 import { migrateLocalToCloud, clearLocalProjects } from '@/lib/cloud-migration';
+import { readLocalPrefs } from '@/lib/local-prefs';
 import { db } from '@/lib/firebase';
 import { LS_HAS_UPLOADED } from '@/lib/constants';
 import type { Project } from '@/types';
@@ -105,14 +106,15 @@ export const CloudMigrationFlow = forwardRef<
 
       const cloudDriver = createFirestoreDriver(user.uid, db);
       // v0.21.0 (DASH26 R2, O61, O64): the full list (`projects`), archived
-      // ones included, and this browser's colours and archive with them.
-      const localPrefs = localDriver.getProjectPrefs();
+      // ones included, and this browser's colours and archive with them, read
+      // from the key now: this tab's copy in memory lacks a change another
+      // tab made since (PR #115 review, Opus-PR115-1 -01).
       const result = await migrateLocalToCloud(
         user.uid,
         db,
         fullProjects,
         cloudDriver,
-        localPrefs.status === 'ready' ? localPrefs.prefs : {},
+        readLocalPrefs(),
       );
 
       localStorage.setItem(LS_HAS_UPLOADED, 'true');

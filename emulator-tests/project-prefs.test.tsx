@@ -11,10 +11,10 @@
 import { it, expect, vi, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import React from 'react'
-import { doc, getDocs, updateDoc, query, collection, where, disableNetwork, enableNetwork, type Firestore } from 'firebase/firestore'
+import { doc, getDocs, updateDoc, query, collection, where, disableNetwork, enableNetwork, onSnapshot, type Firestore } from 'firebase/firestore'
 import type { StorageDriver } from '@/lib/storage-driver'
 import type { Project } from '@/types'
-import { client, closeClients, newProject, serverSettings, sleep, uniqueId, waitFor } from './helpers'
+import { client, closeClients, newProject, serverSettings, sleep, track, uniqueId, waitFor } from './helpers'
 
 let driver: StorageDriver
 vi.mock('@/contexts/storage-context', () => ({
@@ -150,6 +150,32 @@ it('P4, §7 answer 1: retryProjectPrefs reads it again when no list snapshot com
   d.retryProjectPrefs()
   expect(await waitFor(() => d.getProjectPrefs().status === 'ready', 5000)).toBe(true)
   expect(d.getProjectPrefs()).toEqual({ status: 'ready', prefs: { gone: { color: 'teal' } } })
+})
+
+it('PR #115 review (Opus-PR115-1 -03): a read that failed while the list came from the cache recovers when the window takes focus, with no list snapshot and no `online` event', async () => {
+  const uid = uniqueId('u')
+  const seed = await ready(uid)
+  const p = newProject(uniqueId('p'), 'Seeded')
+  await seed.createProject(p)
+  seed.setProjectPref(p.id, 'archived', true)
+  await landed(seed, uid, (x) => !!prefsOf(x)?.[p.id])
+  const db = client(uid)
+  // Another listener keeps the list in this device's cache, as the app's own list listener does after any online session.
+  track(onSnapshot(query(collection(db, PROJECTS_COL), where(`members.${uid}`, 'in', ['owner', 'editor', 'viewer'])), () => {}))
+  await sleep(500)
+  await disableNetwork(db)
+  driver = createFirestoreDriver(uid, db)
+  const { result } = renderHook(() => useProjectList(), { wrapper: ({ children }: { children: React.ReactNode }) => <ProjectListProvider>{children}</ProjectListProvider> })
+  await act(async () => { await sleep(300) })
+  expect(result.current.projects.map((x) => x.name)).toEqual(['Seeded']) // the list, from the cache
+  expect(driver.getProjectPrefs()).toEqual({ status: 'failed' })
+  await enableNetwork(db)
+  await act(async () => { await sleep(1500) })
+  // The case the review measured (PROBE-4): the list did not change, so no snapshot retried, and no `online` event came.
+  expect(driver.getProjectPrefs()).toEqual({ status: 'failed' })
+  act(() => { window.dispatchEvent(new Event('focus')) })
+  expect(await waitFor(() => driver.getProjectPrefs().status === 'ready', 5000)).toBe(true)
+  expect(driver.getProjectPrefs()).toEqual({ status: 'ready', prefs: { [p.id]: { archived: true } } })
 })
 
 it('P2: an archived tile left out of the shown ids keeps its slot through a drop', async () => {

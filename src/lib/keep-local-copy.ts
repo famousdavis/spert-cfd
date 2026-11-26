@@ -16,8 +16,11 @@ import { isRefusedPrefId, projectPrefOf, type ProjectPref } from './project-pref
  *
  * v0.21.0 (DASH26 R36): the person's tile colours and archive for the
  * projects copied come too, into this browser's map, before the switch; the
- * ids are the same, so the copy is exact. Nothing is copied when the cloud
- * map was never read (O54): an unread map is not an empty one.
+ * ids are the same, so the copy is exact: each copied id's local entry
+ * becomes its cloud entry, an empty one included, which clears whatever an
+ * earlier copy left there (PR #115 review, Opus-PR115-1 -02). Entries for
+ * ids not copied are kept. Nothing is copied when the cloud map was never
+ * read (O54): an unread map is not an empty one.
  */
 export async function keepLocalCopy(projects: ProjectListItem[], cloudDriver: StorageDriver): Promise<{ copied: string[] }> {
   const localDriver = createLocalStorageDriver();
@@ -43,8 +46,7 @@ function copyPrefsOf(ids: string[], cloudDriver: StorageDriver): void {
   if (read.status !== 'ready') return;
   const entries: Array<[string, ProjectPref]> = ids
     .filter((id) => !isRefusedPrefId(id))
-    .map((id): [string, ProjectPref] => [id, projectPrefOf(read.prefs, id)])
-    .filter(([, pref]) => pref.color !== undefined || pref.archived === true);
+    .map((id): [string, ProjectPref] => [id, projectPrefOf(read.prefs, id)]);
   if (entries.length === 0) return;
   const result = copyLocalPrefs(entries);
   if ('refused' in result) console.error('Keep local copy: colours and archive not copied:', result.refused);

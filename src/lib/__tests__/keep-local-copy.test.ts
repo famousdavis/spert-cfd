@@ -42,6 +42,15 @@ it('copies every project it can read, the archived one too, and their entries un
   expect(stored()).toEqual({ local: { color: 'slate' }, c2: { archived: true, color: 'teal' } });
 });
 
+it('PR #115 review (Opus-PR115-1 -02): the copy is exact: a project with no cloud entry clears a stale local entry for its id', async () => {
+  // An earlier Keep local copy left entries under the cloud ids; since then, in Cloud Storage, One was
+  // unarchived and uncoloured (no entry) and Two coloured teal. Gone was not copied: its entry stays.
+  localStorage.setItem(LS_PROJECT_PREFS, JSON.stringify({ c1: { archived: true, color: 'pink' }, c2: { archived: true }, c3: { color: 'slate' } }));
+  const read: PrefsRead = { status: 'ready', prefs: { c2: { archived: true, color: 'teal' } } };
+  await keepLocalCopy(listed, cloud(read));
+  expect(stored()).toEqual({ c2: { archived: true, color: 'teal' }, c3: { color: 'slate' } });
+});
+
 it('copies no colour or archive when the cloud map was never read', async () => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
   await keepLocalCopy(listed, cloud({ status: 'failed' }));

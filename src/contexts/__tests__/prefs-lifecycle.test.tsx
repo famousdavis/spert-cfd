@@ -95,6 +95,33 @@ describe('Delete', () => {
     expect(stored()).toBeNull();
   });
 
+  it('PR #115 review (Opus-PR115-1 -04): drops both fields whatever this tab knows: an entry another tab set is gone too', async () => {
+    const { result } = await mount();
+    expect(driver.getProjectPrefs()).toEqual({ status: 'ready', prefs: { a: { color: 'purple', archived: true } } }); // this tab's map, read
+    const otherTab = createLocalStorageDriver();
+    expect(otherTab.setProjectPref('b', 'archived', true)).toBeNull();
+    expect(otherTab.setProjectPref('b', 'color', 'teal')).toBeNull();
+    await settle(() => result.current.deleteProject('b'));
+    expect(stored()).toEqual({ a: { color: 'purple', archived: true } });
+  });
+
+  it('PR #115 review (Opus-PR115-1 -08): deleting the open project opens the first project not archived, not an archived one', async () => {
+    await driver.createProject(project('c', 'Charlie'));
+    const { result } = await mount();
+    expect(result.current.projects.map((p) => p.id)).toEqual(['a', 'b', 'c']); // a is archived
+    await settle(() => result.current.switchProject('b'));
+    await settle(() => result.current.deleteProject('b'));
+    expect(result.current.activeProjectId).toBe('c');
+    expect(localStorage.getItem('spertcfd-active-project')).toBe('c');
+  });
+
+  it('deleting the open project with only archived ones left opens the first of them (R35: an archived project may be open)', async () => {
+    const { result } = await mount();
+    await settle(() => result.current.switchProject('b'));
+    await settle(() => result.current.deleteProject('b'));
+    expect(result.current.activeProjectId).toBe('a');
+  });
+
   it('a delete the driver refuses keeps the entry', async () => {
     const local = driver;
     driver = { ...local, deleteProject: vi.fn(() => Promise.reject(Object.assign(new Error('no'), { code: 'permission-denied' }))) };

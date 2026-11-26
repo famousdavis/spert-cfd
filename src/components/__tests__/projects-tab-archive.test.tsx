@@ -279,6 +279,58 @@ describe('a failed read of the person\'s settings (O54)', () => {
     expect((button('Archive Alpha') as HTMLButtonElement).disabled).toBe(false);
   });
 
+  // PR #115 review (Opus-PR115-1 -03): with the list unchanged no snapshot comes at reconnect, and an SDK that
+  // went offline while the browser stayed online gets no `online` event. Coming back to the page retries.
+  it.each([
+    ['the page becoming visible again', () => {
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }],
+    ['the window taking focus', () => window.dispatchEvent(new Event('focus'))],
+  ])('a retry on %s takes the line away and turns the controls on', async (_name, trigger) => {
+    const d = failing(true);
+    let back = false;
+    const retry = d.retryProjectPrefs as ReturnType<typeof vi.fn>;
+    const succeed = retry.getMockImplementation() as () => void;
+    retry.mockImplementation(() => {
+      if (back) succeed();
+    });
+    h.driver = d;
+    await mount();
+    expect(screen.getByText(PREFS_UNREAD_TEXT)).toBeTruthy();
+    back = true;
+    await act(async () => {
+      trigger();
+      await new Promise((res) => setTimeout(res, 0));
+    });
+    expect(screen.queryByText(PREFS_UNREAD_TEXT)).toBeNull();
+    expect((button('Archive Alpha') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('a page going hidden does not retry', async () => {
+    const d = failing();
+    h.driver = d;
+    await mount();
+    const retry = d.retryProjectPrefs as ReturnType<typeof vi.fn>;
+    retry.mockClear();
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    try {
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+        await new Promise((res) => setTimeout(res, 0));
+      });
+    } finally {
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    }
+    expect(retry).not.toHaveBeenCalled();
+  });
+
+  it('the line says how to try again, which a trigger keeps', () => {
+    expect(PREFS_UNREAD_TEXT).toBe(
+      "Your tile colors and archive couldn't be loaded, so Tile color, Archive and drag are off. To try again, switch to another tab or window and back, or reload the page.",
+    );
+  });
+
   it('no line while the read is still loading', async () => {
     const d = failing();
     const loading = { status: 'loading' as const };

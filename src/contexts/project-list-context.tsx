@@ -253,11 +253,24 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
   // v0.21.0 (DASH26 §7 answer 1): a failed read of the person's settings is
   // tried again when the browser comes back online (and at each list
   // snapshot and when the Projects tab mounts); the driver does nothing when
-  // its last read succeeded.
+  // its last read succeeded. Also when the person comes back to the page: the
+  // window taking focus, or the page becoming visible (PR #115 review,
+  // Opus-PR115-1 -03, measured on the emulator: with the list unchanged no
+  // snapshot comes at reconnect, and an SDK that went offline while the
+  // browser stayed online gets no `online` event). No timer, no button.
   useEffect(() => {
     const retry = () => driver.retryProjectPrefs();
+    const retryIfVisible = () => {
+      if (document.visibilityState === 'visible') retry();
+    };
     window.addEventListener('online', retry);
-    return () => window.removeEventListener('online', retry);
+    window.addEventListener('focus', retry);
+    document.addEventListener('visibilitychange', retryIfVisible);
+    return () => {
+      window.removeEventListener('online', retry);
+      window.removeEventListener('focus', retry);
+      document.removeEventListener('visibilitychange', retryIfVisible);
+    };
   }, [driver]);
 
   // Subscribe to remote changes in cloud mode
@@ -409,19 +422,23 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
       driver.deleteProject(id).then(async () => {
         // v0.21.0 (DASH26 R2, O55): the project's colour and archive go once
         // the delete is confirmed by its driver, each field on its own; a
-        // refused delete keeps them.
-        const read = driver.getProjectPrefs();
-        if (read.status === 'ready') {
-          const pref = projectPrefOf(read.prefs, id);
-          if (pref.color) driver.setProjectPref(id, 'color', undefined);
-          if (pref.archived) driver.setProjectPref(id, 'archived', undefined);
-        }
+        // refused delete keeps them. Both fields, whatever this tab's map
+        // holds: another tab or device may have set one this map has not seen
+        // (PR #115 review, Opus-PR115-1 -04). Local mode reads the key again;
+        // in Cloud Storage a `deleteField()` of an absent field creates
+        // nothing (measured). A map not read yet refuses both, as before.
+        driver.setProjectPref(id, 'color', undefined);
+        driver.setProjectPref(id, 'archived', undefined);
         const list = await driver.loadProjectList();
         setProjects(list);
 
-        // Reset active project if the deleted one was active
+        // Reset active project if the deleted one was active: the first
+        // project not archived, else the first (an archived project may be
+        // open, R35; PR #115 review, Opus-PR115-1 -08).
         if (id === activeProjectId) {
-          const newActive = list[0]?.id ?? null;
+          const read = driver.getProjectPrefs();
+          const prefs = read.status === 'ready' ? read.prefs : undefined;
+          const newActive = (list.find((p) => !isProjectArchived(prefs, p.id)) ?? list[0])?.id ?? null;
           driver.setActiveProjectId(newActive);
           setActiveProjectId(newActive);
         }

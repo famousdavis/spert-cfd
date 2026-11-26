@@ -68,9 +68,15 @@ export function ArchiveRows({
   );
 }
 
-/** O54's words: the line, and the reason the disabled controls give. */
+/**
+ * O54's words: the line, and the reason the disabled controls give. The line
+ * says what tries again (PR #115 review, Opus-PR115-1 -03): a switch to another
+ * tab or window and back (the window's `focus`, the page's `visibilitychange`,
+ * or the Projects tab mounting again) and a reload each read the settings
+ * again. "They come back once they load" promised a load nothing made.
+ */
 export const PREFS_UNREAD_TEXT =
-  "Your tile colors and archive couldn't be loaded, so Tile color, Archive and drag are off. They come back once they load.";
+  "Your tile colors and archive couldn't be loaded, so Tile color, Archive and drag are off. To try again, switch to another tab or window and back, or reload the page.";
 export const PREFS_UNREAD_REASON = "Unavailable: your tile colors and archive couldn't be loaded";
 /** O60: a project whose id no entry may have. */
 export const REFUSED_ID_REASON = "Unavailable for this project: its id can't hold a tile color or archive";
