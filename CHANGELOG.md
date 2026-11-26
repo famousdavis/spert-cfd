@@ -2,6 +2,18 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.23.0 — The welcome panel, Load Sample and a calmer page behind dialogs (November 26, 2026)
+
+- **The empty Projects tab now shows the welcome panel every SPERT® app shares**: "Welcome to SPERT® CFD", a line about the app, Create New Project and Load Sample Project, and a note on what the sample holds. It runs the full width of the page, 16 pixels under the heading, on the page's own background in both themes, with the same 36-pixel buttons as the toolbar. Until now CFD drew its own card: 8 pixels lower, a near-black box in dark mode, slightly smaller buttons, and a dark-mode note that was hard to read (3.7:1, now 6.8:1).
+- **Load Sample now numbers each new copy**: the first sample is "Sample: 2-Week Sprint", the next "Sample: 2-Week Sprint (2)", then (3), always the lowest number free. Archived projects, and in Cloud Storage the projects shared with you, hold their names too. Until now every copy had the same name. Samples you already have keep their names.
+- **Load Sample says what it did.** It still opens the new sample on the CFD tab, and screen readers now hear "Added “Sample: 2-Week Sprint” to your projects and opened it." The toolbar's Load Sample and the welcome panel's Load Sample Project do exactly the same thing.
+- **The page no longer scrolls behind an open dialog.** With a dialog open (Delete, New or Edit Project, Cloud Storage, sharing, the terms agreement, switching to local storage, a CSV import), the mouse wheel used to scroll the page behind it, as far as the page went; now the page stays where it was until the dialog closes, also when one dialog opens over another.
+- **When every project is archived**, the line saying so now sits 16 pixels under "Show archived (N)", where the tiles would be, instead of 24. Its words are unchanged.
+- **If CFD itself fails**, the "Something went wrong" screen now uses the page's own background and text colours in both themes (it was on a grey background with a red heading), says "SPERT® CFD could not display this page. Reload to try again.", and offers Reload. It no longer says your data is safe in local storage, which was not true with Cloud Storage. Every SPERT® app with such a screen now says the same.
+- **If the project tiles fail to show**, the Projects heading and its toolbar now stay on the page, with the message about the view below them, as on the CFD tab, Settings and About.
+- **Easier to read in light mode**: the dates on the changelog (2.6:1 before, now 4.8:1), the CFD tab's "Storage:" line (2.5:1 before, now 7.2:1), and the close "×" of four dialogs (2.6:1 before, now 4.8:1).
+- **Tests.** 1,334 tests in all (45 more than before), with every frame check passing on all four screens frame-check measures and on fourteen more, at 1280, 1440 and 1920 pixels in both themes, with increased contrast, zoomed to 125% and 150%, and with classic scrollbars. Fifteen deliberate breaks of the new code were tried, one per new test, among them the old naming, a lock any dialog could release, the old card and the old crash screen; each turned its test red.
+
 ## v0.22.0 — The SPERT® Suite's shared frame (November 26, 2026)
 
 - **CFD now wears the frame every SPERT® app shares**: the same brand row, navigation row, notices, page width and footer, in the same places and at the same sizes as SPERT® Forecaster, GanttApp, Scheduler, MyScrumBudget and AHP. The title keeps CFD's purple gradient, at 24 pixels; the theme button and the sign-in chip sit at the right of the brand row; Projects and CFD sit on the left of the navigation row and Settings, About and Help Center ↗ on the right; the tab you are on is underlined.
