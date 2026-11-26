@@ -91,8 +91,9 @@ beforeEach(() => {
 describe('Projects tab: the heading and toolbar row', () => {
   it('shows the heading, then the four buttons in the suite order', () => {
     render(<ProjectsTab onOpenInCfd={vi.fn()} />);
-    // v0.18.0: "Projects", as across the suite, with no count.
-    expect(screen.getByRole('heading', { name: 'Projects', level: 2 })).toBeTruthy();
+    // v0.18.0: "Projects", as across the suite, with no count. v0.22.0
+    // (FRAME26): the page's h1, in the frame's heading row.
+    expect(screen.getByRole('heading', { name: 'Projects', level: 1 })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: /^Projects \(/ })).toBeNull();
     expect(toolbarLabels()).toEqual(TOOLBAR);
   });

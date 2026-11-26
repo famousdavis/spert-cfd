@@ -7,6 +7,7 @@ import localFont from "next/font/local";
 import { APP_DESCRIPTION } from "@/lib/constants";
 import { THEME_SCRIPT } from "@/lib/theme";
 import { ThemeSync } from "@/components/theme-sync";
+import { AppShell } from "@/components/app-shell";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -40,6 +41,10 @@ export default function RootLayout({
   // never sees a light page first. `suppressHydrationWarning` because that
   // class is on <html> before React hydrates it; it covers <html>'s own
   // attributes only. ThemeSync keeps the class right afterwards, on every route.
+  // v0.22.0 (FRAME26): the SPERT® Suite frame holds every route. Held HERE, by
+  // the layout, so it never remounts between "/" and "/changelog": the tab and
+  // the notices' dismissals survive the visit. "/" renders the tabs (AppShell's
+  // own state); every other route renders its page inside the frame's main.
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -49,7 +54,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 text-black dark:bg-gray-900 dark:text-gray-100`}
       >
         <ThemeSync />
-        {children}
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

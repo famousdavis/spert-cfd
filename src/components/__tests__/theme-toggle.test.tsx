@@ -77,12 +77,14 @@ describe('the switch’s first render shows the stored preference', () => {
 });
 
 describe('the switch\'s look and its status line (PR #111 review -06)', () => {
-  it('is faint at rest, full on hover and full while focused by keyboard (O39); its status line is hidden and polite (O38)', async () => {
+  // v0.22.0 (FRAME26): the frame's `.sf-theme`, at full opacity always (its
+  // icons carry state); v0.20.0's fade (O39) went. theme-toggle-icons.test.tsx
+  // pins the icons' `currentColor`.
+  it('is the frame\'s theme button, never faded; its status line is hidden and polite (O38)', async () => {
     await mountFresh();
-    const classes = button().classList;
-    expect(classes.contains('opacity-70'), 'opacity-70 at rest').toBe(true);
-    expect(classes.contains('hover:opacity-100'), 'hover:opacity-100').toBe(true);
-    expect(classes.contains('focus-visible:opacity-100'), 'focus-visible:opacity-100 (O39)').toBe(true);
+    const classes = [...button().classList];
+    expect(classes).toEqual(['sf-theme']);
+    expect(button().getAttribute('data-sf')).toBe('theme');
     const status = screen.getByRole('status');
     expect(status.classList.contains('sr-only'), 'the status line takes no space and shows nothing').toBe(true);
     expect(status.getAttribute('aria-live')).toBe('polite');
@@ -167,6 +169,11 @@ async function compileClasses(classes: string[]): Promise<string> {
   const compiler = await compile(css, {
     base: APP,
     loadStylesheet: async (id: string) => {
+      // v0.22.0 (FRAME26): globals.css imports the vendored frame stylesheet.
+      if (id === '../styles/spert-frame.css') {
+        const path = join(APP, '..', 'styles', 'spert-frame.css');
+        return { path, base: dirname(path), content: readFileSync(path, 'utf8') };
+      }
       if (id !== 'tailwindcss') throw new Error(`unexpected @import ${id}`);
       const path = resolveCss('tailwindcss/index.css');
       return { path, base: dirname(path), content: readFileSync(path, 'utf8') };

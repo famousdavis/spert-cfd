@@ -2,6 +2,19 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.22.0 — The SPERT® Suite's shared frame (November 26, 2026)
+
+- **CFD now wears the frame every SPERT® app shares**: the same brand row, navigation row, notices, page width and footer, in the same places and at the same sizes as SPERT® Forecaster, GanttApp, Scheduler, MyScrumBudget and AHP. The title keeps CFD's purple gradient, at 24 pixels; the theme button and the sign-in chip sit at the right of the brand row; Projects and CFD sit on the left of the navigation row and Settings, About and Help Center ↗ on the right; the tab you are on is underlined.
+- **"SPERT® CFD" at the top left is now a link** that takes you to Projects from anywhere, the changelog included. A "Skip to main content" link is the first stop for keyboard users.
+- **The page uses more of a wide screen**: up to 1,600 pixels instead of 1,200, so the CFD tab's chart and grid are wider, and the Projects tiles run four across at 1920 pixels (three at 1280 and 1440).
+- **The CFD tab still fits the window**, with the chart and grid scrolling inside it and the footer at the bottom; it now opens with the project's name as its heading, cut short with "…" when it is long (the whole name shows when you point at it). Projects, Settings, About and the changelog now scroll as a whole page, with the footer after them.
+- **The changelog and an unknown address now show the whole app around them**, with the navigation, the sign-in chip and the footer. An unknown address says "Page not found", with a link back to Projects.
+- **While CFD loads, the frame is already there**, with only the page itself showing "Loading...". The sign-in chip says it is not available yet until loading finishes.
+- **Easier to read**: the footer's links in dark mode (3.4:1 before, now 6.7:1), and the sign-in chip's "Local only" (2.6:1 before, now 4.8:1) and "Sign in" in dark mode (3.9:1 before, now 6.7:1), at rest and on hover. The theme button's icons now draw in the page's own grey, at full strength.
+- **The app's notices** (the terms note, the local-storage caution, the cloud-load caution and an invitation) now run the full width of the page in the frame's colours, each with the same "Got it" button.
+- **"Show archived (N)" now sits in the frame's filter row**, 16 pixels below the heading, and the note that your tile colours and archive could not be loaded sits in that same row.
+- **Tests.** 1,289 tests in all (70 more than before), every frame check passing on all four screens frame-check measures and on eleven more, at 1280, 1440 and 1920 pixels in both themes, with increased contrast, zoomed to 125% and 150%, and with classic scrollbars. Each new test was broken on purpose once to show that it catches the fault, and the title's contrast guard was moved onto the frame and checked again.
+
 ## v0.21.0 — Tile colours and archive, each person's own (November 26, 2026)
 
 - **Give any project tile a colour**: Blue, Teal, Slate, Purple or Pink, or No color, from the new Tile color button on the tile (with Share, Export, Edit and Clone). The colour fills the tile. Arrow keys choose in the colour list, and Enter or Esc closes it; Esc closes only the list, so an import you are reviewing stays open.

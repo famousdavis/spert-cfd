@@ -2,8 +2,9 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { AppShell } from '@/components/app-shell';
-
+// "/" is the tabs' route. The tabs are AppShell's own in-memory state, and
+// AppShell is held by the root layout (src/app/layout.tsx, v0.22.0), so this
+// page adds nothing to it.
 export default function Home() {
-  return <AppShell />;
+  return null;
 }

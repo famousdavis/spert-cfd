@@ -200,12 +200,15 @@ describe('the dashboard\'s class pairs (PR #108 review, -05)', () => {
   const classes = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/);
   const tiles = () => [...document.querySelectorAll<HTMLElement>('li[data-tile="true"]')];
 
-  it('the grid\'s column queries are answered by an ANCESTOR carrying @container, never by the grid itself', () => {
+  // v0.22.0 (FRAME26): the grid is the frame's `.sf-tiles` (340 px minimum
+  // columns, 16 px gaps, contract §3), hooked for frame-check. The container
+  // queries and their @container ancestor went with it.
+  it('the grid is the frame\'s tile grid, with no container-query columns left', () => {
     render(<ProjectsTab onOpenInCfd={vi.fn()} />);
     const grid = document.querySelector('ul[aria-label="Projects"]')!;
-    expect(classes(grid)).toEqual(expect.arrayContaining(['grid-cols-1', '@min-[560px]:grid-cols-2', '@min-[860px]:grid-cols-3', 'gap-4']));
-    expect(classes(grid)).not.toContain('@container');
-    expect(grid.parentElement!.closest('.\\@container')).not.toBeNull();
+    expect(classes(grid)).toEqual(['sf-tiles']);
+    expect(grid.getAttribute('data-sf')).toBe('tiles');
+    expect(grid.closest('.\\@container')).toBeNull();
   });
 
   it('the revealed row shows on tile hover, on focus inside the tile and without hover, and the tile root is the group it reads', () => {

@@ -68,11 +68,13 @@ describe('TabNavigation: the Help Center link', () => {
   });
 
   // Every active tab, not one: the link must not move when the tabs change.
+  // v0.22.0 (FRAME26): the bar has two zones; the link ends the app zone.
   for (const active of ALL_TABS) {
-    it(`sits directly after About, as the bar's last child, with ${active} active`, () => {
+    it(`sits directly after About, as the app zone's last child, with ${active} active`, () => {
       const { bar, link } = renderBar(active);
-      expect(link.parentElement).toBe(bar);
-      expect(bar.lastElementChild).toBe(link);
+      const appZone = bar.querySelector('[data-sf="nav-app"]');
+      expect(link.parentElement).toBe(appZone);
+      expect(appZone!.lastElementChild).toBe(link);
       const before = link.previousElementSibling;
       expect(before?.tagName).toBe('BUTTON');
       expect(before?.textContent).toBe('About');
@@ -105,20 +107,20 @@ describe('TabNavigation: the Help Center link is not a tab', () => {
   // review). The must-finds keep the check from passing on tabs with no look
   // to compare: the active tab carries a real corner, fill and border, not
   // only a reset such as border-0.
+  // v0.22.0 (FRAME26): the tabs' look is the frame's `.sf-tab` (its underline
+  // drawn from aria-current), the link's the frame's `.sf-help`. The must-find
+  // keeps the check from passing on tabs with no look to compare.
   for (const active of ALL_TABS) {
     it(`is a plain <a>, with no role and no tab shape or fill, with ${active} active`, () => {
       const { bar, link } = renderBar(active);
       expect(link.tagName).toBe('A');
       expect(link.hasAttribute('role')).toBe(false);
       const tab = bar.querySelector('[aria-current]') as HTMLElement;
-      const look = shapeAndFill(tab);
-      expect(look.some((c) => c.startsWith('rounded')), 'must-find: a rounded* class on the active tab').toBe(true);
-      expect(look.some((c) => c.startsWith('bg-')), 'must-find: a fill (bg-*) on the active tab').toBe(true);
-      expect(look.some((c) => c.startsWith('border')), 'must-find: a border* class on the active tab').toBe(true);
-      const everyTab = new Set([...bar.querySelectorAll('button')].flatMap(shapeAndFill));
-      const linkLook = shapeAndFill(link);
-      expect(linkLook.filter((c) => everyTab.has(c)), 'the link wears none of the tabs’ shape or fill').toEqual([]);
-      expect(linkLook, 'the link has no shape or fill of its own').toEqual([]);
+      expect(tab.classList.contains('sf-tab'), 'must-find: the active tab wears the frame\'s .sf-tab').toBe(true);
+      const everyTab = new Set([...bar.querySelectorAll('button')].flatMap((b) => [...b.classList]));
+      expect([...link.classList].filter((c) => everyTab.has(c)), 'the link wears none of the tabs’ classes').toEqual([]);
+      expect([...link.classList], 'the link is the frame\'s Help Center link').toEqual(['sf-help']);
+      expect(shapeAndFill(link), 'the link has no shape or fill of its own').toEqual([]);
     });
   }
 

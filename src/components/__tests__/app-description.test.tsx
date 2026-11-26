@@ -27,20 +27,23 @@ const TAGLINE = 'Cumulative Flow Diagram tool for agile teams';
 
 describe('the tagline, "Cumulative Flow Diagram tool for agile teams"', () => {
   it('is shown in the header, under the title', () => {
-    const { container } = render(<AppHeader onOpenModal={vi.fn()} />);
+    const { container } = render(<AppHeader onNavigateHome={vi.fn()} onOpenModal={vi.fn()} />);
     const header = container.querySelector('header') as HTMLElement;
     const line = screen.getByText(TAGLINE);
     expect(header.contains(line)).toBe(true);
-    // Under the title: after the h1 in document order, not inside it.
-    const h1 = header.querySelector('h1') as HTMLElement;
-    expect(h1.contains(line)).toBe(false);
-    expect(h1.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // v0.22.0 (FRAME26): beside the title, as the frame's tagline: after the
+    // title in document order, not inside it. The title is no longer an h1.
+    const title = header.querySelector('[data-sf="title"]') as HTMLElement;
+    expect(title.contains(line)).toBe(false);
+    expect(title.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('is the About tab’s subtitle, directly under its heading', () => {
-    render(<AboutTab />);
-    const heading = screen.getByRole('heading', { level: 2, name: /About SPERT/ });
+  // v0.22.0 (FRAME26): the heading, "About SPERT® CFD", is the frame's heading
+  // row, rendered by AppShell above the tab's body (frame-pages.test.tsx); the
+  // subtitle is the body's first line.
+  it('is the About tab’s subtitle, the first line of its body, under its heading row', () => {
+    const { container } = render(<AboutTab />);
     const line = screen.getByText(TAGLINE);
-    expect(heading.nextElementSibling).toBe(line);
+    expect(container.firstElementChild!.firstElementChild).toBe(line);
   });
 });

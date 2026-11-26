@@ -25,14 +25,18 @@ SPERT® CFD is a Cumulative Flow Diagram tool for agile teams. Core functionalit
 ```
 src/
 ├── app/                          # Next.js App Router pages
-│   ├── layout.tsx                # Root layout (fonts, metadata, the pre-paint theme script, ThemeSync; v0.20.0)
-│   ├── page.tsx                  # Main page (renders AppShell)
-│   └── changelog/page.tsx        # Static changelog page
+│   ├── layout.tsx                # Root layout (fonts, metadata, the pre-paint theme script, ThemeSync; v0.20.0) and, since v0.22.0, AppShell around every route
+│   ├── page.tsx                  # "/" — renders nothing: the tabs are AppShell's state (v0.22.0)
+│   ├── not-found.tsx             # The framed 404: heading row "Page not found" + "Back to Projects" (v0.22.0)
+│   └── changelog/page.tsx        # Static changelog page, inside the frame (heading row + capped body, v0.22.0)
+│
+├── styles/
+│   └── spert-frame.css           # The SPERT® Suite frame's stylesheet, vendored byte for byte, never edited (v0.22.0; see App Frame)
 │
 ├── components/
-│   ├── app-shell.tsx             # Top-level provider wiring + tab state + loading gate + CloudStorageModal mount
-│   ├── page-column.ts            # PAGE_COLUMN: the one centred 1200px column shared by header, tabs, notices and every tab (v0.17.1)
-│   ├── app-header.tsx            # Header: gradient title (v0.20.1: CFD's purple, see Dark Mode) + tagline (APP_DESCRIPTION), the suite's shell (v0.17.9) + Option C split pill auth chip — opens CloudStorageModal
+│   ├── app-shell.tsx             # The frame (v0.22.0): provider wiring + tab state + the framed loading states + skip link, header, nav, notices slot, main, footer + CloudStorageModal mount; held by the root layout
+│   ├── app-header.tsx            # The frame's brand row (v0.22.0): the brand link (favicons + gradient title, see Dark Mode) + tagline (APP_DESCRIPTION) + theme button + the account chip (`.sf-chip`) — opens CloudStorageModal
+│   ├── heading-row.tsx           # HeadingRow: the frame's heading row, the page's one h1 (+ toolbar) (v0.22.0)
 │   ├── cloud-storage-modal.tsx   # Three-state Cloud Storage modal + Notifications toggle (auth-chip target)
 │   ├── theme-toggle.tsx          # HeaderThemeToggle: the header's theme switch, System → Light → Dark (v0.20.0, see Dark Mode)
 │   ├── theme-sync.tsx            # ThemeSync: keeps the `dark` class right on every route; in the root layout (v0.20.0)
@@ -45,7 +49,7 @@ src/
 │   ├── icons/drag-handle.tsx     # The tile's six-dot grip (Forecaster's DragHandle, v0.18.0)
 │   ├── dashboard-styles.ts       # The Projects dashboard's and the CFD-tab picker's class strings, Forecaster's at df59b2d (v0.18.0)
 │   ├── toolbar-button-styles.ts  # The Projects toolbar's labelled buttons, Forecaster's (v0.18.0)
-│   ├── tab-navigation.tsx        # The suite's tab bar, 8px top corners over a 2px rule (v0.17.9) (Projects | CFD | Settings | About) + Help Center link
+│   ├── tab-navigation.tsx        # The frame's navigation row (v0.22.0): Projects · CFD on the left, Settings · About · Help Center ↗ on the right; the active item underlined (`aria-current="page"`)
 │   ├── projects-tab.tsx          # Projects landing tab: "Projects" + toolbar row (Export All · Import · Load Sample · New Project), the tile grid, the project dialog, focus after Delete (v0.18.0: Forecaster's dashboard); Clone's handler, its status region and failure alert, the welcome panel or the cloud pending line with no projects (v0.19.0)
 │   ├── projects-empty-state.tsx  # The welcome panel: Forecaster's ProjectsEmptyState with CFD's words; Create New Project · Load Sample Project (v0.19.0)
 │   ├── project-dialog.tsx        # The one New Project / Edit Project dialog: name only, page behind inert, Escape in the capture phase, focus back to the opener (v0.18.0)
@@ -61,8 +65,8 @@ src/
 │   ├── consent-modal.tsx         # Clickwrap consent modal for Cloud Storage
 │   ├── first-run-banner.tsx      # First-run informational banner
 │   ├── local-storage-warning-banner.tsx  # Data persistence caution; "Got it" hides it until the next page load (v0.4.7; card, v0.17.0)
-│   ├── footer.tsx                # App footer (version, copyright, license, legal links)
-│   ├── project-dashboard.tsx     # CFD tab layout: sidebar + chart + grid, a bordered panel in the page column; the per-project key (the LOADED project's id) and the chart-and-grid error boundary sit here, below the picker (v0.18.0)
+│   ├── footer.tsx                # The frame's footer (version, copyright, license, legal links; `--sf-link`, v0.22.0)
+│   ├── project-dashboard.tsx     # CFD tab layout: sidebar + chart + grid, a bordered panel filling the fitted main (X1, v0.22.0); the per-project key (the LOADED project's id) and the chart-and-grid error boundary sit here, below the picker (v0.18.0)
 │   ├── project-picker.tsx        # "Cumulative flow for [project ▾]": names and switches the open project, above the chart (v0.18.0)
 │   ├── chart/
 │   │   ├── cfd-chart.tsx         # Memo'd Recharts AreaChart (Done bottom, Backlog top)
@@ -215,7 +219,7 @@ MetricsPeriod (discriminated union, uses `kind` not `type`)
 - a name that is not text reads as empty;
 - the checks never throw and never write.
 
-They do **not** reuse `validateProjectData`, which rejects a whole document. `saveProject` writes name, workflow, snapshots and settings back whole, so every check accepts everything the app's own writers produce. `CloudLoadNoticeBanner` names each project in which something was set aside. An `ErrorBoundary` with a `fallback` wraps the current tab in `app-shell.tsx`, inside the app-wide one.
+They do **not** reuse `validateProjectData`, which rejects a whole document. `saveProject` writes name, workflow, snapshots and settings back whole, so every check accepts everything the app's own writers produce. `CloudLoadNoticeBanner` names each project in which something was set aside. An `ErrorBoundary` with a `fallback` wraps the current tab in `app-shell.tsx`, inside the app-wide one; since v0.22.0 the tab's heading row sits outside it (CFD, Settings, About), so a failed view keeps its `h1` and the frame.
 
 All storage functions include `typeof window === 'undefined'` guards for SSR safety. Contexts use deferred async loading (`useEffect` → `await driver.loadProjectList()` → `isLoaded` flag gates rendering).
 
@@ -228,7 +232,7 @@ Four contexts with intentional nesting order:
 3. **ProjectListContext** — project list, active project ID, CRUD operations via driver, `moveProject()` for drag-and-drop (v0.20.2: the move goes to the driver, never a list; the tiles move at once, drops not yet answered are made again on top of each order written, so a second quick drop never shows the first undone, and the list shows the order it had before a drop when nothing was written; drops still waiting are dropped whenever the driver changes, and an answer from a replaced driver changes nothing on screen (PR #114 review -01). The order shown after a drop is the order saved, which in a tab behind another tab's or device's change can differ from the drop made on screen: local mode has no `storage` listener, and the cloud list listener never sees a settings write). No sample is seeded (v0.19.0, DASH26 R20): an empty list stays empty in both modes, and an empty list opens nothing even when the active-project key names a project; until v0.18.0 an empty local list re-seeded the sample. `loadSampleProject()` (v0.17.0, the Load Sample button) adds a fresh sample in either mode through the same add path as `createProject()`. `cloneProject()` (v0.19.0) takes that path with a placement: the copy goes right after its source, on screen at once and in the stored order, and the open project does not change. A project this browser creates is listed in cloud mode as the person's own (`role: 'owner'`, one member) once its create has landed, since the list listener never delivers this device's own create; not before, while the document may not exist on the server yet. A create the driver refuses synchronously (local storage full) rejects before anything is listed or activated, so an edit kept in memory after a refused save survives it. A clone is named, and placed, against the list as it is when the copy is added, not as it was at the click. `driverLoading` is set during render on a swap to a cloud driver, so an empty list never shows as loaded for a frame.
 4. **ActiveProjectContext** — workflow, snapshots, settings for the active project. Provides `updateWorkflow`, `updateSnapshots`, `updateSettings` with driver-managed persistence. A save refused because the browser's storage is full (v0.19.0, DASH26 R25) no longer throws out of the state updater, which used to replace the whole app: the edit stays in the copy, and `storageFull` (with `dismissStorageFull`) raises the CFD tab's alert until Dismiss or the next save that succeeds. Includes `beforeunload` flush handler. Each save writes its in-memory copy whole, name included, while a rename is saved by `ProjectListContext.renameProject`; so when the list's name for the open project changes, the copy takes it (v0.17.6), and only then: in cloud mode another editor's rename can reach the copy before the list (`rename-open-project.test.tsx`). An import that replaces the open project reaches the copy too: local mode reloads it from storage (`projectUpdateKey`). In cloud mode the doc listener never hears this device's own save, so the copy takes the import's name, workflow, snapshots and settings from `importedActiveProject` (v0.17.7, `emulator-tests/import-replace-open.test.tsx`).
 
-`AppShell` nests them: `ErrorBoundary > AuthProvider > StorageProvider > ProjectListProvider > AppContent (tab state + ActiveProjectProvider) > UI`. The root layout mounts `ThemeSync` beside it (v0.20.0), outside every boundary (see Dark Mode).
+`AppShell` nests them: `ErrorBoundary > AuthProvider > StorageProvider > ProjectListProvider > AppContent (tab state + ActiveProjectProvider) > UI`. Since v0.22.0 the root layout holds `AppShell` around every route (`/`, `/changelog`, the 404), so every route mounts auth and storage; it mounts `ThemeSync` before it (v0.20.0), outside every boundary (see Dark Mode). While the storage driver is not ready, `StorageProvider` renders its `fallback`, which AppShell sets to the frame with only its body loading (see App Frame).
 
 ## Auth & Consent Architecture
 
@@ -300,6 +304,37 @@ Semver-based, matching the pattern from MyScrumBudget:
 - **Version constant** `APP_VERSION` in `constants.ts` — used by footer and migration system
 - **CFD band order**: Done on bottom, Backlog on top (bands rise as work flows through)
 
+## App Frame (v0.22.0, FRAME26)
+
+CFD wears the SPERT® Suite app frame: one compact two-row frame on every screen of every SPERT® app, specified by
+`spert-suite-docs/suite/frame/FRAME-CONTRACT.md` and drawn by `spert-frame.css`, vendored byte for byte into
+`src/styles/` (md5 pinned by `src/styles/__tests__/frame-stylesheet.test.ts`; never edit the copy, re-vendor a new
+canonical version). `globals.css` imports it once, unlayered, so an `sf-` property beats every Tailwind utility on the
+same element. The live conformance check is `frame-check` (`spert-suite-docs/tooling/frame-check`, `--app cfd`).
+
+- **The shell** (`app-shell.tsx`) is held by the root layout around every route, so it never remounts between `/` and
+  `/changelog`: the tab travels in state, never in the URL. On `/` `main` shows the active tab; elsewhere it shows the
+  route's page and no navigation item is active. An item or the brand chosen off `/` sets the tab, then `router.push('/')`.
+- **The rows:** a skip link; the 56 px brand row (`app-header.tsx`: the brand link, the tagline, the theme button, the
+  account chip); the 44 px navigation row (`tab-navigation.tsx`: Projects · CFD, then Settings · About · Help Center ↗);
+  the notices slot (invitation, terms, local-storage caution, cloud-load caution); `main`; the 69 px footer. One 1600 px
+  column with 32 px gutters. Every element carries its `data-sf` hook.
+- **The body:** every screen has one heading row (`heading-row.tsx`), the page's only `h1`: "Projects" (with the toolbar's
+  four 36 px `.sf-btn` buttons), the CFD tab's loaded project name (else "CFD"; one line, ellipsis, full name in `title`),
+  "Settings", "About SPERT® CFD", "Changelog", "Page not found". The Projects tab is block flow so the frame's margins are
+  the gaps: the one filter row (`data-sf="filters"`: "Show archived (N)" and O54's line, 16 px below the heading row), then
+  the grid (`.sf-tiles`, 340 px minimum columns, 16 px gaps); the welcome panel and the all-archived line carry
+  `data-sf="empty"`, 24 px below.
+- **Exceptions:** the CFD tab is X1, the fitted working view (`.sf-main--fit`, DASH26 R18): its bordered panel fills the
+  window between the heading row and the footer, and its sidebar and content scroll inside (the content is a
+  `<div data-cfd-content>`, not a second `main`). Settings, About and the changelog are X4, capped at 896 px with the
+  heading row full width (the changelog's own 672 px measure sits on an inner element). Every other screen scrolls the
+  document; until v0.22.0 the whole app was a window-tall box whose tabs scrolled inside it.
+- **Loading** (contract §7): the frame renders first in both loading states, the storage gate (`StorageProvider`'s
+  `fallback`) and the project list; the body shows the tab's heading row and "Loading...", the notices wait for the
+  load, and the account chip is `aria-disabled` until Cloud Storage can open.
+- **Not framed:** the app-wide crash screen (the outer `ErrorBoundary`), which catches a failure of the frame itself.
+
 ## Dark Mode (v0.20.0: the header switch, the follow-your-computer default)
 
 - **The variant.** `globals.css` declares `@custom-variant dark { @media not print { &:is(.dark *) { @slot; } } }`: a `dark:` class
@@ -340,9 +375,10 @@ Semver-based, matching the pattern from MyScrumBudget:
   `StorageProvider` throws); `ThemeSync` mounts again in that same commit and puts the class back. **It must never throw:** it
   sits outside every error boundary, and a throw there would replace all of CFD with Next's global error page; every storage
   access in `theme.ts` is guarded.
-- **The switch** (`theme-toggle.tsx`, `HeaderThemeToggle`): SPERT® Forecaster's, before the sign-in chip. Coloured sun / moon /
+- **The switch** (`theme-toggle.tsx`, `HeaderThemeToggle`): SPERT® Forecaster's, before the sign-in chip. Sun / moon /
   monitor, 32 px, System → Light → Dark → System (R33), Forecaster's `aria-label` ("Theme: System. Switch to Light") and `title`,
-  70 % opacity at rest, full on hover and while focused (O39), `type="button"`. It reads the store with `useSyncExternalStore`, so
+  `type="button"`. Since v0.22.0 it is the frame's `.sf-theme`: its icons draw in `currentColor`, the frame's muted colour at rest
+  and its text colour on hover, at full opacity (they carry state; v0.20.0's coloured icons at 70 % opacity, O39, went with it). It reads the store with `useSyncExternalStore`, so
   its first rendered frame already shows the stored preference: the header mounts after the loading screen, on the client, never
   in a server render. The server snapshot's placeholder (a 32 px grey square with its dark partner) is therefore unreachable on
   today's tree; `theme-toggle.test.tsx` renders it on the server and compiles its classes. Each click is announced in a polite
@@ -353,8 +389,8 @@ Semver-based, matching the pattern from MyScrumBudget:
   theme.
 - **Known residuals** (O40). With the whole of storage blocked, `/` shows the pre-existing crash screen ("Something went wrong")
   before any switch, now in the visitor's theme; in development it logs React's "Encountered a script tag…" (React cannot run an
-  inline script it renders on the client, and says so). Next's built-in 404 page follows the computer, not the choice (its own
-  unlayered `body` colours with a `prefers-color-scheme` rule; CFD has no `not-found` page, nor do Forecaster and GanttApp). Colour
+  inline script it renders on the client, and says so). Until v0.22.0 Next's built-in 404 page followed the computer, not the choice; since then CFD
+  has its own `not-found.tsx` inside the frame. Colour
   transitions animate the flip where an element has one (Tailwind's 150 ms; the tab buttons 200 ms), as in Forecaster.
 - **CSS only, no theme state in JavaScript but the preference.** Everything that changes with the theme follows the class through CSS:
   - Tailwind `dark:` classes beside every light colour, hover and focus colour (the values: SPERT® Forecaster's for shared elements,
@@ -364,18 +400,18 @@ Semver-based, matching the pattern from MyScrumBudget:
   - the chart: recharts draws its axes and the Brush's background as SVG attributes, overridden by rules on recharts' class names in
     `globals.css` (`.recharts-brush > rect:first-of-type` depends on recharts' DOM order); its tooltip box is an inline style,
     overridden by `dark:!` classes through `wrapperClassName`; the workflow colours are drawn as chosen in both themes;
-  - the header logo is two `<img>`s, `dark:hidden` and `hidden dark:block`; the browser tab's icon does not change. The
+  - the header logo is two `<img>`s, since v0.22.0 the frame's `.sf-icon--light` / `.sf-icon--dark` (keyed on `:root.dark`,
+    `alt=""` inside the brand link); the browser tab's icon does not change. The
     hidden one is still downloaded on a light visit (`spert-favicon-cfd-dark.png`, about 4 KB, one request): accepted
     (PR #110 review -07), since it lets CSS alone choose the logo, with no script knowing the theme;
   - the browser's own focus ring (`outline: auto`, which Chromium draws in #101010 whatever the colour scheme) takes the dark
     focus blue `#60a5fa` through one `@layer base` rule on `:where(.dark) *`, below every authored outline colour;
   - the header's title (v0.20.1, DASH26 RT, from the suite's HDR26): each word a gradient in CFD's favicon purple,
     `#9468fd` → `#6117c5` on the light page (`#ffffff`, weakest 3.71:1) and `#aa8fff` → `#783de3` on the dark one
-    (`#101828`, weakest 3.02:1), in one literal class string (`TITLE_GRADIENT`, no size or weight; `font-bold` is on the `<h1>`,
-    whose own text is the space between the words). It is solid black in print and takes the page's text colours under
-    `prefers-contrast: more` (black, `gray-100` in dark). Print wins over increased contrast because the title's non-`dark:`
-    rules are single classes emitted in the order plain, `contrast-more:`, `print:`, and the `dark:` one is kept off paper by
-    the variant's `@media not print`.
+    (`#101828`, weakest 3.02:1). Since v0.22.0 (FRAME26) the frame's `.sf-grad` draws each word from `--app-grad-light` /
+    `--app-grad-dark` in `globals.css` (`linear-gradient(to right in oklab, …)`, the same ramps v0.20.1's
+    `bg-gradient-to-r` drew), at the frame's 24 px bold; the title is the brand link's text, no longer an `<h1>`. Its
+    fallbacks are the frame's: solid `--sf-heading` (`#333333` / `#e2e8f0`) under `prefers-contrast: more`, black in print.
 - **Test files are not scanned for classes** (`@source not "../**/__tests__"` in `globals.css`): strings in a test, such as a
   guard's fixtures, would otherwise become utilities in the shipped CSS.
 - **Guards.** `dark-partners.test.ts` fails when a class string carries a light colour utility (rest, hover, focus…) with no `dark:`
@@ -384,23 +420,20 @@ Semver-based, matching the pattern from MyScrumBudget:
   cannot see (inline and JavaScript colours, inherited ones, bare all-sides `border` / `ring-N` / `outline-N`). From v0.20.1
   (DASH26 O47) a colour whose variant chain is exactly `print:` needs no partner, since `dark:` never applies in print (the
   same file compiles `globals.css` to prove it), and a token carrying both `dark` and `print` is refused, a rule that never
-  applies (a `contrast-more:` colour still needs its partner). `title-gradient.test.tsx` (v0.20.1) guards the header's title:
-  - the exact classes of its two words, of the `<h1>` and of the ®; the words found by `bg-clip-text`;
-  - both ramps against the page's background, pinned at `#ffffff` / `#101828` and read from `app-shell.tsx` through
-    Tailwind's `theme.css`;
-  - on the body, app-shell's ground wrapper and every element from `<header>` to the `<h1>`: no opacity; no brightness,
-    contrast, blur, filter, grayscale, invert, sepia, saturate or hue-rotate; no mix-blend; no hidden, invisible, sr-only or
-    collapse; no text-shadow; no arbitrary property (`[color:…]`); no child, descendant or arbitrary variant (`*:`, `**:`,
-    `[&…]:`). From the ground wrapper down, no text colour; below it, no background; and no inline style anywhere on
-    the way. The logos hold nothing, so only the variants count there;
-  - every size class on the `<h1>`, whatever its variant, at 24 px or more (a size it cannot read fails);
-  - the fallbacks tied to the body's text colours; the space and the weight on the `<h1>`; the heading's name "SPERT® CFD";
-  - in the compiled CSS, that print beats increased contrast and nothing is `!important`; and that `globals.css` adds no rule
-    of its own beyond its five named ones (Tailwind's own set aside by compiling Tailwind alone), none naming `header`,
-    `h1` or `span`.
+  applies (a `contrast-more:` colour still needs its partner). `title-gradient.test.tsx` (v0.20.1; re-pinned on purpose
+  at v0.22.0, FRAME26, for the frame) guards the header's title:
+  - exactly two `.sf-grad` words, "SPERT" and "CFD", in `[data-sf=title]`, the space the title's own text, the brand
+    named "SPERT® CFD" and no heading in the header;
+  - the two ramps in `globals.css`, one declaration each, equal to the four pinned ends, and `.sf-grad` drawing them;
+  - the ground premise, `--sf-page` `#ffffff` / `#101828`, read from the vendored stylesheet, painted by `.sf-app` and
+    `.sf-bar`; the title 700 / 24 px there, so large text;
+  - every one of 41 points of each ramp at 3:1 or more on its ground, in Oklab and in sRGB, the weakest pinned (3.71 / 3.02);
+  - the frame's contrast-more and print fallbacks, and `--sf-heading` on both grounds;
+  - no fade, filter, blend, text colour or ground from `<body>` through the brand link, and no rule in `globals.css`
+    selecting the title.
 
-  It does not see a style sheet other than `globals.css` (CFD has none), styles set from script, or every way a class
-  could move or shrink the title out of sight (a transform, a zero height, a clip).
+  It does not see a style sheet set from script, or every way a class could move or shrink the title out of sight (a
+  transform, a zero height, a clip); frame-check measures the rendered title.
 
   `globals-css.test.ts` compiles `globals.css` with the app's Tailwind and checks the variant, the print exclusion, `color-scheme`
   and the chart rules, the focus-ring rule and the test-file exclusion. The theme itself (v0.20.0): `theme-script.test.ts` (the

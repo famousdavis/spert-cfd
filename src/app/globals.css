@@ -4,6 +4,26 @@
 
 @import "tailwindcss";
 
+/* v0.22.0 (FRAME26): the SPERT® Suite app frame, vendored byte for byte from
+   spert-suite-docs/suite/frame/ and never edited here (its md5 is pinned by
+   src/styles/__tests__/frame-stylesheet.test.ts). Imported once, unlayered on
+   purpose: every `sf-` property beats every Tailwind utility on the same
+   element, `hover:` and `dark:` included, so never try to override one with a
+   utility. */
+@import "../styles/spert-frame.css";
+
+/* v0.22.0 (FRAME26, HDR26): the title's two ramps, CFD's own favicon purple,
+   one per theme, read by the frame's `.sf-grad`. The same ramps as v0.20.1's
+   `bg-gradient-to-r from-[#9468fd] to-[#6117c5]` and
+   `dark:from-[#aa8fff] dark:to-[#783de3]` (Tailwind 4 interpolates those in
+   Oklab). Every point of each is at least 3:1 on the frame's ground, #ffffff
+   and #101828: weakest 3.71 (light, at #9468fd) and 3.02 (dark, at #783de3).
+   Guarded by src/components/__tests__/title-gradient.test.tsx. */
+:root {
+  --app-grad-light: linear-gradient(to right in oklab, #9468fd, #6117c5);
+  --app-grad-dark: linear-gradient(to right in oklab, #aa8fff, #783de3);
+}
+
 /* v0.19.1 (DASH26 RD1 PR #110 review -06): test files and the Markdown
    documents are not scanned for class names. Without this, strings in a test
    (a guard's regexes and its fixtures) and words in prose ("outline") became

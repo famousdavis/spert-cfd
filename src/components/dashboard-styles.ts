@@ -10,12 +10,10 @@
 // dark values; they stay off until CFD turns dark mode on for every screen at
 // once (`@custom-variant dark` in globals.css follows a `dark` class only).
 //
-// ⚠️ The reveal, the whole-tile click and the grid depend on PAIRS of classes,
-// and a class string is not proof that it renders:
+// ⚠️ The reveal and the whole-tile click depend on PAIRS of classes, and a
+// class string is not proof that it renders:
 // - the revealed row's `group-hover/tile:` and `group-focus-within/tile:`
 //   match only inside an element carrying `group/tile` (the tile root);
-// - the grid's `@min-[560px]:` / `@min-[860px]:` match only inside an
-//   ANCESTOR carrying `@container`; on the grid itself they never match;
 // - the name button's `::after` covers the tile because the tile root is
 //   `relative`, and the grip, Delete and the revealed row sit above it only
 //   because each is `relative z-[1]`.
@@ -23,14 +21,9 @@
 // `@media (hover: hover)`, so a touch screen never shows a hover look, and
 // `[@media(hover:none)]` shows the revealed row there at rest.
 
-/** The heading row: "Projects" on the left, the toolbar on the right; wraps on a narrow screen. */
-export const HEAD_ROW = 'flex flex-wrap items-center justify-between gap-x-4 gap-y-3';
-export const HEADING = 'text-2xl leading-[normal] font-bold text-[#333] dark:text-[#e2e8f0]';
-
-/** The container the grid measures. Must be an ancestor of the grid, never the grid itself. */
-export const GRID_AREA = '@container';
-/** One column, two from 560 px of container width, three from 860; 16 px gaps. */
-export const GRID = 'grid grid-cols-1 gap-4 @min-[560px]:grid-cols-2 @min-[860px]:grid-cols-3 list-none m-0 p-0';
+// v0.22.0 (FRAME26): the heading row, the heading and the grid are the
+// frame's (`.sf-headrow`, `.sf-heading`, `.sf-tiles`, spert-frame.css), so
+// HEAD_ROW, HEADING, GRID_AREA and GRID went. The tile below is DASH26's own.
 
 /** The tile root. `group/tile` names the group the revealed row reads; `relative` anchors the name button's `::after`. */
 export const TILE =
@@ -68,12 +61,10 @@ export const REVEAL =
 export const STAY = 'flex flex-wrap items-center gap-0.5';
 
 // ── Archive on the Projects tab (v0.21.0, DASH26 R2, O50; Forecaster's) ──
-/** "Show archived (N)": under the heading row, 12 px below it and 16 px above the grid (GanttApp's `.pt-filter`). */
-export const SHOW_ARCHIVED_ROW = '-mt-1 leading-[normal]';
 export const CHECK = 'inline-flex items-center gap-2 text-[0.9rem] leading-[normal] cursor-pointer text-[#666] dark:text-[#a0aec0]';
 export const CHECKBOX = 'size-4 m-0 accent-spert-blue dark:accent-spert-blue';
-/** "All projects are archived…": the meta grey, italic, where the grid would be. */
-export const ALL_ARCHIVED = 'mt-2 leading-[normal] italic text-[#666] dark:text-[#a0aec0]';
+/** "All projects are archived…": the meta grey, italic, where the grid would be, 24 px below the row above. */
+export const ALL_ARCHIVED = 'mt-6 leading-[normal] italic text-[#666] dark:text-[#a0aec0]';
 /** O54's line: the person's settings could not be read. */
 export const PREFS_UNREAD = 'text-sm leading-[normal] text-[#666] dark:text-[#a0aec0]';
 

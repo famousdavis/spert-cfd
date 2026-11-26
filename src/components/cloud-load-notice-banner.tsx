@@ -13,7 +13,6 @@ import {
   subscribeCloudSetAsideNotices,
 } from '@/lib/cloud-load-notices';
 import { UNNAMED_PROJECT } from '@/lib/cloud-load-guards';
-import { PAGE_COLUMN } from './page-column';
 
 /**
  * v0.16.4: names the projects in which a cloud-load check left something
@@ -36,22 +35,17 @@ export function CloudLoadNoticeBanner() {
   if (names.length === 0) return null;
 
   return (
-    // A card in the page's column, like the other app notices.
-    <div role="status" className={`${PAGE_COLUMN} pt-3`}>
-      <div className="flex items-center gap-4 rounded-md border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-gray-200">
-        <p className="flex-1">
-          <strong>Some saved data could not be read</strong> in{' '}
-          {names.length === 1 ? 'project' : 'projects'} {names.join(', ')}. It is not shown; the
-          rest loaded normally.
-        </p>
-        <button
-          type="button"
-          onClick={dismissCloudSetAsideNotices}
-          className="shrink-0 rounded border border-amber-600 dark:border-amber-600 px-3 py-1 text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800/50"
-        >
-          Got it
-        </button>
-      </div>
+    // v0.22.0 (FRAME26): the frame's caution notice, in the notices slot,
+    // after the local-storage caution (contract §6).
+    <div role="status" className="sf-notice sf-notice--caution">
+      <p className="flex-1">
+        <strong>Some saved data could not be read</strong> in{' '}
+        {names.length === 1 ? 'project' : 'projects'} {names.join(', ')}. It is not shown; the
+        rest loaded normally.
+      </p>
+      <button type="button" onClick={dismissCloudSetAsideNotices} className="sf-notice-dismiss">
+        Got it
+      </button>
     </div>
   );
 }

@@ -8,12 +8,14 @@
 // Forecaster's `ArchiveControls.tsx` at df59b2d, and CFD's line for a failed
 // read of the person's settings.
 
-import { ALL_ARCHIVED, CHECK, CHECKBOX, PREFS_UNREAD, SHOW_ARCHIVED_ROW } from './dashboard-styles';
+import { ALL_ARCHIVED, CHECK, CHECKBOX, PREFS_UNREAD } from './dashboard-styles';
 
 /** "Show archived (N)": rendered only while N > 0; off by default and not saved. */
 export function ShowArchivedFilter({ count, checked, onChange }: { count: number; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
-    <div className={SHOW_ARCHIVED_ROW}>
+    // leading-[normal]: GanttApp's row is line-height normal. Its place is the
+    // frame's filter row (ArchiveRows, below), no longer its own `-mt-1`.
+    <div className="leading-[normal]">
       <label className={CHECK} htmlFor="show-archived">
         <input
           type="checkbox"
@@ -38,12 +40,31 @@ export function ArchiveAnnouncer({ text }: { text: string }) {
   );
 }
 
-/** Every project archived and the filter off: GanttApp's line where the grid would be. Never the welcome panel. */
+/**
+ * Every project archived and the filter off: GanttApp's line where the grid
+ * would be. Never the welcome panel. It stands in for the tile grid, so it
+ * carries the frame's `data-sf="empty"` (contract §7, v0.22.0), as SPERT®
+ * Forecaster's does.
+ */
 export function AllArchivedLine({ count }: { count: number }) {
-  return <p className={ALL_ARCHIVED}>{`All projects are archived. Select "Show archived (${count})" to see them.`}</p>;
+  return <p className={ALL_ARCHIVED} data-sf="empty">{`All projects are archived. Select "Show archived (${count})" to see them.`}</p>;
 }
 
-/** What the Projects tab shows above the grid for archive (v0.21.0): the filter, O54's line, the announcer. */
+/**
+ * What the Projects tab shows above the grid for archive (v0.21.0): the filter,
+ * O54's line, the announcer.
+ *
+ * v0.22.0 (FRAME26, contract §3 "Filter row"): the filter and O54's line are
+ * the collection's ONE filter row, hooked `data-sf="filters"`, 16 px below the
+ * heading row with the grid 16 px below it. It renders while something is
+ * archived or the person's settings could not be read. O54's line sits below
+ * the filter: it says why the collection's own controls (Tile color, Archive,
+ * drag) are off, and the contract lets the row hold that one status line. In
+ * practice the two never show together: after a failed read the map is
+ * unknown, so nothing counts as archived. Not in the frame's notices slot,
+ * which is app-wide; not between the row and the grid, where frame-check would
+ * read the grid as sitting low.
+ */
 export function ArchiveRows({
   archivedCount,
   showArchived,
@@ -59,10 +80,14 @@ export function ArchiveRows({
 }) {
   return (
     <>
-      {/* Only while something is archived (O50). */}
-      {archivedCount > 0 && <ShowArchivedFilter count={archivedCount} checked={showArchived} onChange={onShowArchivedChange} />}
-      {/* O54: only after a read of the person's settings failed, never while it loads. */}
-      {unread && <PrefsUnreadLine />}
+      {(archivedCount > 0 || unread) && (
+        <div className="sf-below space-y-2" data-sf="filters">
+          {/* Only while something is archived (O50). */}
+          {archivedCount > 0 && <ShowArchivedFilter count={archivedCount} checked={showArchived} onChange={onShowArchivedChange} />}
+          {/* O54: only after a read of the person's settings failed, never while it loads. */}
+          {unread && <PrefsUnreadLine />}
+        </div>
+      )}
       <ArchiveAnnouncer text={status} />
     </>
   );

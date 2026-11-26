@@ -23,9 +23,10 @@ async function layout() {
   const { default: RootLayout } = await import('../layout');
   const { THEME_SCRIPT } = await import('@/lib/theme');
   const { ThemeSync } = await import('@/components/theme-sync');
+  const { AppShell } = await import('@/components/app-shell');
   const page = <main data-page="" />;
   const html = RootLayout({ children: page }) as El;
-  return { html, page, THEME_SCRIPT, ThemeSync };
+  return { html, page, THEME_SCRIPT, ThemeSync, AppShell };
 }
 
 describe('the root layout', () => {
@@ -44,15 +45,18 @@ describe('the root layout', () => {
     expect((scripts[0].props.dangerouslySetInnerHTML as { __html: string }).__html).toBe(THEME_SCRIPT);
   });
 
-  it('mounts ThemeSync in <body>, before the page', async () => {
-    const { html, page, ThemeSync } = await layout();
+  // v0.22.0 (FRAME26): the page is held by the frame, AppShell, which the
+  // layout holds; ThemeSync stays before it, outside every provider.
+  it('mounts ThemeSync in <body>, before the frame that holds the page', async () => {
+    const { html, page, ThemeSync, AppShell } = await layout();
     const body = kids(html).find((e) => e.type === 'body');
     expect(body, '<body>').toBeDefined();
     const inBody = kids(body!);
     const sync = inBody.findIndex((e) => e.type === ThemeSync);
-    const children = inBody.findIndex((e) => e.type === page.type && 'data-page' in e.props);
+    const children = inBody.findIndex((e) => e.type === AppShell);
+    expect(kids(inBody[children] ?? ({ props: {} } as El)).some((e) => e.type === page.type && 'data-page' in e.props), 'the page inside AppShell').toBe(true);
     expect(sync, 'ThemeSync in <body>').toBeGreaterThanOrEqual(0);
-    expect(children, 'the page in <body>').toBeGreaterThanOrEqual(0);
+    expect(children, 'AppShell in <body>').toBeGreaterThanOrEqual(0);
     expect(sync).toBeLessThan(children);
   });
 });

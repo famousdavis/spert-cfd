@@ -40,8 +40,7 @@ import { TOOLBAR_ICON_PATHS } from './icons/toolbar-icon-paths';
 import { ImportPreviewSection } from './import-preview-section';
 import { SharingModal } from './sharing-modal';
 import { SortableProjectTile } from './project-row';
-import { PAGE_COLUMN } from './page-column';
-import { GRID, GRID_AREA, HEADING, HEAD_ROW } from './dashboard-styles';
+import { HeadingRow } from './heading-row';
 import {
   TOOLBAR_BUTTON,
   TOOLBAR_ICON_PRIMARY,
@@ -57,8 +56,11 @@ interface ProjectsTabProps {
 /** The project dialog: New Project, or Edit for one project, by id. */
 type DialogState = { kind: 'new' } | { kind: 'edit'; projectId: string; name: string } | null;
 
-const SECONDARY = `${TOOLBAR_BUTTON} ${TOOLBAR_SECONDARY}`;
-const PRIMARY = `${TOOLBAR_BUTTON} ${TOOLBAR_PRIMARY}`;
+// The toolbar's buttons carry the frame's `.sf-btn` (36 px, 14 px / 500, 18 px
+// icons; contract §2, v0.22.0): it sets the size, which beats the shared
+// strings' 35.09 px and 14.4 px. Colours, corners and hover stay these.
+const SECONDARY = `sf-btn ${TOOLBAR_BUTTON} ${TOOLBAR_SECONDARY}`;
+const PRIMARY = `sf-btn ${TOOLBAR_BUTTON} ${TOOLBAR_PRIMARY}`;
 
 /** Forecaster's pending line while the first cloud load is out (DASH26 O21). */
 export const CLOUD_PENDING_TEXT = 'Loading your cloud projects — import will be available shortly.';
@@ -325,18 +327,21 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
     projects.find((p) => p.id === deleteConfirmId)?.name ?? '';
 
   return (
-    // The scroll area spans the window, so its scrollbar is at the edge; the
-    // content sits in the page's column, under the header and the tabs.
-    <div className="flex-1 overflow-y-auto py-4">
-      <div ref={rootRef} className={`${PAGE_COLUMN} flex flex-col gap-4`}>
-        {/* Heading and toolbar row: the dashboard's first row, the same order
-            as across the SPERT suite (v0.17.0), drawn as SPERT® Forecaster's
-            (v0.18.0). Every button is always rendered; none moves with the
-            project count or a load. Deliberately NOT role="toolbar": that role
-            promises arrow-key navigation, and nothing here provides it. */}
-        <div className={HEAD_ROW}>
-          <h2 className={HEADING}>Projects</h2>
-          <div className="flex flex-wrap gap-2">
+    // v0.22.0 (FRAME26): the collection under the frame, in `main`. The page
+    // scrolls, not this (until v0.22.0 it was its own scroll area). Block flow,
+    // not a flex gap, so each row's own top margin is the gap: the frame's
+    // 16 px (`.sf-below`, `.sf-tiles`) and the empty panels' 24 px.
+    <div ref={rootRef}>
+        {/* The frame's heading row: "Projects", the page's h1, and the toolbar,
+            the same order as across the SPERT suite (v0.17.0). Every button is
+            always rendered; none moves with the project count or a load. Each
+            is the frame's 36 px `.sf-btn` (contract §2), its colours and
+            corners its own. Deliberately NOT role="toolbar": that role promises
+            arrow-key navigation, and nothing here provides it. */}
+        <HeadingRow
+          toolbar={
+          <>
+          <div className="sf-toolbar" data-sf="toolbar">
             <button
               type="button"
               onClick={handleExportAll}
@@ -386,7 +391,11 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
             className="hidden"
             aria-label="Import project file"
           />
-        </div>
+          </>
+          }
+        >
+          Projects
+        </HeadingRow>
 
         <ArchiveRows
           archivedCount={archiveView.archivedCount}
@@ -398,7 +407,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
 
         {/* A failed create, Load Sample or Clone (v0.19.0: storage full in O24's words) */}
         {uiError && (
-          <div role="alert" className="flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100">
+          <div role="alert" className="sf-below flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100">
             <span>{uiError}</span>
             <button
               onClick={() => setUiError(null)}
@@ -419,7 +428,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
           {cloneStatus}
         </div>
         {cloneStatus && (
-          <div className="flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100">
+          <div className="sf-below flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100">
             <span aria-hidden="true">{cloneStatus}</span>
             <button
               type="button"
@@ -442,7 +451,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
         {importFlowPhase.phase === 'error' && (
           <div
             role="alert"
-            className="flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100"
+            className="sf-below flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100"
           >
             <span>{importFlowPhase.message}</span>
             <button
@@ -458,7 +467,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
         {importFlowPhase.phase === 'banner' && (
           <div
             role="status"
-            className="flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100"
+            className="sf-below flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100"
           >
             <span>{buildBannerText(importFlowPhase.outcome)}</span>
             <button
@@ -472,6 +481,7 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
 
         {/* Import preview */}
         {importFlowPhase.phase === 'preview' && (
+          <div className="sf-below">
           <ImportPreviewSection
             incoming={importFlowPhase.incoming}
             conflicts={importFlowPhase.conflicts}
@@ -483,20 +493,23 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
             onConfirm={onConfirmImport}
             onCancel={onCancelImport}
           />
+          </div>
         )}
 
         {/* Project grid (v0.18.0: SPERT® Forecaster's tiles and grid). With no
             projects (v0.19.0, DASH26 R11, O21): Forecaster's pending line while
             the cloud list loads, else the welcome panel once it has loaded,
             unless an import preview is open. 24 px below the row above, as
-            Forecaster's mt-6 sections (16 px gap + 8). */}
+            Forecaster's mt-6 sections. The welcome panel and the all-archived
+            line stand in for the tile grid, so they carry the frame's
+            `data-sf="empty"` (contract §7); their place stays v0.19.0's. */}
         {projects.length === 0 ? (
           driverLoading ? (
-            <p role="status" aria-live="polite" className="mt-2 text-sm text-[#666] dark:text-gray-400">
+            <p role="status" aria-live="polite" className="mt-6 text-sm text-[#666] dark:text-gray-400">
               {CLOUD_PENDING_TEXT}
             </p>
           ) : importFlowPhase.phase !== 'preview' && (
-            <div className="mt-2">
+            <div className="mt-6" data-sf="empty">
               <ProjectsEmptyState onCreateNew={() => setDialog({ kind: 'new' })} onLoadSample={handlePanelLoadSample} />
             </div>
           )
@@ -563,7 +576,6 @@ export function ProjectsTab({ onOpenInCfd }: ProjectsTabProps) {
             onCancel={onDismissReplaceConfirm}
           />
         )}
-      </div>
     </div>
   );
 }
@@ -599,8 +611,10 @@ function ProjectGrid({
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
       <SortableContext items={shown.map((p) => p.id)} strategy={rectSortingStrategy}>
-        <div className={GRID_AREA}>
-          <ul className={GRID} aria-label="Projects">
+        {/* The frame's tile grid (contract §3): 340 px minimum columns, 16 px
+            gaps, 16 px below the row above (3 columns at 1280 and 1440, 4 at
+            1920). Until v0.22.0 it was a container-query grid of 1 to 3. */}
+        <ul className="sf-tiles" data-sf="tiles" aria-label="Projects">
             {shown.map((p) => {
               const pref = view.prefOf(p.id);
               return (
@@ -628,8 +642,7 @@ function ProjectGrid({
                 />
               );
             })}
-          </ul>
-        </div>
+        </ul>
       </SortableContext>
     </DndContext>
   );
