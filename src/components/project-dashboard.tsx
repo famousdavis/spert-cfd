@@ -106,7 +106,7 @@ export function ProjectDashboard({ onGoToProjects, takePickerFocus }: ProjectDas
             {/* Storage indicator (local mode only) */}
             {driver.mode === 'local' && (
               <div className="mt-auto pt-6">
-                <div className="flex items-center gap-2 text-xs text-gray-400">
+                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                   <span>Storage:</span>
                   <span
                     className={

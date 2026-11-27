@@ -72,7 +72,7 @@ const tileNames = () =>
 
 it('two Clone clicks on a not-open cloud source while its read is in flight: "X (copy)" then "X (copy 2)", each placed against the current list', async () => {
   h.driver = cloudDriver(true);
-  render(<ProjectListProvider><ProjectsTab onOpenInCfd={vi.fn()} /></ProjectListProvider>);
+  render(<ProjectListProvider><ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} /></ProjectListProvider>);
   await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
   const cloneAlpha = () => screen.getByRole('button', { name: 'Clone Alpha' });
   h.defer = true;
@@ -91,7 +91,7 @@ it('two Clone clicks on a not-open cloud source while its read is in flight: "X 
 
 it('control: the same two clicks with each read settled before the next click', async () => {
   h.driver = cloudDriver(false);
-  render(<ProjectListProvider><ProjectsTab onOpenInCfd={vi.fn()} /></ProjectListProvider>);
+  render(<ProjectListProvider><ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} /></ProjectListProvider>);
   await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
   const cloneAlpha = () => screen.getByRole('button', { name: 'Clone Alpha' });
   await act(async () => { fireEvent.click(cloneAlpha()); await new Promise((r) => setTimeout(r, 10)); });

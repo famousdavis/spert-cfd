@@ -4,13 +4,14 @@
 
 'use client';
 
-import { Suspense, useState, useCallback, useRef, type ReactNode } from 'react';
+import { Suspense, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { ProjectListProvider, useProjectList } from '@/contexts/project-list-context';
 import { ActiveProjectProvider, useActiveProject } from '@/contexts/active-project-context';
 import { AuthProvider } from '@/contexts/auth-context';
 import { StorageProvider } from '@/contexts/storage-context';
 import { cfdHeading } from '@/lib/cfd-heading';
+import { sampleLoadedText } from '@/lib/sample-name';
 import { ErrorBoundary } from './error-boundary';
 import { AppHeader } from './app-header';
 import { TabNavigation, type TabId } from './tab-navigation';
@@ -196,6 +197,24 @@ function AppContent({ children }: { children?: ReactNode }) {
     [switchProject]
   );
 
+  // v0.23.0 (FRAME26 clean-up L, contract §7): Load Sample opens the saved
+  // sample as a tile does, then says so in a polite live region. The region
+  // lives here, outside the tabs, because the Projects tab unmounts as the CFD
+  // tab opens. It is emptied first and refilled after a macrotask, so a second
+  // load is announced even when the words repeat (the clone line's pattern).
+  const [sampleStatus, setSampleStatus] = useState('');
+  const sampleStatusTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(sampleStatusTimer.current), []);
+  const handleOpenSample = useCallback(
+    ({ id, name }: { id: string; name: string }) => {
+      handleOpenInCfd(id);
+      window.clearTimeout(sampleStatusTimer.current);
+      setSampleStatus('');
+      sampleStatusTimer.current = window.setTimeout(() => setSampleStatus(sampleLoadedText(name)), 0);
+    },
+    [handleOpenInCfd]
+  );
+
   // Every other way of choosing a tab: the navigation items and the brand.
   // It drops a request the picker never took (it does not mount when the CFD
   // tab fails as a whole), so it cannot pull focus to the picker on a later,
@@ -242,7 +261,7 @@ function AppContent({ children }: { children?: ReactNode }) {
     );
     switch (activeTab) {
       case 'projects':
-        return boundary(<ProjectsTab onOpenInCfd={handleOpenInCfd} />);
+        return boundary(<ProjectsTab onOpenInCfd={handleOpenInCfd} onOpenSample={handleOpenSample} />);
       case 'cfd':
         // X1: the body fills the rest of the fitted `main`.
         return (
@@ -287,7 +306,15 @@ function AppContent({ children }: { children?: ReactNode }) {
         }
         mainClassName={className}
         body={onTabsRoute ? tabBody() : children}
-        after={<CloudStorageModal open={cloudModalOpen} onClose={() => setCloudModalOpen(false)} />}
+        after={
+          <>
+            <CloudStorageModal open={cloudModalOpen} onClose={() => setCloudModalOpen(false)} />
+            {/* Load Sample's words (v0.23.0); visually hidden, no role="status". */}
+            <p className="sr-only" aria-live="polite" aria-atomic="true" data-sample-status="">
+              {sampleStatus}
+            </p>
+          </>
+        }
       />
     </ActiveProjectProvider>
   );

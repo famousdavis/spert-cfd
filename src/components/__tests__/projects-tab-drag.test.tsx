@@ -68,14 +68,14 @@ beforeEach(() => {
 });
 
 it('a drop hands moveProject the dragged id, then the target id, once', () => {
-  render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+  render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
   act(() => h.onDragEnd!(end('c', 'a')));
   expect(h.list.moveProject).toHaveBeenCalledTimes(1);
   expect(h.list.moveProject).toHaveBeenCalledWith('c', 'a', ['a', 'b', 'c']); // v0.21.0: the shown tiles (all, nothing archived here)
 });
 
 it('a drop on nothing, or on the tile itself, moves nothing', () => {
-  render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+  render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
   act(() => h.onDragEnd!(end('c', null)));
   act(() => h.onDragEnd!(end('b', 'b')));
   expect(h.list.moveProject).not.toHaveBeenCalled();
@@ -84,7 +84,7 @@ it('a drop on nothing, or on the tile itself, moves nothing', () => {
 it('with an archived tile hidden, the drop is made among the shown tiles only (v0.21.0, P2)', () => {
   h.prefsReady.prefs = { b: { archived: true } };
   try {
-    render(<ProjectsTab onOpenInCfd={vi.fn()} />);
+    render(<ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />);
     act(() => h.onDragEnd!(end('c', 'a')));
     expect(h.list.moveProject).toHaveBeenCalledWith('c', 'a', ['a', 'c']);
   } finally {

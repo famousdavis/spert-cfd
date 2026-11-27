@@ -315,14 +315,14 @@ describe('cloud mode: Load Sample', () => {
     let outcome: Promise<string> = Promise.resolve('not called');
     act(() => {
       outcome = result.current.list.loadSampleProject().then(
-        (id) => 'resolved:' + id,
+        ({ id, name }) => 'resolved:' + id + ' ' + name,
         (e: { code?: string }) => 'rejected:' + e.code,
       );
     });
     return outcome;
   }
 
-  it('adds the sample, makes it active, and resolves with its id once saved', async () => {
+  it('adds the sample, makes it active, and resolves with its id and name once saved', async () => {
     const { result } = await mountWithProjectA();
     const outcome = loadSample(result);
     const sample = result.current.list.projects.find((p) => p.name === 'Sample: 2-Week Sprint');
@@ -331,20 +331,22 @@ describe('cloud mode: Load Sample', () => {
     await settle();
     act(() => { land(); });
     await settle();
-    expect(await outcome).toBe('resolved:' + sample?.id);
+    expect(await outcome).toBe('resolved:' + sample?.id + ' Sample: 2-Week Sprint');
     expect(result.current.active.project?.id).toBe(sample?.id);
     expect(result.current.active.project?.snapshots).toHaveLength(14);
   });
 
-  it('a second load adds a second card of the same name, as creating does', async () => {
+  // v0.23.0 (FRAME26 clean-up L): numbered in cloud mode as in local (until then, a second card of the same name).
+  it('a second load is numbered "(2)", a third "(3)", each a new project', async () => {
     landInstantly = true;
     const { result } = await mountWithProjectA();
-    await loadSample(result);
-    await loadSample(result);
+    expect(await loadSample(result)).toMatch(/ Sample: 2-Week Sprint$/);
+    expect(await loadSample(result)).toMatch(/ Sample: 2-Week Sprint \(2\)$/);
+    expect(await loadSample(result)).toMatch(/ Sample: 2-Week Sprint \(3\)$/);
     await settle();
-    const samples = result.current.list.projects.filter((p) => p.name === 'Sample: 2-Week Sprint');
-    expect(samples).toHaveLength(2);
-    expect(samples[0].id).not.toBe(samples[1].id);
+    const samples = result.current.list.projects.filter((p) => p.name.startsWith('Sample: 2-Week Sprint'));
+    expect(samples.map((p) => p.name)).toEqual(['Sample: 2-Week Sprint', 'Sample: 2-Week Sprint (2)', 'Sample: 2-Week Sprint (3)']);
+    expect(new Set(samples.map((p) => p.id)).size).toBe(3);
   });
 
   it('a sample the server rejects removes its card and restores the previous project', async () => {

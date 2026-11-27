@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useModalEscape } from '@/lib/use-dismiss';
+import { useScrollLock } from '@/lib/use-scroll-lock';
 import { TOS_URL, PRIVACY_URL } from '@/lib/constants';
 import { X } from 'lucide-react';
 
@@ -21,6 +22,7 @@ export function ConsentModal({ onAccept, onCancel }: ConsentModalProps) {
   // v0.18.0 (DASH26 R1a): Escape closes this window only (it opens over the
   // Cloud Storage window), never a waiting import preview behind it.
   useModalEscape(onCancel);
+  useScrollLock();
 
   // Focus modal on mount
   useEffect(() => {
@@ -45,7 +47,7 @@ export function ConsentModal({ onAccept, onCancel }: ConsentModalProps) {
           </h2>
           <button
             onClick={onCancel}
-            className="rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+            className="rounded p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             aria-label="Close"
           >
             <X size={16} />

@@ -13,6 +13,7 @@ import { callSendInvitationEmail } from '@/lib/callables';
 import { useAuth } from '@/contexts/auth-context';
 import { useStorage } from '@/contexts/storage-context';
 import { useModalEscape } from '@/lib/use-dismiss';
+import { useScrollLock } from '@/lib/use-scroll-lock';
 import { PROJECTS_COL } from '@/lib/firestore-helpers';
 import { useMemberProfiles } from '@/lib/use-member-profiles';
 import { UNNAMED_PROJECT } from '@/lib/cloud-load-guards';
@@ -58,6 +59,7 @@ export function SharingModal({ projectId, onClose }: SharingModalProps) {
   // import preview behind it; its own confirmations, opened over it, close
   // first (useModalEscape closes the innermost).
   useModalEscape(onClose);
+  useScrollLock();
 
   // Focus modal on mount
   useEffect(() => {

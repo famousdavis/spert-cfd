@@ -65,7 +65,7 @@ function Recorder({ children }: { children: ReactNode }) {
 const tree = () => (
   <ProjectListProvider>
     <Recorder>
-      <ProjectsTab onOpenInCfd={vi.fn()} />
+      <ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} />
     </Recorder>
   </ProjectListProvider>
 );
@@ -102,7 +102,7 @@ describe('the pending line (O21)', () => {
       return null;
     }
     h.driver = cloudDriver({ loadProjectList: async () => { throw Object.assign(new Error('offline'), { code: 'unavailable' }); } });
-    render(<ProjectListProvider><Grab onReady={keep} /><ProjectsTab onOpenInCfd={vi.fn()} /></ProjectListProvider>);
+    render(<ProjectListProvider><Grab onReady={keep} /><ProjectsTab onOpenInCfd={vi.fn()} onOpenSample={vi.fn()} /></ProjectListProvider>);
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(screen.getByText(CLOUD_PENDING_TEXT)).toBeTruthy();
     expect(screen.queryByRole('region', { name: WELCOME })).toBeNull();

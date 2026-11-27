@@ -20,6 +20,7 @@ import type { Project } from '@/types';
 import type { MoveOutcome, ProjectListItem, ProjectPlacement, StorageDriver } from '@/lib/storage-driver';
 import { MAX_NAME_LENGTH } from '@/lib/constants';
 import { createSampleProject } from '@/lib/sample-data';
+import { sampleProjectName } from '@/lib/sample-name';
 import { buildClone, cloneName } from '@/lib/clone-project';
 import { registerDataReset } from '@/lib/app-data-reset-registry';
 import { moveAmongShown } from '@/lib/order-move';
@@ -70,11 +71,13 @@ interface ProjectListContextValue {
   createProject: (name: string) => Promise<string>;
   /**
    * Adds a fresh copy of the sample project, in either storage mode, with
-   * the same add-and-activate behaviour and rollback as createProject.
-   * Repeated loads add several projects of the same name, as createProject
-   * does: no create path checks names (only import does).
+   * the same add-and-activate behaviour and rollback as createProject;
+   * resolves with its id and name once saved. v0.23.0 (FRAME26 clean-up L):
+   * a repeated load is numbered, "Sample: 2-Week Sprint (2)" and on, against
+   * every listed project (archived and shared ones too); until then every
+   * copy took the same name.
    */
-  loadSampleProject: () => Promise<string>;
+  loadSampleProject: () => Promise<{ id: string; name: string }>;
   /**
    * v0.19.0 (DASH26 R1b): adds a copy of `source` right after it, on screen at
    * once and in the stored order, and never changes the open project (O18).
@@ -386,10 +389,11 @@ export function ProjectListProvider({ children }: { children: ReactNode }) {
     [addProject]
   );
 
-  const loadSampleProject = useCallback(
-    (): Promise<string> => addProject(createSampleProject()),
-    [addProject]
-  );
+  const loadSampleProject = useCallback((): Promise<{ id: string; name: string }> => {
+    // Named against the list as it is now, as a clone is (G2).
+    const name = sampleProjectName(projectsRef.current.map((p) => p.name));
+    return addProject(createSampleProject(name)).then((id) => ({ id, name }));
+  }, [addProject]);
 
   const cloneProject = useCallback(
     (source: Project): Promise<{ id: string; name: string }> => {

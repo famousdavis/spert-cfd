@@ -11,6 +11,7 @@ import { useStorage } from "@/contexts/storage-context";
 import { useProjectList } from "@/contexts/project-list-context";
 import { keepLocalCopy } from "@/lib/keep-local-copy";
 import { useModalEscape } from "@/lib/use-dismiss";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 import { normalizeDisplayName } from "@/lib/user-display";
 import { LS_ACTIVE_PROJECT, LS_SUPPRESS_LS_WARNING } from "@/lib/constants";
 import { GoogleLogo } from "./icons/google-logo";
@@ -66,6 +67,7 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
   // preview (measured), and, by reading, closed this window together with the
   // switch-to-local dialog opened over it.
   useModalEscape(guardedClose, open);
+  useScrollLock(open);
 
   const handleSignOut = useCallback(async () => {
     if (signingOut) return;
@@ -140,7 +142,7 @@ export function CloudStorageModal({ open, onClose }: CloudStorageModalProps) {
             onClick={guardedClose}
             disabled={signingOut}
             aria-label="Close"
-            className="rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <X size={16} />
           </button>

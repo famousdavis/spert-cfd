@@ -17,6 +17,7 @@ import {
 } from '@/lib/csv';
 import { sortWorkflow, formatDate } from '@/lib/dates';
 import { useEscapeKey } from '@/lib/use-dismiss';
+import { useScrollLock } from '@/lib/use-scroll-lock';
 import { MAX_IMPORT_FILE_SIZE } from '@/lib/constants';
 import { FileSpreadsheet, X } from 'lucide-react';
 
@@ -75,6 +76,7 @@ export function CsvImportModal({
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEscapeKey(onClose);
+  useScrollLock();
 
   // Focus the modal on mount
   useEffect(() => {

@@ -43,7 +43,7 @@ export default function ChangelogPage() {
                     {entry.subtitle}
                   </span>
                 </h2>
-                <span className="text-sm text-gray-400">{entry.date}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{entry.date}</span>
               </div>
               <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700 dark:text-gray-300">
                 {entry.items.map((item, i) => (
