@@ -12,6 +12,8 @@ import { it, expect, vi, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import React from 'react'
 import { doc, getDocs, updateDoc, query, collection, where, disableNetwork, enableNetwork, onSnapshot, type Firestore } from 'firebase/firestore'
+// DIAGNOSTIC (draft PR, never merged): what the P1 test's first write did on CI.
+import { getDocFromCache, getDocFromServer, waitForPendingWrites, setLogLevel } from 'firebase/firestore'
 import type { StorageDriver } from '@/lib/storage-driver'
 import type { Project } from '@/types'
 import { client, closeClients, newProject, serverSettings, sleep, track, uniqueId, waitFor } from './helpers'
@@ -32,13 +34,55 @@ afterEach(closeClients)
 const raw = (uid: string) => serverSettings(uid)
 /** Writes waiting are sent now, then the server is polled until `pred` holds. */
 async function landed(d: StorageDriver, uid: string, pred: (data: Record<string, unknown> | null) => boolean) {
+  const t = Date.now() // DIAGNOSTIC
   d.flush()
   let data = await raw(uid)
-  for (let i = 0; i < 50 && !pred(data); i++) {
+  let i = 0
+  for (; i < 50 && !pred(data); i++) {
     await sleep(100)
     data = await raw(uid)
   }
+  // DIAGNOSTIC: every wait, so a near miss in another test shows too.
+  console.log(`[DIAG] landed ${pred(data) ? 'held' : 'NEVER held'} after ${Date.now() - t} ms, ${i} polls (${expect.getState().currentTestName})`)
   return data
+}
+
+/** DIAGNOSTIC: the settings document read with the owner token, bypassing the rules and every SDK client. */
+async function ownerRead(uid: string) {
+  const url = `http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/${process.env.GCLOUD_PROJECT}/databases/(default)/documents/${SETTINGS_COL}/${uid}`
+  try {
+    const res = await fetch(url, { headers: { Authorization: 'Bearer owner' } })
+    return `${res.status} ${(await res.text()).replace(/\s+/g, ' ').slice(0, 600)}`
+  } catch (e) {
+    return `threw ${String(e)}`
+  }
+}
+
+/** DIAGNOSTIC: when P1's first write has not landed, where is it? */
+async function diagnose(uid: string, db: Firestore, d: StorageDriver, t0: number, errors: unknown[][]) {
+  const log = (...m: unknown[]) => console.log('[DIAG]', `+${Date.now() - t0} ms`, ...m)
+  log('driver prefs read:', JSON.stringify(d.getProjectPrefs()))
+  log('console.error so far:', JSON.stringify(errors.map((c) => c.map(String))))
+  log('owner REST read:', await ownerRead(uid))
+  try {
+    const c = await getDocFromCache(doc(db, SETTINGS_COL, uid))
+    log('writer cache: exists', c.exists(), 'data', JSON.stringify(c.data() ?? null), 'hasPendingWrites', c.metadata.hasPendingWrites)
+  } catch (e) {
+    log('writer cache read threw:', String(e))
+  }
+  const acked = await Promise.race([
+    waitForPendingWrites(db).then(() => 'acknowledged', (e) => `rejected ${String(e)}`),
+    sleep(10_000).then(() => 'STILL PENDING after 10 s more'),
+  ])
+  log('writer pending writes:', acked)
+  log('owner REST read after:', await ownerRead(uid))
+  try {
+    const s = await getDocFromServer(doc(db, SETTINGS_COL, uid))
+    log('writer server read: exists', s.exists(), 'data', JSON.stringify(s.data() ?? null))
+  } catch (e) {
+    log('writer server read threw:', String(e))
+  }
+  log('console.error at end:', JSON.stringify(errors.map((c) => c.map(String))))
 }
 const prefsOf = (data: Record<string, unknown> | null) => (data?.projectPrefs ?? null) as Record<string, unknown> | null
 async function ready(uid: string, db?: Firestore) {
@@ -55,10 +99,20 @@ async function asOwner(uid: string, query: string, fields: Record<string, unknow
 
 it('P1: colour set and clear, archive set and clear, as raw documents; both cleared leaves {} under the id', async () => {
   const uid = uniqueId('u')
-  const d = await ready(uid)
+  // DIAGNOSTIC: the writer's own client, so its cache and pending writes can be read.
+  const t0 = Date.now()
+  const spy = vi.spyOn(console, 'error')
+  if (process.env.SPERT_DIAG_SDK_DEBUG === '1') setLogLevel('debug')
+  const db = client(uid)
+  const d = await ready(uid, db)
+  console.log('[DIAG]', `+${Date.now() - t0} ms`, 'ready; prefs read:', JSON.stringify(d.getProjectPrefs()))
   const a = uniqueId('a')
   expect(d.setProjectPref(a, 'color', 'blue')).toBeNull()
-  expect(prefsOf(await landed(d, uid, (x) => !!prefsOf(x)))).toEqual({ [a]: { color: 'blue' } })
+  const first = await landed(d, uid, (x) => !!prefsOf(x))
+  setLogLevel('silent')
+  if (!prefsOf(first)) await diagnose(uid, db, d, t0, spy.mock.calls)
+  spy.mockRestore()
+  expect(prefsOf(first)).toEqual({ [a]: { color: 'blue' } })
   d.setProjectPref(a, 'archived', true)
   expect(prefsOf(await landed(d, uid, (x) => (prefsOf(x)?.[a] as { archived?: true })?.archived === true))).toEqual({ [a]: { color: 'blue', archived: true } })
   // G1: a colour change on an archived tile keeps it archived.
@@ -70,7 +124,7 @@ it('P1: colour set and clear, archive set and clear, as raw documents; both clea
   const emptied = await landed(d, uid, (x) => !('archived' in ((prefsOf(x)?.[a] ?? {}) as object)))
   expect(prefsOf(emptied)).toEqual({ [a]: {} })
   expect(Object.keys(emptied ?? {}).sort()).toEqual(['projectPrefs']) // nothing else written (O41)
-})
+}, 60_000) // DIAGNOSTIC: room for diagnose()
 
 it('P1: two fields changed together are one write, and the order writes leave projectPrefs as it was', async () => {
   const uid = uniqueId('u')

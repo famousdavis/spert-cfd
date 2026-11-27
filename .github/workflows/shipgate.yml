@@ -58,3 +58,34 @@ jobs:
       - run: npm ci
 
       - run: npm run shipgate
+
+      # ── DIAGNOSTIC (draft PR, never merged) ────────────────────────────────
+      # emulator-tests/project-prefs.test.tsx:61 fails on CI since 2026-11-27
+      # 00:16Z and passes locally. The gate above is the control; these steps
+      # print the emulator tier's full output and keep the emulator's logs.
+      - name: 'diag: the emulator tier alone, verbose, SDK debug logs for P1'
+        if: always()
+        continue-on-error: true
+        env:
+          SPERT_DIAG_SDK_DEBUG: '1'
+        run: npm run test:emulator -- run --reporter=verbose
+
+      - name: 'diag: the prefs file alone, three times'
+        if: always()
+        continue-on-error: true
+        env:
+          SPERT_DIAG_SDK_DEBUG: '1'
+        run: |
+          for i in 1 2 3; do
+            echo "=== the prefs file alone, run $i"
+            npm run test:emulator -- run --reporter=verbose emulator-tests/project-prefs.test.tsx || echo "=== run $i FAILED"
+          done
+
+      - name: 'diag: keep the emulator logs'
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: emulator-logs
+          path: /tmp/spert-cfd-emulator-*
+          if-no-files-found: warn
+          retention-days: 14
