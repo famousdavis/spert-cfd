@@ -4,51 +4,57 @@
 
 "use client";
 
-import { APP_DESCRIPTION, APP_VERSION } from "@/lib/constants";
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { APP_VERSION, LICENSE_URL } from "@/lib/constants";
 import { STABILITY_NOISE_SIGMAS, STABILITY_TOLERANCE } from "@/lib/calculations";
+import { CopyrightYear } from "@/lib/copyright";
+
+// The suite's About page (FRAME26 pass 3, contract §3 About page and §7 About;
+// stylesheet v4's `.sf-about`). The page's `h1` "About SPERT® CFD" is the
+// frame's heading row, rendered by AppShell above this; this element is
+// `main`'s next child and carries its own 16 px gap and 672 px measure. Every
+// word is §7's shared words or the approved words in FRAME26-ABOUT-WORDS.md:
+// change none without William's approval. No utility classes: the frame styles
+// the page. Flow metrics is v0.23.0's text word for word, its two figures still
+// computed from the constants the panel uses.
 
 const tolerancePercent = Math.round(STABILITY_TOLERANCE * 100);
+const REPO_URL = "https://github.com/famousdavis/spert-cfd";
+// This app's Help Center page, compared as a literal by the tests.
+const HELP_URL = "https://spertsuite.com/help/cfd";
 
-function TrademarkedName({
-  name,
-  bold = false,
-}: {
-  name: string;
-  bold?: boolean;
-}) {
+const R = <span className="sf-mark">®</span>;
+const TM = <span className="sf-mark sf-mark--tm">™</span>;
+
+/** A link that opens in a new tab, as §7 marks it: the arrow hidden from screen readers, the warning read instead. */
+function NewTab({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <span>
-      {bold ? <strong>{name}</strong> : name}
-      <span className="font-normal">&reg;</span>
-    </span>
+    <a href={href} target="_blank" rel="noopener noreferrer">
+      {children}
+      <span aria-hidden="true"> ↗</span>
+      <span className="sf-sr"> (opens in a new tab)</span>
+    </a>
   );
 }
 
 export function AboutTab() {
   return (
-    // v0.22.0 (FRAME26): the body under the frame's heading row ("About
-    // SPERT® CFD", the page's h1, rendered by AppShell), in X4's capped column.
-    // The page scrolls, not this; each block keeps its reading width.
-    <div className="*:max-w-4xl">
-      {/* The header's tagline (v0.17.9): one constant for both. */}
-      <p className="text-gray-500 dark:text-gray-400 italic mb-8">{APP_DESCRIPTION}</p>
-
-      <section className="mb-8">
-        <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">
-          What is <TrademarkedName name="SPERT" /> CFD?
-        </h3>
-        <p className="leading-relaxed text-gray-600 dark:text-gray-300">
-          <TrademarkedName name="SPERT" /> CFD is a lightweight, browser-based
-          tool for building and analyzing Cumulative Flow Diagrams. CFDs are a
-          standard agile visualization that shows how work items flow through
-          your process over time, making bottlenecks, WIP buildup, and
-          throughput trends visible at a glance.
+    <div className="sf-about" data-sf="about">
+      <section>
+        <h2>What is SPERT{R} CFD?</h2>
+        <p>
+          SPERT{R} CFD is a lightweight, browser-based tool for building and
+          analyzing Cumulative Flow Diagrams. CFDs are a standard agile
+          visualization that shows how work items flow through your process
+          over time, making bottlenecks, WIP buildup, and throughput trends
+          visible at a glance.
         </p>
       </section>
 
-      <section className="mb-8">
-        <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">How It Works</h3>
-        <ul className="pl-8 leading-loose text-gray-600 dark:text-gray-300 list-disc">
+      <section>
+        <h2>How it works</h2>
+        <ol>
           <li>
             Create a project and define your workflow states (e.g., Backlog,
             In Dev, Done)
@@ -58,29 +64,25 @@ export function AboutTab() {
             Done counts are cumulative: each snapshot counts every item
             finished so far, without resetting at the end of a sprint.
           </li>
-          <li>
-            View the stacked-area CFD chart that updates as you add data
-          </li>
+          <li>View the stacked-area CFD chart that updates as you add data</li>
           <li>
             Monitor flow metrics: WIP, throughput, start and arrival rates,
             and approximate cycle time and lead time
           </li>
-          <li>
-            Set WIP limits and get visual warnings when they are exceeded
-          </li>
-        </ul>
+          <li>Set WIP limits and get visual warnings when they are exceeded</li>
+        </ol>
       </section>
 
-      <section className="mb-8">
-        <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">Flow Metrics</h3>
-        <p className="leading-relaxed text-gray-600 dark:text-gray-300 mb-4">
+      <section>
+        <h2>Flow metrics</h2>
+        <p>
           The metrics panel calculates Work in Progress (WIP), throughput
           (items completed per day), start rate (items starting work per
           day) and arrival rate (new requests entering the backlog per day).
           It estimates two times with Little&apos;s Law, each the
           period&apos;s average number of items &divide; its throughput:
         </p>
-        <ul className="pl-8 leading-loose text-gray-600 dark:text-gray-300 list-disc mb-4">
+        <ul>
           <li>
             <strong>Cycle time</strong> runs from when work on an item
             first starts until it is done. It averages the items in your
@@ -93,20 +95,20 @@ export function AboutTab() {
             backlog and active states.
           </li>
         </ul>
-        <p className="leading-relaxed text-gray-600 dark:text-gray-300 mb-4">
+        <p>
           The WIP card shows the period&apos;s average number of active
           items, the figure cycle time divides by throughput, with
           today&apos;s count beneath it. The lead time card notes its own
           average, of backlog and active items.
         </p>
-        <p className="leading-relaxed text-gray-600 dark:text-gray-300 mb-4">
+        <p>
           Keep the Backlog to real requests. Little&apos;s Law assumes every
           item is eventually finished, so a long tail of ideas that will
           never be done inflates lead time. Rates come from the change in
           counts, so a request removed without being done cancels out a new
           one, and if more are removed than arrive, arrival rate shows 0.
         </p>
-        <p className="leading-relaxed text-gray-600 dark:text-gray-300 mb-4">
+        <p>
           Both times assume a steady flow. When work starts more than{" "}
           {tolerancePercent}% faster or slower than it finishes, the panel
           warns that cycle time will understate or overstate how long new
@@ -119,107 +121,60 @@ export function AboutTab() {
           wider than chance alone usually explains. If a Done count goes
           down, the panel warns you of that instead.
         </p>
-        <p className="leading-relaxed text-gray-600 dark:text-gray-300">
+        <p>
           Metrics can be filtered by time period: all data, or the last 7,
           14, 30 or 90 days. A project imported with another period, such as
           a custom date range, keeps it, and the panel names it.
         </p>
       </section>
 
-      <section className="mb-8">
-        <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">
-          Your Data &amp; Storage
-        </h3>
-        <p className="leading-relaxed text-gray-600 dark:text-gray-300 mb-4">
-          <TrademarkedName name="SPERT" /> CFD supports two storage modes,
-          configurable in the <strong>Settings</strong> tab.
-        </p>
-
-        <h4 className="text-lg mb-2 text-gray-900 dark:text-gray-100 font-semibold">
-          Local Storage
-        </h4>
-        <ul className="pl-8 leading-loose text-gray-600 dark:text-gray-300 list-disc">
-          <li>
-            Data is stored in your browser&apos;s localStorage and{" "}
-            <strong>never leaves your device</strong>
-          </li>
-          <li>
-            No external database servers, no third-party access, no data
-            governance concerns
-          </li>
-          <li>
-            Ideal for corporate/organizational environments where data must
-            stay within your network
-          </li>
-          <li>
-            Use <strong>Export</strong> to back up your data as a JSON file;
-            use <strong>Import</strong> to restore or transfer between
-            browsers
-          </li>
-          <li>
-            <strong>Note:</strong> Clearing your browser cache/data will
-            delete all stored projects unless you&apos;ve exported a backup
-          </li>
-        </ul>
-
-        <h4 className="text-lg mb-2 mt-4 text-gray-900 dark:text-gray-100 font-semibold">
-          Cloud Storage
-        </h4>
-        <ul className="pl-8 leading-loose text-gray-600 dark:text-gray-300 list-disc">
-          <li>
-            Opt-in cloud sync via Google sign-in, or Microsoft work/school
-            sign-in
-          </li>
-          <li>Data persists across devices and browser sessions</li>
-          <li>Real-time sync: changes appear instantly in other open tabs</li>
-          <li>Share projects with collaborators (editor or viewer access)</li>
-          <li>Local projects can be uploaded to the cloud during setup</li>
-        </ul>
-      </section>
-
-      <section className="mb-8">
-        <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">
-          Author &amp; Source Code
-        </h3>
-        <p className="leading-relaxed text-gray-600 dark:text-gray-300 mb-2">
-          Created by <strong>William W. Davis, MSPM, PMP</strong>
-        </p>
-        <a
-          href="https://github.com/famousdavis/spert-cfd"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block px-6 py-3 bg-blue-600 text-white no-underline rounded font-semibold mt-2 hover:bg-blue-700"
-        >
-          View Source Code on GitHub
-        </a>
-      </section>
-
-      <section className="mb-8">
-        <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">Version</h3>
-        <p className="leading-relaxed text-gray-600 dark:text-gray-300">v{APP_VERSION}</p>
-      </section>
-
-      <section className="mb-8">
-        <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">Trademark</h3>
-        <p className="leading-relaxed text-gray-600 dark:text-gray-300">
-          <TrademarkedName name="SPERT" /> and{" "}
-          <TrademarkedName name="Statistical PERT" /> are registered
-          trademarks with the United States Patent and Trademark Office.
+      <section>
+        <h2>Guides</h2>
+        <p>SPERT{R} CFD has no downloadable guide.</p>
+        <p>
+          <NewTab href={HELP_URL}>More help in the Help Center</NewTab>
         </p>
       </section>
 
-      <section className="mb-8">
-        <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">License</h3>
-        <p className="leading-relaxed text-gray-600 dark:text-gray-300">
-          This software is licensed under the GNU General Public License v3.0
-          (GPL-3.0). You are free to use, modify, and distribute this software
-          under the terms of the GPL-3.0 license.
+      <section>
+        <h2>Your data and storage</h2>
+        <p>
+          Unless you sign in and choose cloud storage, SPERT{R} CFD keeps your
+          projects in this browser, on this device, and sends them to no
+          server. Clearing this site&apos;s data deletes them, so export a
+          backup from time to time.
+        </p>
+        <p>
+          If you sign in, with Google or with a Microsoft work or school
+          account, and choose cloud storage, your projects are saved to your
+          account in Google Firebase, over encrypted (HTTPS) connections. You
+          can then open them on any device and share them with other people.
         </p>
       </section>
 
-      <section className="mb-8">
-        <h3 className="text-xl mb-3 text-blue-600 dark:text-blue-400">No Warranty Disclaimer</h3>
-        <p className="leading-relaxed text-gray-600 dark:text-gray-300">
+      <section className="sf-about-legal" data-sf="about-legal">
+        <h2>Version and license</h2>
+        <p>
+          Version {APP_VERSION} · <Link href="/changelog">What&apos;s new</Link>
+        </p>
+        <p>
+          Created by William W. Davis, MSPM, PMP ·{" "}
+          <NewTab href={REPO_URL}>Source code on GitHub</NewTab>
+        </p>
+        <p>
+          © <CopyrightYear /> William W. Davis, MSPM, PMP. SPERT{R} CFD is free
+          software: you may use, change and share it under the GNU General
+          Public License, version 3, with the additional terms its{" "}
+          <NewTab href={LICENSE_URL}>LICENSE</NewTab> adds under Section 7 of
+          that license: attribution and legal notices, trademarks, the marking
+          of modified versions, endorsement, and indemnification.
+        </p>
+        <p>
+          SPERT{R}, Statistical PERT{R} and Estimation Made Easy{R} are
+          registered trademarks of famousdavis, LLC. GanttApp{TM} and
+          MyScrumBudget{TM} are trademarks of famousdavis, LLC.
+        </p>
+        <p>
           THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
           APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE
           COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM &quot;AS

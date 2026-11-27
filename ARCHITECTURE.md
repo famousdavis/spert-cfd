@@ -51,6 +51,9 @@ src/
 │   ├── toolbar-button-styles.ts  # The Projects toolbar's labelled buttons, Forecaster's (v0.18.0)
 │   ├── tab-navigation.tsx        # The frame's navigation row (v0.22.0): Projects · CFD on the left, Settings · About · Help Center ↗ on the right; the active item underlined (`aria-current="page"`)
 │   ├── projects-tab.tsx          # Projects landing tab: "Projects" + toolbar row (Export All · Import · Load Sample · New Project), the tile grid, the project dialog, focus after Delete (v0.18.0: Forecaster's dashboard); Clone's handler, its status region and failure alert, the welcome panel or the cloud pending line with no projects (v0.19.0)
+│   ├── project-grid.tsx          # The Projects tab's tile grid, dnd-kit's sortable list of shown tiles, or the all-archived line (moved from projects-tab.tsx in v0.24.0)
+│   ├── projects-toolbar.tsx      # The Projects heading row's toolbar (Export All · Import · Load Sample · New Project) and the hidden file input (moved in v0.24.0)
+│   ├── projects-messages.tsx     # The Projects tab's message lines under the heading row: a failed action, Clone's status, the import error and banner (moved in v0.24.0)
 │   ├── projects-empty-state.tsx  # The Welcome panel (v0.19.0; since v0.23.0 the frame's `.sf-empty`, stylesheet v3): "Welcome to SPERT® CFD", Create New Project · Load Sample Project
 │   ├── project-dialog.tsx        # The one New Project / Edit Project dialog: name only, page behind inert, Escape in the capture phase, focus back to the opener (v0.18.0)
 │   ├── project-row.tsx           # ProjectTile / SortableProjectTile: Forecaster's tile (grip · name opens the CFD tab · badge · Delete; meta lines; revealed Share · Export · Edit · Clone) (v0.18.0; Clone v0.19.0)
@@ -58,7 +61,7 @@ src/
 │   ├── local-warning-setting.tsx # Settings switch for the local-storage caution (v0.17.0)
 │   ├── storage-section.tsx       # Storage mode toggle, auth UI; consumes CloudMigrationFlow
 │   ├── sharing-modal.tsx          # Per-project sharing modal (cloud, owner manages)
-│   ├── about-tab.tsx             # About page (Forecaster pattern)
+│   ├── about-tab.tsx             # The suite's About page (v0.24.0, FRAME26 pass 3): `.sf-about`, contract §7's sections and words, stylesheet v4
 │   ├── error-boundary.tsx        # React Error Boundary for crash recovery
 │   ├── confirm-dialog.tsx        # Custom confirmation modal (replaces browser confirm()); Escape closes it alone (useModalEscape, v0.18.0)
 │   ├── view-error-notice.tsx     # What an error boundary shows in place of a view (v0.16.4; own module v0.18.0)
@@ -95,6 +98,7 @@ src/
 │
 ├── lib/
 │   ├── constants.ts              # APP_VERSION, TOS_VERSION, legal URLs, localStorage keys
+│   ├── copyright.tsx             # copyrightYear() and <CopyrightYear />: the one year the footer and About show, the browser's after hydration (v0.24.0)
 │   ├── firebase.ts               # Firebase app/auth/firestore initialization
 │   ├── consent.ts                # Consent localStorage helpers
 │   ├── storage-driver.ts          # StorageDriver interface + StorageMode + ProjectListItem (cloud items carry owner, role, memberCount) + ProjectPlacement (a create placed after its source, v0.19.0)
@@ -325,7 +329,9 @@ same element. The live conformance check is `frame-check` (`spert-suite-docs/too
   the gaps: the one filter row (`data-sf="filters"`: "Show archived (N)" and O54's line, 16 px below the heading row), then
   the grid (`.sf-tiles`, 340 px minimum columns, 16 px gaps); the Welcome panel (`.sf-empty`, v0.23.0) and the
   all-archived line carry `data-sf="empty"`, 16 px below the row above, as the grid does. Below the heading row the tab's
-  body has its own `ErrorBoundary` (v0.23.0), so a failing grid leaves the `h1` and the toolbar.
+  body has its own `ErrorBoundary` (v0.23.0), so a failing grid leaves the `h1` and the toolbar. The About page
+  (v0.24.0, stylesheet v4) is `.sf-about`, `main`'s next element after the heading row with no `.sf-below` wrapper (it
+  carries its own 16 px gap and 672 px measure), in contract §7's sections and words, and no utility class.
 - **Dialogs:** every fixed-overlay dialog takes `useScrollLock` (`lib/use-scroll-lock.ts`, v0.23.0) while open: one
   counted hold on `body`'s overflow, which the viewport takes while `html` is `visible`, so the page behind does not
   scroll and keeps its place; the root's `scrollbar-gutter: stable` keeps the column still.

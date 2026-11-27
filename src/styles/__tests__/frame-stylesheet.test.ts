@@ -16,9 +16,9 @@ import { describe, it, expect } from 'vitest';
  */
 const SRC = join(process.cwd(), 'src');
 const FRAME = join(SRC, 'styles', 'spert-frame.css');
-// v0.23.0 (FRAME26 clean-up): stylesheet v3, which adds the Welcome panel (.sf-empty).
-const MD5 = 'b00d0759ec0a0a4d2db6ba10b16678f0';
-const VERSION = '"3"';
+// v0.24.0 (FRAME26 pass 3): stylesheet v4, which adds the About page (.sf-about).
+const MD5 = '7f8e40a37b008027e06123fe13e1b2f8';
+const VERSION = '"4"';
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {

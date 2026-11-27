@@ -4,7 +4,8 @@
 // @vitest-environment jsdom
 
 // v0.17.9: the header shows CFD's tagline under its title, and the About tab's
-// italic subtitle shows the same words. Both read APP_DESCRIPTION.
+// italic subtitle showed the same words. Both read APP_DESCRIPTION. Since
+// v0.24.0 (FRAME26 pass 3) the About page has no subtitle.
 //
 // ⚠️ The words are compared with a LITERAL, never with APP_DESCRIPTION: a test
 // that imported the constant would agree with whatever was written there, and
@@ -38,12 +39,11 @@ describe('the tagline, "Cumulative Flow Diagram tool for agile teams"', () => {
     expect(title.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  // v0.22.0 (FRAME26): the heading, "About SPERT® CFD", is the frame's heading
-  // row, rendered by AppShell above the tab's body (frame-pages.test.tsx); the
-  // subtitle is the body's first line.
-  it('is the About tab’s subtitle, the first line of its body, under its heading row', () => {
+  // v0.24.0 (FRAME26 pass 3, contract §7 About): the About page has nothing
+  // under its title. The tagline stays in the header, and only there.
+  it('is not on the About page', () => {
     const { container } = render(<AboutTab />);
-    const line = screen.getByText(TAGLINE);
-    expect(container.firstElementChild!.firstElementChild).toBe(line);
+    expect(container.textContent).not.toContain(TAGLINE);
+    expect(screen.queryByText(TAGLINE)).toBeNull();
   });
 });

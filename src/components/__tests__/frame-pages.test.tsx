@@ -116,11 +116,15 @@ describe('the frame on every screen (N3)', () => {
     expect(screen.getByText('settings body').closest('.sf-below')!.parentElement).toBe(main());
   });
 
-  it('About: "About SPERT® CFD", the ® at weight 400, X4 capped', () => {
+  // v0.24.0 (FRAME26 pass 3): the ® is the brand row's mark, and the About
+  // page (.sf-about, its own 16 px gap) is main's next child, in no .sf-below.
+  it('About: "About SPERT® CFD", the ® the brand row’s mark, X4 capped, the page main’s child', () => {
     show('About');
     framed('About SPERT® CFD', 'About');
     expect(main().className).toBe('sf-col sf-main sf-main--capped');
-    expect(screen.getByRole('heading', { level: 1 }).querySelector('.font-normal')!.textContent).toBe('®');
+    expect(screen.getByRole('heading', { level: 1 }).querySelector('.sf-mark')!.textContent).toBe('®');
+    expect(main().querySelector('[data-sf="about"]')!.parentElement).toBe(main());
+    expect(main().querySelector('.sf-below')).toBeNull();
   });
 
   it('the changelog: its page in main, X4 capped, no item current', () => {
