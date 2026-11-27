@@ -49,6 +49,11 @@ Next.js 16 (App Router) · React 19 · TypeScript 5.9 · Tailwind CSS 4 · Recha
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation.
 
+## Roadmap
+
+Work that was found and deliberately deferred, with where it is, what was measured and a suggested fix, is listed in
+[docs/ROADMAP.md](docs/ROADMAP.md).
+
 ## Legal
 
 Reference copies of the Terms of Service and Privacy Policy are in `/legal`. The canonical versions used by the app at runtime are hosted at:
