@@ -72,7 +72,7 @@ async function diagnose(uid: string, db: Firestore, d: StorageDriver, t0: number
   }
   const acked = await Promise.race([
     waitForPendingWrites(db).then(() => 'acknowledged', (e) => `rejected ${String(e)}`),
-    sleep(10_000).then(() => 'STILL PENDING after 10 s more'),
+    sleep(20_000).then(() => 'STILL PENDING after 20 s more'),
   ])
   log('writer pending writes:', acked)
   log('owner REST read after:', await ownerRead(uid))
