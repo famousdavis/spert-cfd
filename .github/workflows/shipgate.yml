@@ -29,13 +29,6 @@ permissions:
 jobs:
   shipgate:
     runs-on: ubuntu-latest
-    # PROOF (temporary, reverted before this PR is ready): four runners at once
-    # on this branch's helper, and four on main's as a must-find control.
-    strategy:
-      fail-fast: false
-      matrix:
-        n: [1, 2, 3, 4]
-        helper: [rest, main-sdk-control]
     steps:
       # Actions are pinned to exact, soaked versions rather than floating major
       # tags. The suite's 60-day dependency soak window applies here too: `@v6`
@@ -43,16 +36,6 @@ jobs:
       # versions that have soaked (checkout 2026-01-09, setup-node 2026-04-20),
       # and both run on Node 24 — the v4 line targets the deprecated Node 20.
       - uses: actions/checkout@v6.0.2
-
-      # PROOF control leg: main's SDK-reader helper put back, unchanged, so
-      # the same loop must still find the failure on these runners.
-      - name: 'proof control: put back main''s SDK-reader helper'
-        if: matrix.helper == 'main-sdk-control'
-        run: |
-          git fetch --depth=1 origin fa470ee912802251471a221a9cad56b907b8627f
-          git show FETCH_HEAD:emulator-tests/helpers.ts > emulator-tests/helpers.ts
-          git diff --stat
-          grep -c getDocFromServer emulator-tests/helpers.ts
 
       - uses: actions/setup-node@v6.4.0
         with:
@@ -75,31 +58,3 @@ jobs:
       - run: npm ci
 
       - run: npm run shipgate
-
-      # ── PROOF (temporary, reverted before this PR is ready) ─────────────────
-      # Run 46069457476 (draft PR #120) ran this exact shape on main's helper:
-      # 5 of 40 runs of project-prefs.test.tsx failed. Same shape here, on the
-      # REST helper; every run counts, and any failure turns the job red.
-      - name: 'proof: the emulator tier alone, verbose'
-        if: always()
-        run: npm run test:emulator -- run --reporter=verbose
-
-      - name: 'proof: the prefs file alone, eight times'
-        if: always()
-        run: |
-          failed=0
-          for i in 1 2 3 4 5 6 7 8; do
-            echo "=== the prefs file alone, run $i"
-            npm run test:emulator -- run --reporter=verbose emulator-tests/project-prefs.test.tsx || { echo "=== run $i FAILED"; failed=$((failed+1)); }
-          done
-          echo "=== $failed of 8 runs failed"
-          test "$failed" -eq 0
-
-      - name: 'proof: keep the emulator logs of any failure'
-        if: always()
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: emulator-logs-${{ matrix.n }}-${{ matrix.helper }}
-          path: /tmp/spert-cfd-emulator-*
-          if-no-files-found: warn
-          retention-days: 14
