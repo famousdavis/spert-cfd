@@ -5,8 +5,6 @@
 import { vi } from 'vitest'
 import { initializeApp, deleteApp } from 'firebase/app'
 import {
-  doc,
-  getDocFromServer,
   initializeFirestore,
   memoryLocalCache,
   connectFirestoreEmulator,
@@ -63,7 +61,6 @@ export function client(uid: string): Firestore {
 
 /** Unsubscribes every tracked listener, then closes every client opened since the last call (use in afterEach). */
 export async function closeClients() {
-  readers.clear()
   for (const unsubscribe of listening.splice(0)) unsubscribe()
   await Promise.all(open.splice(0).map((done) => done()))
 }
@@ -93,37 +90,62 @@ export function newProject(id: string, name = `Project ${id}`): Project {
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-const readers = new Map<string, Firestore>()
+const DOCUMENTS = `http://${HOST_PORT}/v1/projects/${PROJECT_ID}/databases/(default)/documents`
 
 /**
  * `spertcfd_settings/{uid}` as the SERVER holds it (null when absent), read
- * the way a test observes stored state: through ONE reader device per user for
- * the whole test, and a read the reader answers "offline" (`unavailable`) is
- * tried again for up to 10 s. v0.21.0 (PR #115, CI run 45112517962): the
- * helpers this replaces opened a fresh client for every read, polling ones
- * included, and on CI one of them answered `Failed to get document because the
- * client is offline.`, the SDK's words when a document read's listener gets a
- * cached snapshot without the document, that is, from a client that has not
- * (yet) reached the backend. Every product read of this document catches that
- * error (firestore-driver.ts `loadProjectOrder`, `readStoredOrder`); only the
- * test's own observation threw.
+ * through the emulator's REST API with its rules-bypassing owner token. No SDK
+ * client is involved, so there is no cache to go stale.
+ *
+ * Why not an SDK client (CI run 46069457476, 2026-11-27). Until then this read
+ * went through one SDK reader per user, polled while the driver's write was in
+ * flight. When a poll raced the first write of the document, the emulator
+ * answered it out of order: "deleted", then CURRENT at a read time AFTER the
+ * write's commit, then the document. The reader cached "absent" at that later
+ * version, and from then on discarded every correct answer as older (the SDK
+ * logs `Ignoring outdated watch update`, 49 to 50 times per failure). The
+ * write had landed; the reader said null for the whole 5 s wait (P1's first
+ * assertion), or `Failed to get document because the client is offline.` for
+ * 10 s. About one run in eight of project-prefs.test.tsx on CI, one round in
+ * 300 of a local probe. The reader per user (v0.21.0, CI run 45112517962)
+ * replaced a fresh client per read, which answered "offline" once; it also
+ * made one wrong answer permanent.
  */
-export async function serverSettings(uid: string, ms = 10_000): Promise<Record<string, unknown> | null> {
-  let db = readers.get(uid)
-  if (!db) {
-    db = client(uid)
-    readers.set(uid, db)
-  }
-  const until = Date.now() + ms
-  for (;;) {
-    try {
-      const snap = await getDocFromServer(doc(db, 'spertcfd_settings', uid))
-      return snap.exists() ? snap.data() : null
-    } catch (err) {
-      if ((err as { code?: string }).code !== 'unavailable' || Date.now() > until) throw err
-      await sleep(200)
-    }
-  }
+export async function serverSettings(uid: string): Promise<Record<string, unknown> | null> {
+  const res = await fetch(`${DOCUMENTS}/spertcfd_settings/${encodeURIComponent(uid)}`, {
+    headers: { Authorization: 'Bearer owner' },
+  })
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`serverSettings(${uid}): HTTP ${res.status} ${await res.text()}`)
+  const body = (await res.json()) as { fields?: Record<string, RestValue> }
+  return decodeFields(body.fields)
+}
+
+/** A REST `Value` of the kinds a settings document can hold, and the scalars beside them. */
+type RestValue =
+  | { nullValue: null }
+  | { booleanValue: boolean }
+  | { stringValue: string }
+  | { integerValue: string }
+  | { doubleValue: number }
+  | { mapValue: { fields?: Record<string, RestValue> } }
+  | { arrayValue: { values?: RestValue[] } }
+
+/** A document's or map's fields as the SDK's `data()` gives them; an empty map has no `fields`. */
+function decodeFields(fields: Record<string, RestValue> = {}): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, decodeValue(value)]))
+}
+
+/** Any other kind (a timestamp, say) throws: a guess would make the read differ from `data()` silently. */
+function decodeValue(value: RestValue): unknown {
+  if ('nullValue' in value) return null
+  if ('booleanValue' in value) return value.booleanValue
+  if ('stringValue' in value) return value.stringValue
+  if ('integerValue' in value) return Number(value.integerValue)
+  if ('doubleValue' in value) return value.doubleValue
+  if ('mapValue' in value) return decodeFields(value.mapValue.fields)
+  if ('arrayValue' in value) return (value.arrayValue.values ?? []).map(decodeValue)
+  throw new Error(`serverSettings: no decoding for ${JSON.stringify(value)}`)
 }
 
 /** Polls until `pred` holds or `ms` passes; returns whether it held. */

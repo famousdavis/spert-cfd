@@ -28,7 +28,7 @@ import { ProjectListProvider, useProjectList } from '@/contexts/project-list-con
 
 afterEach(closeClients)
 
-/** The settings document as the server holds it (one reader device per user; see `serverSettings`). */
+/** The settings document as the server holds it (the emulator's REST API, no SDK cache; see `serverSettings`). */
 const raw = (uid: string) => serverSettings(uid)
 /** Writes waiting are sent now, then the server is polled until `pred` holds. */
 async function landed(d: StorageDriver, uid: string, pred: (data: Record<string, unknown> | null) => boolean) {
