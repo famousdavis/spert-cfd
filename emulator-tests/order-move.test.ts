@@ -17,7 +17,7 @@ import { client, closeClients, newProject, serverSettings, sleep, uniqueId } fro
 
 afterEach(closeClients)
 
-/** The stored order, read by a fresh device, as names. */
+/** The stored order as the server holds it (see `serverSettings`), as names. */
 async function storedNames(uid: string, names: Record<string, string>) {
   const order = ((await serverSettings(uid))?.projectOrder ?? []) as string[]
   return order.map((id) => names[id] ?? id)
