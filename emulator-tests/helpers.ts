@@ -106,8 +106,9 @@ const DOCUMENTS = `http://${HOST_PORT}/v1/projects/${PROJECT_ID}/databases/(defa
  * logs `Ignoring outdated watch update`, 49 to 50 times per failure). The
  * write had landed; the reader said null for the whole 5 s wait (P1's first
  * assertion), or `Failed to get document because the client is offline.` for
- * 10 s. About one run in eight of project-prefs.test.tsx on CI, one round in
- * 300 of a local probe. The reader per user (v0.21.0, CI run 45112517962)
+ * 10 s. On CI that was 5 of 9 ship-gate runs, and 3 of 32 runs of
+ * project-prefs.test.tsx alone; locally, one round in 300 of a probe that
+ * raced the two on purpose. The reader per user (v0.21.0, CI run 45112517962)
  * replaced a fresh client per read, which answered "offline" once; it also
  * made one wrong answer permanent.
  */
