@@ -4,6 +4,7 @@
 
 import Link from 'next/link';
 import { APP_VERSION, SPERT_SUITE_URL, TOS_URL, PRIVACY_URL, LICENSE_URL } from '@/lib/constants';
+import { CopyrightYear } from '@/lib/copyright';
 
 /**
  * The frame's footer (FRAME26, contract §3, v0.22.0): a full-width 69 px band
@@ -20,7 +21,7 @@ export function Footer() {
     <footer className="sf-footer" data-sf="footer">
       <div className="sf-col">
         <div>
-          &copy; {new Date().getFullYear()} William W. Davis, MSPM, PMP |{' '}
+          &copy; <CopyrightYear /> William W. Davis, MSPM, PMP |{' '}
           <Link href="/changelog">Version {APP_VERSION}</Link>{' '}
           | Licensed under GNU GPL v3
         </div>

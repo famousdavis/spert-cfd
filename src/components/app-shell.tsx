@@ -95,8 +95,8 @@ function TabHeading({ tab }: { tab: TabId }) {
     case 'settings':
       return <HeadingRow>Settings</HeadingRow>;
     case 'about':
-      // The ® is never bold: the heading is 700, the mark 400.
-      return <HeadingRow>About SPERT<span className="font-normal">®</span> CFD</HeadingRow>;
+      // The ® is the brand row's mark (FRAME26 pass 3): small, light and never bold.
+      return <HeadingRow>About SPERT<span className="sf-mark">®</span> CFD</HeadingRow>;
   }
 }
 
@@ -275,11 +275,20 @@ function AppContent({ children }: { children?: ReactNode }) {
           </>
         );
       case 'settings':
-      case 'about':
         return (
           <>
             <TabHeading tab={activeTab} />
-            <div className="sf-below">{boundary(activeTab === 'settings' ? <SettingsTab /> : <AboutTab />)}</div>
+            <div className="sf-below">{boundary(<SettingsTab />)}</div>
+          </>
+        );
+      case 'about':
+        // The About page carries its own 16 px gap below the heading row
+        // (`.sf-about`, FRAME26 pass 3), so it is main's next child, with no
+        // `.sf-below` wrapper. The boundary renders no element of its own.
+        return (
+          <>
+            <TabHeading tab={activeTab} />
+            {boundary(<AboutTab />)}
           </>
         );
     }

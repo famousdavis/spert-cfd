@@ -6,28 +6,19 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  DndContext,
-  closestCenter,
   PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import {
-  SortableContext,
-  rectSortingStrategy,
-} from '@dnd-kit/sortable';
 import { useProjectList } from '@/contexts/project-list-context';
-import type { ProjectListItem, StorageMode } from '@/lib/storage-driver';
 import { useActiveProject } from '@/contexts/active-project-context';
 import { useStorage } from '@/contexts/storage-context';
 import { UNNAMED_PROJECT } from '@/lib/cloud-load-guards';
 import { cloneSource } from '@/lib/clone-project';
 import { isStorageFullError, STORAGE_FULL_MESSAGE } from '@/lib/storage-errors';
 import { exportFilename, exportAllFilename, downloadFile } from '@/lib/download';
-import { buildBannerText } from '@/lib/import-utils';
 import { projectStats as statsOf, type ProjectStats } from '@/lib/project-tile-meta';
-import { tileAccess } from '@/lib/tile-access';
 import { findTileControl, focusAfterTileLeaves, resolveFocusTarget, type TileFocusTarget } from '@/lib/tile-focus';
 import { useImportState } from '@/hooks/use-import-state';
 import { ConfirmDialog } from './confirm-dialog';
@@ -35,21 +26,14 @@ import { ErrorBoundary } from './error-boundary';
 import { ViewErrorNotice } from './view-error-notice';
 import { ProjectDialog } from './project-dialog';
 import { ProjectsEmptyState } from './projects-empty-state';
-import { AllArchivedLine, ArchiveRows } from './archive-controls';
+import { ArchiveRows } from './archive-controls';
 import { useProjectArchive } from './use-project-archive';
-import { ToolbarIcon } from './icons/toolbar-icon';
-import { TOOLBAR_ICON_PATHS } from './icons/toolbar-icon-paths';
 import { ImportPreviewSection } from './import-preview-section';
 import { SharingModal } from './sharing-modal';
-import { SortableProjectTile } from './project-row';
 import { HeadingRow } from './heading-row';
-import {
-  TOOLBAR_BUTTON,
-  TOOLBAR_ICON_PRIMARY,
-  TOOLBAR_ICON_SECONDARY,
-  TOOLBAR_PRIMARY,
-  TOOLBAR_SECONDARY,
-} from './toolbar-button-styles';
+import { ProjectGrid } from './project-grid';
+import { ProjectsToolbar } from './projects-toolbar';
+import { ProjectsMessages } from './projects-messages';
 
 interface ProjectsTabProps {
   onOpenInCfd: (id: string) => void;
@@ -59,12 +43,6 @@ interface ProjectsTabProps {
 
 /** The project dialog: New Project, or Edit for one project, by id. */
 type DialogState = { kind: 'new' } | { kind: 'edit'; projectId: string; name: string } | null;
-
-// The toolbar's buttons carry the frame's `.sf-btn` (36 px, 14 px / 500, 18 px
-// icons; contract §2, v0.22.0): it sets the size, which beats the shared
-// strings' 35.09 px and 14.4 px. Colours, corners and hover stay these.
-const SECONDARY = `sf-btn ${TOOLBAR_BUTTON} ${TOOLBAR_SECONDARY}`;
-const PRIMARY = `sf-btn ${TOOLBAR_BUTTON} ${TOOLBAR_PRIMARY}`;
 
 /** Forecaster's pending line while the first cloud load is out (DASH26 O21). */
 export const CLOUD_PENDING_TEXT = 'Loading your cloud projects — import will be available shortly.';
@@ -347,58 +325,18 @@ export function ProjectsTab({ onOpenInCfd, onOpenSample }: ProjectsTabProps) {
           arrow-key navigation, and nothing here provides it. */}
       <HeadingRow
         toolbar={
-          <>
-            <div className="sf-toolbar" data-sf="toolbar">
-              <button
-                type="button"
-                onClick={handleExportAll}
-                disabled={projects.length === 0}
-                aria-label="Export all projects as JSON"
-                className={SECONDARY}
-              >
-                <ToolbarIcon d={TOOLBAR_ICON_PATHS.export} className={TOOLBAR_ICON_SECONDARY} />
-                Export All
-              </button>
-              <button
-                type="button"
-                onClick={onImportClick}
-                disabled={driverLoading}
-                aria-label="Import projects from JSON"
-                className={SECONDARY}
-              >
-                <ToolbarIcon d={TOOLBAR_ICON_PATHS.import} className={TOOLBAR_ICON_SECONDARY} />
-                Import
-              </button>
-              <button
-                ref={loadSampleButtonRef}
-                type="button"
-                onClick={handleLoadSample}
-                className={SECONDARY}
-              >
-                <ToolbarIcon d={TOOLBAR_ICON_PATHS.sample} className={TOOLBAR_ICON_SECONDARY} />
-                Load Sample
-              </button>
-              <button
-                ref={newProjectButtonRef}
-                type="button"
-                onClick={() => setDialog({ kind: 'new' })}
-                className={PRIMARY}
-              >
-                <ToolbarIcon d={TOOLBAR_ICON_PATHS.plus} className={TOOLBAR_ICON_PRIMARY} />
-                New Project
-              </button>
-            </div>
-            <input
-              id="import-project-file"
-              name="import-project-file"
-              ref={importInputRef}
-              type="file"
-              accept=".json,application/json"
-              onChange={onImportFileChange}
-              className="hidden"
-              aria-label="Import project file"
-            />
-          </>
+          <ProjectsToolbar
+            projectCount={projects.length}
+            driverLoading={driverLoading}
+            onExportAll={handleExportAll}
+            onImportClick={onImportClick}
+            onLoadSample={handleLoadSample}
+            onNewProject={() => setDialog({ kind: 'new' })}
+            loadSampleRef={loadSampleButtonRef}
+            newProjectRef={newProjectButtonRef}
+            importInputRef={importInputRef}
+            onImportFileChange={onImportFileChange}
+          />
         }
       >
         Projects
@@ -419,79 +357,20 @@ export function ProjectsTab({ onOpenInCfd, onOpenSample }: ProjectsTabProps) {
           status={archiveView.status}
         />
 
-        {/* A failed create, Load Sample or Clone (v0.19.0: storage full in O24's words) */}
-        {uiError && (
-          <div role="alert" className="sf-below flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100">
-            <span>{uiError}</span>
-            <button
-              onClick={() => setUiError(null)}
-              className="ml-4 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {/* v0.19.0 (DASH26 O19, Q3): Clone's words. The status region is always
-            mounted, so its first message is announced, and sr-only, so an
-            empty one takes no space in this column (+16 px measured with a
-            visible empty one). The visible line repeats the words, hidden
-            from screen readers so they are read once, beside a Dismiss that
-            stays reachable; it renders only while there is text. */}
-        <div role="status" aria-live="polite" className="sr-only" data-clone-status="">
-          {cloneStatus}
-        </div>
-        {cloneStatus && (
-          <div className="sf-below flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100">
-            <span aria-hidden="true">{cloneStatus}</span>
-            <button
-              type="button"
-              onClick={() => {
-                // DASH26 O25 (PR #109 review -05, G5): this button unmounts with
-                // its line, so focus goes to the toolbar's New Project first,
-                // never to <body>.
-                newProjectButtonRef.current?.focus();
-                setCloneStatus('');
-              }}
-              aria-label="Dismiss clone message"
-              className="ml-4 text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {/* Import error phase */}
-        {importFlowPhase.phase === 'error' && (
-          <div
-            role="alert"
-            className="sf-below flex items-center justify-between rounded bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-100"
-          >
-            <span>{importFlowPhase.message}</span>
-            <button
-              onClick={onDismissImportBanner}
-              className="ml-4 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {/* Import success banner */}
-        {importFlowPhase.phase === 'banner' && (
-          <div
-            role="status"
-            className="sf-below flex items-center justify-between rounded bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm text-green-700 dark:text-green-100"
-          >
-            <span>{buildBannerText(importFlowPhase.outcome)}</span>
-            <button
-              onClick={onDismissImportBanner}
-              className="ml-4 text-green-600 dark:text-green-300 hover:text-green-800 dark:hover:text-green-200"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
+        <ProjectsMessages
+          uiError={uiError}
+          onDismissUiError={() => setUiError(null)}
+          cloneStatus={cloneStatus}
+          onDismissClone={() => {
+            // DASH26 O25 (PR #109 review -05, G5): this button unmounts with
+            // its line, so focus goes to the toolbar's New Project first,
+            // never to <body>.
+            newProjectButtonRef.current?.focus();
+            setCloneStatus('');
+          }}
+          importFlowPhase={importFlowPhase}
+          onDismissImportBanner={onDismissImportBanner}
+        />
 
         {/* Import preview */}
         {importFlowPhase.phase === 'preview' && (
@@ -591,73 +470,5 @@ export function ProjectsTab({ onOpenInCfd, onOpenSample }: ProjectsTabProps) {
         )}
       </ErrorBoundary>
     </div>
-  );
-}
-
-/** The grid of shown tiles (v0.21.0: archived ones only with "Show archived"); dnd-kit sorts these and no others. */
-function ProjectGrid({
-  sensors,
-  onDragEnd,
-  shown,
-  stats,
-  mode,
-  view,
-  onExport,
-  onEdit,
-  onShare,
-  onClone,
-  onDelete,
-}: {
-  sensors: ReturnType<typeof useSensors>;
-  onDragEnd: (event: DragEndEvent) => void;
-  shown: ProjectListItem[];
-  stats: Map<string, ProjectStats>;
-  mode: StorageMode;
-  view: ReturnType<typeof useProjectArchive>;
-  onExport: (id: string) => void;
-  onEdit: (id: string) => void;
-  onShare: (id: string) => void;
-  onClone: (id: string) => void;
-  onDelete: (id: string) => void;
-}) {
-  // Every project archived and the filter off: this line, never the welcome panel (O50).
-  if (shown.length === 0) return <AllArchivedLine count={view.archivedCount} />;
-  return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-      <SortableContext items={shown.map((p) => p.id)} strategy={rectSortingStrategy}>
-        {/* The frame's tile grid (contract §3): 340 px minimum columns, 16 px
-            gaps, 16 px below the row above (3 columns at 1280 and 1440, 4 at
-            1920). Until v0.22.0 it was a container-query grid of 1 to 3. */}
-        <ul className="sf-tiles" data-sf="tiles" aria-label="Projects">
-          {shown.map((p) => {
-            const pref = view.prefOf(p.id);
-            return (
-              <SortableProjectTile
-                key={p.id}
-                id={p.id}
-                name={p.name}
-                stats={stats.get(p.id)}
-                access={tileAccess(mode, p.role, p.memberCount)}
-                onOpen={view.openProject}
-                onExport={onExport}
-                onEdit={onEdit}
-                onShare={onShare}
-                onClone={onClone}
-                onDelete={onDelete}
-                color={pref.color}
-                archived={pref.archived === true}
-                prefsBlockedReason={view.blockedReason(p.id)}
-                dragBlockedReason={view.dragBlockedReason}
-                colorOpen={view.colorOpenFor === p.id}
-                onColorOpenChange={view.setColorOpen}
-                onPickColor={view.pickColor}
-                onArchive={view.archive}
-                onUnarchive={view.unarchive}
-              />
-            );
-          })}
-        </ul>
-      </SortableContext>
-    </DndContext>
   );
 }
