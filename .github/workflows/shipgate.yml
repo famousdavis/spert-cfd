@@ -29,6 +29,11 @@ permissions:
 jobs:
   shipgate:
     runs-on: ubuntu-latest
+    # PROOF (temporary, reverted before this PR is ready): four runners at once.
+    strategy:
+      fail-fast: false
+      matrix:
+        n: [1, 2, 3, 4]
     steps:
       # Actions are pinned to exact, soaked versions rather than floating major
       # tags. The suite's 60-day dependency soak window applies here too: `@v6`
@@ -58,3 +63,31 @@ jobs:
       - run: npm ci
 
       - run: npm run shipgate
+
+      # ── PROOF (temporary, reverted before this PR is ready) ─────────────────
+      # Run 46069457476 (draft PR #120) ran this exact shape on main's helper:
+      # 5 of 40 runs of project-prefs.test.tsx failed. Same shape here, on the
+      # REST helper; every run counts, and any failure turns the job red.
+      - name: 'proof: the emulator tier alone, verbose'
+        if: always()
+        run: npm run test:emulator -- run --reporter=verbose
+
+      - name: 'proof: the prefs file alone, eight times'
+        if: always()
+        run: |
+          failed=0
+          for i in 1 2 3 4 5 6 7 8; do
+            echo "=== the prefs file alone, run $i"
+            npm run test:emulator -- run --reporter=verbose emulator-tests/project-prefs.test.tsx || { echo "=== run $i FAILED"; failed=$((failed+1)); }
+          done
+          echo "=== $failed of 8 runs failed"
+          test "$failed" -eq 0
+
+      - name: 'proof: keep the emulator logs of any failure'
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: emulator-logs-${{ matrix.n }}
+          path: /tmp/spert-cfd-emulator-*
+          if-no-files-found: warn
+          retention-days: 14
