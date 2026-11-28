@@ -2,6 +2,12 @@
 
 All notable changes to SPERT® CFD are documented here.
 
+## v0.25.0 — SPERT® CFD's first Quick Reference Guide (November 28, 2026)
+
+- **SPERT® CFD now has a Quick Reference Guide**, a five-page PDF in the same format as the other SPERT® guides. It covers what CFD is, getting around, a step-by-step workflow, the CFD tab (the chart, the data grid and CSV), the flow metrics and their warnings, projects, tiles and sharing, data and storage, Settings, and tips.
+- **About's Guides section lists it.** In place of "SPERT® CFD has no downloadable guide.", Guides now shows the Quick Reference Guide with a one-line description and an "Open PDF" link that opens it in a new tab. Screen readers hear "Open PDF: Quick Reference Guide (opens in a new tab)". The "More help in the Help Center" link stays below it. The guide also appears on CFD's page in the SPERT® Help Center.
+- **Tests.** 1,350 tests in all (2 more than before). They check the guide row's title, its description word for word, the link's address, new tab and screen-reader words, and that the "no downloadable guide" line is gone. Six deliberate breaks were tried: a wrong file name, no new tab, one changed word in the description, the screen-reader words without the title, the old line put back beside the row, and the PDF removed from the site. Each turned a test red. No dependency, Firestore rules or legal-document change.
+
 ## v0.24.0 — One About page across the SPERT® Suite (November 27, 2026)
 
 - **About is now the About page every SPERT® app shares**: the same sections in the same order, the same words where the apps say the same thing, and the same look. It has six sections: What is SPERT® CFD?, How it works, Flow metrics, Guides, Your data and storage, and Version and license. It sits in a 672-pixel column under the page heading, in the frame's own type: section headings at 18 pixels, text at 16. The blue section headings, the line under the title ("Cumulative Flow Diagram tool for agile teams", which still shows beside the title in the header) and the large blue button are gone.

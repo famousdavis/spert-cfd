@@ -14,8 +14,9 @@ import { CopyrightYear } from "@/lib/copyright";
 // stylesheet v4's `.sf-about`). The page's `h1` "About SPERT® CFD" is the
 // frame's heading row, rendered by AppShell above this; this element is
 // `main`'s next child and carries its own 16 px gap and 672 px measure. Every
-// word is §7's shared words or the approved words in FRAME26-ABOUT-WORDS.md:
-// change none without William's approval. No utility classes: the frame styles
+// word is §7's shared words, the approved words in FRAME26-ABOUT-WORDS.md, or
+// (v0.25.0) the Help Center's guide title and description: change none without
+// William's approval. No utility classes: the frame styles
 // the page. Flow metrics is v0.23.0's text word for word, its two figures still
 // computed from the constants the panel uses.
 
@@ -23,6 +24,22 @@ const tolerancePercent = Math.round(STABILITY_TOLERANCE * 100);
 const REPO_URL = "https://github.com/famousdavis/spert-cfd";
 // This app's Help Center page, compared as a literal by the tests.
 const HELP_URL = "https://spertsuite.com/help/cfd";
+
+/**
+ * The Guides rows (contract §7 item 5, v0.25.0): one per guide in CFD's Help Center entry
+ * (spert-landing-page `src/data/help.ts`, slug `cfd`), in its order, the title and description
+ * VERBATIM from there (description approved by William, 2026-11-28). The PDF is served from this
+ * origin (`public/`), so `static-assets.test.ts` holds the link. Change these only together with
+ * help.ts: frame-check compares the two.
+ */
+const GUIDES = [
+  {
+    href: "/SPERT_CFD_Quick_Reference_Guide.pdf",
+    title: "Quick Reference Guide",
+    description:
+      "What CFD is and how it turns your workflow’s daily item counts into a cumulative flow diagram and flow metrics such as WIP, throughput and lead time.",
+  },
+] as const;
 
 const R = <span className="sf-mark">®</span>;
 const TM = <span className="sf-mark sf-mark--tm">™</span>;
@@ -130,7 +147,21 @@ export function AboutTab() {
 
       <section>
         <h2>Guides</h2>
-        <p>SPERT{R} CFD has no downloadable guide.</p>
+        <ul className="sf-guides" data-sf="guides">
+          {GUIDES.map((g) => (
+            <li className="sf-guide" key={g.href}>
+              <div className="sf-guide-body">
+                <h3 className="sf-guide-title">{g.title}</h3>
+                <p className="sf-guide-text">{g.description}</p>
+              </div>
+              <a className="sf-guide-open" href={g.href} target="_blank" rel="noopener noreferrer">
+                Open PDF
+                <span aria-hidden="true"> ↗</span>
+                <span className="sf-sr">: {g.title} (opens in a new tab)</span>
+              </a>
+            </li>
+          ))}
+        </ul>
         <p>
           <NewTab href={HELP_URL}>More help in the Help Center</NewTab>
         </p>
