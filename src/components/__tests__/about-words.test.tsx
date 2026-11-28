@@ -45,8 +45,11 @@ const EXPECTED: [string, string[]][] = [
     'Both times assume a steady flow. When work starts more than 20% faster or slower than it finishes, the panel warns that cycle time will understate or overstate how long new work takes; when requests arrive more than 20% faster or slower than they finish, it warns the same of lead time. Because a few items either way is a large share of a small count, it also waits until the gap between the items that started (or arrived) and those that finished is more than 2 × the square root of their sum, wider than chance alone usually explains. If a Done count goes down, the panel warns you of that instead.',
     'Metrics can be filtered by time period: all data, or the last 7, 14, 30 or 90 days. A project imported with another period, such as a custom date range, keeps it, and the panel names it.',
   ]],
+  // v0.25.0: the guide row (its title, the Help Center's description verbatim, its open link), then More help.
   ['Guides', [
-    'SPERT® CFD has no downloadable guide.',
+    'Quick Reference Guide',
+    'What CFD is and how it turns your workflow’s daily item counts into a cumulative flow diagram and flow metrics such as WIP, throughput and lead time.',
+    'Open PDF ↗',
     'More help in the Help Center ↗',
   ]],
   ['Your data and storage', [
@@ -62,12 +65,21 @@ const EXPECTED: [string, string[]][] = [
   ]],
 ];
 
-describe('the About page’s words (v0.24.0)', () => {
+describe('the About page’s words (v0.24.0; Guides v0.25.0)', () => {
+  it('no longer says SPERT® CFD has no guide (v0.25.0)', () => {
+    const { container } = render(<AboutTab />);
+    expect(container.textContent).not.toContain('has no downloadable guide');
+  });
+
   it('has the six sections, in §7’s order, each with exactly its approved words', () => {
     const { container } = render(<AboutTab />);
     const got = [...container.querySelectorAll('.sf-about > section')].map((s): [string, string[]] => [
       text(s.querySelector(':scope > h2')!),
-      [...s.querySelectorAll(':scope > p, :scope > ol > li, :scope > ul > li')].map(text),
+      // A guide row (li.sf-guide) is read as its three parts, title, description and open link, so they don't run together.
+      [...s.querySelectorAll(':scope > p, :scope > ol > li, :scope > ul > li')].flatMap((el) =>
+        el.matches('li.sf-guide')
+          ? [...el.querySelectorAll('.sf-guide-title, .sf-guide-text, .sf-guide-open')].map(text)
+          : [text(el)]),
     ]);
     // querySelectorAll keeps document order: Flow metrics' list sits between its first and second paragraph.
     expect(got).toEqual(EXPECTED);
